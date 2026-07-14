@@ -1,58 +1,672 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
 enum Role {
-  DEVELOPER
-  TEACHER
-  ADMIN
   USER
+  TEACHER
+  MODERATOR
+  ADMIN
+  DEVELOPER
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING_REVERIFICATION
+  SUSPENDED
+  GRADUATED
+  WITHDRAWN
+}
+
+enum BoardStatus {
+  ACTIVE
+  HIDDEN
+  ARCHIVED
+}
+
+enum PostKind {
+  STANDARD
+  QUESTION
+  RECRUITMENT
+  RESOURCE
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  HIDDEN
+  DELETED
+}
+
+enum CommentStatus {
+  PUBLISHED
+  HIDDEN
+  DELETED
+}
+
+enum ReportTargetType {
+  USER
+  POST
+  COMMENT
+  MESSAGE
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+enum SanctionType {
+  WARNING
+  TEMPORARY_SUSPENSION
+  PERMANENT_BAN
+}
+
+enum NotificationType {
+  COMMENT
+  REPLY
+  MENTION
+  RECOMMENDATION
+  ANSWER_ACCEPTED
+  MESSAGE
+  NOTICE
+  SANCTION
+  SYSTEM
+}
+
+enum ChatRoomType {
+  DIRECT
+  GROUP
+}
+
+enum ChatMemberRole {
+  OWNER
+  MANAGER
+  MEMBER
+}
+
+enum IgkTransactionType {
+  POST_CREATED
+  COMMENT_CREATED
+  RECOMMENDATION_RECEIVED
+  ANSWER_ACCEPTED
+  TRANSFER_SENT
+  TRANSFER_RECEIVED
+  REVERSAL
+  ADMIN_ADJUSTMENT
+}
+
+enum NoticeStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  EXPIRED
+  DELETED
+}
+
+enum SupportCategory {
+  BUG
+  FEATURE
+  ACCOUNT
+  CONTENT
+  OTHER
+}
+
+enum SupportStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum VerificationPurpose {
+  REGISTER
+  RESET
+  REVERIFY
 }
 
 model User {
-  id            String    @id @default(uuid())
-  createdAt     DateTime  @default(now())
-  profileImage  String?
-  nickname      String    @unique
-  password      String
-  studentName   String
-  studentId     Int       @unique
-  studentYear   Int
-  studentClass  Int
-  studentNumber Int
-  role          Role      @default(USER)
-  birthday      DateTime?
+  id                 String     @id @default(uuid()) @db.Uuid
+  createdAt          DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime   @updatedAt @db.Timestamptz(6)
+  loginId            String     @unique @db.VarChar(32)
+  nickname           String     @unique @db.VarChar(32)
+  realName           String?    @db.VarChar(40)
+  passwordHash       String     @map("password_hash") @db.VarChar(255)
+  profileImage       String?    @db.VarChar(2048)
+  bio                String?    @db.VarChar(280)
+  interests          String[]   @default([])
+  role               Role       @default(USER)
+  status             UserStatus @default(ACTIVE)
+  currentIgk         Int        @default(0)
+  lifetimeIgk        Int        @default(0)
+  igkDebt            Int        @default(0)
+  level              Int        @default(1)
+  mustChangePassword Boolean    @default(false)
+  lastLoginAt        DateTime?  @db.Timestamptz(6)
+  lastReverifiedAt   DateTime?  @db.Timestamptz(6)
+  reverifyDueAt      DateTime?  @db.Timestamptz(6)
+  withdrawnAt        DateTime?  @db.Timestamptz(6)
 
-  chatRooms ChatRoom[]
-  chats     Chat[]
+  studentIdentity        StudentIdentity?
+  sessions               Session[]
+  boardsCreated          Board[]          @relation("BoardCreator")
+  posts                  Post[]
+  postRevisions          PostRevision[]   @relation("RevisionEditor")
+  attachments            Attachment[]     @relation("AttachmentUploader")
+  comments               Comment[]
+  recommendations        Recommendation[]
+  bookmarks              Bookmark[]
+  reportsFiled           Report[]         @relation("ReportReporter")
+  reportsAgainst         Report[]         @relation("ReportTargetUser")
+  reportsResolved        Report[]         @relation("ReportResolver")
+  sanctionsReceived      Sanction[]       @relation("SanctionTarget")
+  sanctionsIssued        Sanction[]       @relation("SanctionIssuer")
+  sanctionsRevoked       Sanction[]       @relation("SanctionRevoker")
+  notifications          Notification[]   @relation("NotificationRecipient")
+  notificationActions    Notification[]   @relation("NotificationActor")
+  chatRoomsCreated       ChatRoom[]       @relation("ChatRoomCreator")
+  chatMemberships        ChatMember[]
+  messages               Message[]
+  igkEntries             IgkLedger[]      @relation("IgkOwner")
+  igkCounterpartyEntries IgkLedger[]      @relation("IgkCounterparty")
+  notices                Notice[]
+  adminAudits            AdminAuditLog[]
+  supportTickets         SupportTicket[]  @relation("SupportRequester")
+  assignedSupportTickets SupportTicket[]  @relation("SupportAssignee")
+  levelRulesUpdated      LevelRule[]
+  studentInvitesCreated  StudentInvite[]  @relation("StudentInviteCreator")
+  studentInvitesUsed     StudentInvite[]  @relation("StudentInviteUser")
+  studentInvitesRevoked  StudentInvite[]  @relation("StudentInviteRevoker")
+
+  @@index([status, createdAt])
+  @@index([role, status])
+  @@index([lifetimeIgk(sort: Desc)])
+}
+
+model StudentIdentity {
+  id                     String   @id @default(uuid()) @db.Uuid
+  userId                 String   @unique @db.Uuid
+  studentCode            String   @unique @db.Char(6)
+  currentStudentNumber   String   @db.Char(4)
+  generation             Int
+  grade                  Int
+  classNumber            Int
+  studentNumber          Int
+  encryptedName          String   @db.Text
+  nameFingerprint        String   @unique @db.Char(64)
+  riroAccountFingerprint String   @unique @db.Char(64)
+  schoolYear             Int
+  verifiedAt             DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([schoolYear, grade, classNumber])
+  @@index([generation])
+}
+
+model VerificationTicket {
+  id                     String              @id @default(uuid()) @db.Uuid
+  createdAt              DateTime            @default(now()) @db.Timestamptz(6)
+  expiresAt              DateTime            @db.Timestamptz(6)
+  usedAt                 DateTime?           @db.Timestamptz(6)
+  tokenHash              String              @unique @db.Char(64)
+  purpose                VerificationPurpose @default(REGISTER)
+  encryptedName          String              @db.Text
+  nameFingerprint        String              @db.Char(64)
+  riroAccountFingerprint String              @db.Char(64)
+  studentCode            String              @db.Char(6)
+  currentStudentNumber   String              @db.Char(4)
+  generation             Int
+  grade                  Int
+  classNumber            Int
+  studentNumber          Int
+  schoolYear             Int
+  studentInviteId        String?             @unique @db.Uuid
+
+  studentInvite StudentInvite? @relation(fields: [studentInviteId], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt, usedAt])
+  @@index([studentCode])
+}
+
+model StudentInvite {
+  id                   String              @id @default(uuid()) @db.Uuid
+  createdAt            DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime            @updatedAt @db.Timestamptz(6)
+  expiresAt            DateTime            @db.Timestamptz(6)
+  claimedAt            DateTime?           @db.Timestamptz(6)
+  usedAt               DateTime?           @db.Timestamptz(6)
+  revokedAt            DateTime?           @db.Timestamptz(6)
+  purpose              VerificationPurpose @default(REGISTER)
+  codeHash             String              @unique @db.Char(64)
+  activeKey            String?             @unique @db.VarChar(32)
+  encryptedName        String              @db.Text
+  nameFingerprint      String              @db.Char(64)
+  identityFingerprint  String              @db.Char(64)
+  studentCode          String              @db.Char(6)
+  currentStudentNumber String              @db.Char(4)
+  generation           Int
+  grade                Int
+  classNumber          Int
+  studentNumber        Int
+  schoolYear           Int
+  createdById          String              @db.Uuid
+  usedById             String?             @db.Uuid
+  revokedById          String?             @db.Uuid
+  revokedReason        String?             @db.VarChar(1000)
+
+  createdBy          User                @relation("StudentInviteCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  usedBy             User?               @relation("StudentInviteUser", fields: [usedById], references: [id], onDelete: SetNull)
+  revokedBy          User?               @relation("StudentInviteRevoker", fields: [revokedById], references: [id], onDelete: SetNull)
+  verificationTicket VerificationTicket?
+
+  @@index([purpose, studentCode, createdAt(sort: Desc)])
+  @@index([expiresAt, claimedAt, usedAt, revokedAt])
+  @@index([createdById, createdAt(sort: Desc)])
+  @@index([usedById])
+  @@index([revokedById])
+}
+
+model Session {
+  id         String    @id @default(uuid()) @db.Uuid
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+  expiresAt  DateTime  @db.Timestamptz(6)
+  lastSeenAt DateTime  @default(now()) @db.Timestamptz(6)
+  revokedAt  DateTime? @db.Timestamptz(6)
+  tokenHash  String    @unique @db.Char(64)
+  scope      String    @default("PORTAL") @db.VarChar(16)
+  userId     String    @db.Uuid
+  userAgent  String?   @db.VarChar(512)
+  ipHash     String?   @db.Char(64)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, scope, revokedAt, expiresAt])
+  @@index([expiresAt])
+}
+
+model Board {
+  id               String      @id @default(uuid()) @db.Uuid
+  createdAt        DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime    @updatedAt @db.Timestamptz(6)
+  slug             String      @unique @db.VarChar(64)
+  name             String      @db.VarChar(80)
+  description      String      @db.VarChar(300)
+  kind             PostKind    @default(STANDARD)
+  status           BoardStatus @default(ACTIVE)
+  icon             String?     @db.VarChar(64)
+  accentColor      String?     @db.VarChar(16)
+  sortOrder        Int         @default(0)
+  allowAttachments Boolean     @default(true)
+  createdById      String?     @db.Uuid
+
+  createdBy User?  @relation("BoardCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  posts     Post[]
+
+  @@index([status, sortOrder])
+}
+
+model Post {
+  id                  String     @id @default(uuid()) @db.Uuid
+  createdAt           DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime   @updatedAt @db.Timestamptz(6)
+  publishedAt         DateTime?  @db.Timestamptz(6)
+  scheduledFor        DateTime?  @db.Timestamptz(6)
+  editedAt            DateTime?  @db.Timestamptz(6)
+  deletedAt           DateTime?  @db.Timestamptz(6)
+  boardId             String     @db.Uuid
+  authorId            String     @db.Uuid
+  acceptedCommentId   String?    @unique @db.Uuid
+  kind                PostKind
+  status              PostStatus @default(PUBLISHED)
+  title               String     @db.VarChar(180)
+  content             String     @db.Text
+  contentText         String     @db.Text
+  tags                String[]   @default([])
+  metadata            Json?
+  viewCount           Int        @default(0)
+  commentCount        Int        @default(0)
+  recommendationCount Int        @default(0)
+  bookmarkCount       Int        @default(0)
+  isPinned            Boolean    @default(false)
+  isLocked            Boolean    @default(false)
+
+  board           Board            @relation(fields: [boardId], references: [id], onDelete: Restrict)
+  author          User             @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  acceptedComment Comment?         @relation("AcceptedAnswer", fields: [acceptedCommentId], references: [id], onDelete: SetNull)
+  revisions       PostRevision[]
+  attachments     Attachment[]
+  comments        Comment[]        @relation("PostComments")
+  recommendations Recommendation[]
+  bookmarks       Bookmark[]
+  reports         Report[]
+
+  @@index([boardId, status, isPinned(sort: Desc), publishedAt(sort: Desc)])
+  @@index([authorId, status, createdAt(sort: Desc)])
+  @@index([status, recommendationCount(sort: Desc), publishedAt(sort: Desc)])
+  @@index([tags], type: Gin)
+}
+
+model PostRevision {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  postId    String   @db.Uuid
+  editorId  String   @db.Uuid
+  title     String   @db.VarChar(180)
+  content   String   @db.Text
+  reason    String?  @db.VarChar(300)
+
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  editor User @relation("RevisionEditor", fields: [editorId], references: [id], onDelete: Restrict)
+
+  @@index([postId, createdAt(sort: Desc)])
+}
+
+model Attachment {
+  id           String   @id @default(uuid()) @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  uploaderId   String   @db.Uuid
+  postId       String?  @db.Uuid
+  messageId    String?  @db.Uuid
+  storageKey   String   @unique @db.VarChar(512)
+  originalName String   @db.VarChar(255)
+  mimeType     String   @db.VarChar(127)
+  sizeBytes    BigInt
+  sha256       String   @db.Char(64)
+  scanStatus   String   @default("PENDING") @db.VarChar(32)
+
+  uploader User     @relation("AttachmentUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
+  post     Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  message  Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([messageId])
+  @@index([uploaderId, createdAt(sort: Desc)])
+}
+
+model Comment {
+  id                  String        @id @default(uuid()) @db.Uuid
+  createdAt           DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime      @updatedAt @db.Timestamptz(6)
+  editedAt            DateTime?     @db.Timestamptz(6)
+  deletedAt           DateTime?     @db.Timestamptz(6)
+  postId              String        @db.Uuid
+  authorId            String        @db.Uuid
+  parentId            String?       @db.Uuid
+  status              CommentStatus @default(PUBLISHED)
+  content             String        @db.Text
+  recommendationCount Int           @default(0)
+
+  post            Post             @relation("PostComments", fields: [postId], references: [id], onDelete: Cascade)
+  author          User             @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  parent          Comment?         @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies         Comment[]        @relation("CommentReplies")
+  acceptedForPost Post?            @relation("AcceptedAnswer")
+  recommendations Recommendation[]
+  reports         Report[]
+
+  @@index([postId, status, createdAt])
+  @@index([authorId, status, createdAt(sort: Desc)])
+  @@index([parentId])
+}
+
+model Recommendation {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  userId    String   @db.Uuid
+  postId    String?  @db.Uuid
+  commentId String?  @db.Uuid
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post    Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@unique([userId, commentId])
+  @@index([postId, createdAt])
+  @@index([commentId, createdAt])
+}
+
+model Bookmark {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  userId    String   @db.Uuid
+  postId    String   @db.Uuid
+  folder    String?  @db.VarChar(60)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([userId, folder, createdAt(sort: Desc)])
+}
+
+model Report {
+  id           String           @id @default(uuid()) @db.Uuid
+  createdAt    DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(6)
+  reporterId   String           @db.Uuid
+  targetType   ReportTargetType
+  targetUserId String?          @db.Uuid
+  postId       String?          @db.Uuid
+  commentId    String?          @db.Uuid
+  messageId    String?          @db.Uuid
+  reasonCode   String           @db.VarChar(40)
+  detail       String?          @db.VarChar(1000)
+  status       ReportStatus     @default(OPEN)
+  resolution   String?          @db.VarChar(1000)
+  resolvedAt   DateTime?        @db.Timestamptz(6)
+  resolvedById String?          @db.Uuid
+
+  reporter   User     @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  targetUser User?    @relation("ReportTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+  post       Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
+  comment    Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  message    Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  resolvedBy User?    @relation("ReportResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([targetType, createdAt])
+  @@index([reporterId, createdAt(sort: Desc)])
+}
+
+model Sanction {
+  id           String       @id @default(uuid()) @db.Uuid
+  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
+  targetUserId String       @db.Uuid
+  issuedById   String?      @db.Uuid
+  type         SanctionType
+  reason       String       @db.VarChar(1000)
+  startsAt     DateTime     @default(now()) @db.Timestamptz(6)
+  endsAt       DateTime?    @db.Timestamptz(6)
+  revokedAt    DateTime?    @db.Timestamptz(6)
+  revokedById  String?      @db.Uuid
+
+  targetUser User  @relation("SanctionTarget", fields: [targetUserId], references: [id], onDelete: Restrict)
+  issuedBy   User? @relation("SanctionIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+  revokedBy  User? @relation("SanctionRevoker", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([targetUserId, revokedAt, endsAt])
+  @@index([createdAt(sort: Desc)])
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  createdAt DateTime         @default(now()) @db.Timestamptz(6)
+  userId    String           @db.Uuid
+  actorId   String?          @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(160)
+  body      String?          @db.VarChar(500)
+  href      String?          @db.VarChar(2048)
+  metadata  Json?
+  readAt    DateTime?        @db.Timestamptz(6)
+
+  user  User  @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, readAt, createdAt(sort: Desc)])
 }
 
 model ChatRoom {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now())
-  title     String
-  users     User[]
-  userCount Int      @default(0)
-  chats     Chat[]
-  chatCount Int      @default(0)
+  id            String       @id @default(uuid()) @db.Uuid
+  createdAt     DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime     @updatedAt @db.Timestamptz(6)
+  type          ChatRoomType @default(GROUP)
+  title         String?      @db.VarChar(120)
+  createdById   String?      @db.Uuid
+  directKey     String?      @unique @db.VarChar(80)
+  lastMessageAt DateTime?    @db.Timestamptz(6)
+
+  createdBy User?        @relation("ChatRoomCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  members   ChatMember[]
+  messages  Message[]
+
+  @@index([lastMessageAt(sort: Desc)])
 }
 
-model Chat {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now())
-  content   String
+model ChatMember {
+  roomId            String         @db.Uuid
+  userId            String         @db.Uuid
+  joinedAt          DateTime       @default(now()) @db.Timestamptz(6)
+  leftAt            DateTime?      @db.Timestamptz(6)
+  role              ChatMemberRole @default(MEMBER)
+  lastReadMessageId String?        @db.Uuid
+  mutedUntil        DateTime?      @db.Timestamptz(6)
 
-  author   User   @relation(fields: [authorId], references: [id])
-  authorId String
+  room            ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadMessage Message? @relation("LastReadMessage", fields: [lastReadMessageId], references: [id], onDelete: SetNull)
 
-  chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id])
-  chatRoomId String
+  @@id([roomId, userId])
+  @@index([userId, leftAt])
+}
+
+model Message {
+  id        String    @id @default(uuid()) @db.Uuid
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  editedAt  DateTime? @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+  roomId    String    @db.Uuid
+  senderId  String    @db.Uuid
+  replyToId String?   @db.Uuid
+  clientId  String?   @unique @db.VarChar(160)
+  content   String    @db.Text
+
+  room          ChatRoom     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender        User         @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  replyTo       Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies       Message[]    @relation("MessageReplies")
+  attachments   Attachment[]
+  reports       Report[]
+  readByMembers ChatMember[] @relation("LastReadMessage")
+
+  @@index([roomId, createdAt])
+  @@index([senderId, createdAt(sort: Desc)])
+}
+
+model IgkLedger {
+  id             String             @id @default(uuid()) @db.Uuid
+  createdAt      DateTime           @default(now()) @db.Timestamptz(6)
+  userId         String             @db.Uuid
+  counterpartyId String?            @db.Uuid
+  type           IgkTransactionType
+  amount         Int
+  balanceAfter   Int
+  lifetimeAfter  Int
+  sourceType     String?            @db.VarChar(40)
+  sourceId       String?            @db.VarChar(80)
+  transferId     String?            @db.Uuid
+  idempotencyKey String             @unique @db.VarChar(160)
+  note           String?            @db.VarChar(300)
+  metadata       Json?
+
+  user         User  @relation("IgkOwner", fields: [userId], references: [id], onDelete: Restrict)
+  counterparty User? @relation("IgkCounterparty", fields: [counterpartyId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([type, createdAt])
+  @@index([transferId])
+  @@index([sourceType, sourceId])
+}
+
+model LevelRule {
+  level              Int      @id
+  minimumLifetimeIgk Int      @unique
+  label              String?  @db.VarChar(60)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(6)
+  updatedById        String?  @db.Uuid
+  updatedBy          User?    @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([minimumLifetimeIgk])
+}
+
+model Notice {
+  id             String       @id @default(uuid()) @db.Uuid
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(6)
+  authorId       String       @db.Uuid
+  title          String       @db.VarChar(180)
+  content        String       @db.Text
+  status         NoticeStatus @default(DRAFT)
+  priority       Int          @default(0)
+  targetAudience String       @default("ALL") @db.VarChar(60)
+  publishedAt    DateTime?    @db.Timestamptz(6)
+  scheduledFor   DateTime?    @db.Timestamptz(6)
+  expiresAt      DateTime?    @db.Timestamptz(6)
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([status, priority(sort: Desc), publishedAt(sort: Desc)])
+  @@index([expiresAt])
+}
+
+model SupportTicket {
+  id           String          @id @default(uuid()) @db.Uuid
+  createdAt    DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime        @updatedAt @db.Timestamptz(6)
+  requesterId  String          @db.Uuid
+  assignedToId String?         @db.Uuid
+  category     SupportCategory
+  status       SupportStatus   @default(OPEN)
+  subject      String          @db.VarChar(180)
+  description  String          @db.Text
+  resolution   String?         @db.VarChar(2000)
+  resolvedAt   DateTime?       @db.Timestamptz(6)
+  metadata     Json?
+
+  requester  User  @relation("SupportRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  assignedTo User? @relation("SupportAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([requesterId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@index([assignedToId, status])
+}
+
+model AdminAuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  adminId    String   @db.Uuid
+  action     String   @db.VarChar(80)
+  targetType String   @db.VarChar(40)
+  targetId   String?  @db.VarChar(80)
+  reason     String   @db.VarChar(1000)
+  before     Json?
+  after      Json?
+  ipHash     String?  @db.Char(64)
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([adminId, createdAt(sort: Desc)])
+  @@index([targetType, targetId, createdAt(sort: Desc)])
+  @@index([action, createdAt])
 }

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#f5f3ee"/>
+  <rect x="48" y="48" width="1104" height="534" fill="#fffdf9" stroke="#d2cdc4"/>
+  <line x1="72" y1="132" x2="1128" y2="132" stroke="#d2cdc4"/>
+  <text x="72" y="99" fill="#17634e" font-family="Pretendard, Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="20" font-weight="700" letter-spacing="2">INCHEON SCIENCE HIGH SCHOOL</text>
+  <text x="72" y="310" fill="#17201d" font-family="Pretendard, Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="118" font-weight="800" letter-spacing="-8">인텍트</text>
+  <text x="78" y="370" fill="#5e645f" font-family="Pretendard, Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="30" font-weight="500">질문하고, 나누고, 함께 해결하는 학생 커뮤니티</text>
+  <line x1="78" y1="428" x2="706" y2="428" stroke="#238466" stroke-width="5"/>
+  <text x="78" y="478" fill="#5e645f" font-family="Pretendard, Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="20">질문 · 대회모집 · 자료공유 · 자유게시판</text>
+  <rect x="826" y="184" width="250" height="250" fill="#17634e"/>
+  <rect x="858" y="218" width="186" height="44" fill="#fffdf9"/>
+  <rect x="858" y="286" width="140" height="12" fill="#9cc7b8"/>
+  <rect x="858" y="320" width="186" height="12" fill="#9cc7b8"/>
+  <rect x="858" y="354" width="116" height="12" fill="#9cc7b8"/>
+  <circle cx="1024" cy="396" r="20" fill="#fffdf9"/>
+  <text x="826" y="476" fill="#17634e" font-family="Pretendard, Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="18" font-weight="700" letter-spacing="3">INTECT</text>
+</svg>

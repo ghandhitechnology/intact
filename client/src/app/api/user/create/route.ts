@@ -1,24 +1,13 @@
-import prisma from '@/lib/prisma';
+import { jsonError, ApiError } from '@/lib/server/http';
 
-interface RequestBody {
-  studentId: number;
-  studentName: string;
-  nickname: string;
-  password: string;
-}
+export const runtime = 'nodejs';
 
-export async function POST(req: Request) {
-  const body: RequestBody = await req.json();
-
-  // 기수
-  const studentYear = Math.floor(body.studentId / 10000);
-  // 반
-  const studentClass = Math.floor((body.studentId % 1000) / 100);
-  // 번호
-  const studentNumber = body.studentId % 100;
-
-  const data = { ...body, studentYear, studentClass, studentNumber };
-  await prisma.user.create({ data });
-
-  return new Response(null, { status: 201 });
+export async function POST() {
+  return jsonError(
+    new ApiError(
+      410,
+      'LEGACY_REGISTRATION_DISABLED',
+      '안전한 리로스쿨 인증 가입 절차(/api/auth/riro/verify → /api/auth/register)를 이용해 주세요.',
+    ),
+  );
 }

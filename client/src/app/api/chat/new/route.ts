@@ -1,25 +1,6 @@
-import prisma from '@/lib/prisma';
-import { User } from '@prisma/client';
+import { POST as createRoom } from '../rooms/route';
 
-interface RequestBody {
-  title: string;
-  authorNickname: string;
-}
+export const runtime = 'nodejs';
 
-export async function POST(req: Request) {
-  const body: RequestBody = await req.json();
-
-  await prisma.chatRoom.create({
-    data: {
-      title: body.title,
-      userCount: 1,
-      users: {
-        connect: {
-          nickname: body.authorNickname,
-        },
-      },
-    },
-  });
-
-  return new Response(null, { status: 201 });
-}
+/** @deprecated Use POST /api/chat/rooms. */
+export const POST = createRoom;

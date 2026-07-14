@@ -1,24 +1,29 @@
 {
-  "name": "chat",
+  "name": "intact-realtime",
+  "description": "Socket.IO realtime gateway for Intact",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "license": "MIT",
   "dependencies": {
-    "@types/express": "^4.17.17",
-    "@types/node": "^20.5.7",
-    "concurrently": "^8.2.1",
     "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "nodemon": "^3.0.1",
-    "socket.io": "^4.7.2",
-    "typescript": "^5.2.2"
+    "express": "^5.1.0",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.18.0",
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.1.10",
+    "typescript": "^5.9.2"
   },
   "scripts": {
-    "build": "yarn tsc",
-    "start": "node index.js",
-    "dev": "concurrently \"yarn tsc --watch\" \"nodemon -q index.js\""
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "concurrently \"tsc --watch\" \"nodemon -q dist/index.js\""
   },
-  "imports": {
-    "@prisma/client": "../../client/node_modules/@prisma/client/index.d.ts"
+  "resolutions": {
+    "socket.io-parser": "^4.2.6",
+    "ws": "^8.21.0"
   }
 }
