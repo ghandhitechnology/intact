@@ -90,7 +90,7 @@ type ChatMessage = {
   mine?: boolean;
   read?: boolean;
   failed?: boolean;
-  file?: { name: string; size: string };
+  file?: { id?: string; name: string; size: string; mimeType?: string };
 };
 
 type ServerAuthor = {
@@ -106,7 +106,7 @@ type ServerMessage = {
   createdAt: string;
   content: string;
   sender: ServerAuthor;
-  attachments?: Array<{ originalName: string; sizeBytes?: number | string }>;
+  attachments?: Array<{ id: string; originalName: string; mimeType: string; sizeBytes?: number | string }>;
   readByAll?: boolean;
 };
 
@@ -159,7 +159,9 @@ function mapServerMessage(
     read: Boolean(message.readByAll),
     file: message.attachments?.[0]
       ? {
+          id: message.attachments[0].id,
           name: message.attachments[0].originalName,
+          mimeType: message.attachments[0].mimeType,
           size: message.attachments[0].sizeBytes
             ? `${Math.max(0.1, Number(message.attachments[0].sizeBytes) / 1_048_576).toFixed(1)} MB`
             : "첨부 파일",
@@ -1590,8 +1592,10 @@ export default function MessagesPage() {
                               </p>
                             ) : null}
                             {message.file ? (
-                              <button
-                                type="button"
+                              <a
+                                href={message.file.id ? `/api/uploads/${encodeURIComponent(message.file.id)}` : undefined}
+                                target={message.file.id ? "_blank" : undefined}
+                                rel={message.file.id ? "noreferrer" : undefined}
                                 className={cn(
                                   "mt-3 flex w-full items-center gap-3 rounded-md border p-3 text-left",
                                   message.mine && !message.failed
@@ -1610,7 +1614,8 @@ export default function MessagesPage() {
                                     {message.file.size}
                                   </span>
                                 </span>
-                              </button>
+                                {message.file.id ? <span className="ml-auto text-[10px] font-bold">열기</span> : null}
+                              </a>
                             ) : null}
                           </div>
                           <span

@@ -52,6 +52,16 @@ const DEFAULT_BOARDS = [
     accentColor: '#24806A',
     sortOrder: 40,
   },
+  {
+    id: '00000000-0000-4000-8000-000000000106',
+    slug: 'photos',
+    name: '사진게시판',
+    description: '학교생활의 순간을 여러 장의 사진으로 나누는 공간',
+    kind: 'STANDARD' as const,
+    icon: 'images',
+    accentColor: '#7C3AED',
+    sortOrder: 50,
+  },
 ];
 
 const LEVELS = [

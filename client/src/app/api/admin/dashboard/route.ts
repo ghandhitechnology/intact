@@ -56,6 +56,7 @@ export async function GET(request: Request) {
             status: true,
             currentIgk: true,
             lifetimeIgk: true,
+            igkDebt: true,
             level: true,
             lastLoginAt: true,
             studentIdentity: true,

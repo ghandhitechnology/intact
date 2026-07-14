@@ -1,8 +1,27 @@
 import type { Prisma } from '@prisma/client';
 
-export function parseAttachmentIds(value: unknown) {
+const PHOTO_MIME_TYPES = new Set([
+  'image/avif',
+  'image/gif',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
+export function isPhotoMimeType(value: string) {
+  return PHOTO_MIME_TYPES.has(value.toLowerCase());
+}
+
+export const attachmentSelect = {
+  id: true,
+  originalName: true,
+  mimeType: true,
+  sizeBytes: true,
+} as const;
+
+export function parseAttachmentIds(value: unknown, maxFiles = 5) {
   if (value === undefined) return [];
-  if (!Array.isArray(value) || value.length > 5) return null;
+  if (!Array.isArray(value) || value.length > maxFiles) return null;
   const ids = Array.from(new Set(value));
   if (ids.some((id) => typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id))) {
     return null;
@@ -55,6 +74,11 @@ export const postListSelect = {
     select: {
       attachments: true,
     },
+  },
+  attachments: {
+    where: { scanStatus: 'CLEAN' },
+    orderBy: { createdAt: 'asc' as const },
+    select: attachmentSelect,
   },
   board: { select: { id: true, slug: true, name: true, kind: true } },
   author: { select: publicAuthorSelect },

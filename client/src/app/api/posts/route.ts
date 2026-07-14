@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { parseAttachmentIds, postListSelect, sanitizePostMetadata } from '@/lib/server/content';
+import { isPhotoMimeType, parseAttachmentIds, postListSelect, sanitizePostMetadata } from '@/lib/server/content';
 import { awardIgk } from '@/lib/server/igk';
 import {
   ApiError,
@@ -94,30 +94,6 @@ export async function POST(request: Request) {
     });
     const body = await readJson<PostBody>(request, 128 * 1024);
     const boardIdentifier = requiredString(body.board ?? body.boardId, '게시판', { max: 64 });
-    const status = body.status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED';
-    const rawTitle = typeof body.title === 'string' ? body.title.trim() : '';
-    const rawContent = typeof body.content === 'string' ? body.content.trim() : '';
-    if (rawTitle.length > 180 || rawContent.length > 50_000) {
-      throw new ApiError(400, 'VALIDATION_ERROR', '제목은 180자, 본문은 50,000자 이하여야 합니다.');
-    }
-    if (status === 'DRAFT' && !rawTitle && !rawContent) {
-      throw new ApiError(400, 'EMPTY_DRAFT', '임시저장할 제목이나 내용을 입력해 주세요.');
-    }
-    const title = status === 'DRAFT'
-      ? rawTitle
-      : requiredString(body.title, '제목', { min: 5, max: 180 });
-    const content = status === 'DRAFT'
-      ? rawContent
-      : requiredString(body.content, '본문', { min: 1, max: 50_000, trim: false }).trim();
-    const contentText = plainTextFromMarkup(content);
-    if (status === 'PUBLISHED' && contentText.length < 20) {
-      throw new ApiError(400, 'CONTENT_TOO_SHORT', '게시하려면 본문을 20자 이상 작성해 주세요.');
-    }
-    const tags = Array.isArray(body.tags)
-      ? Array.from(new Set(body.tags.filter((tag): tag is string => typeof tag === 'string').map((tag) => tag.trim()).filter(Boolean)))
-          .slice(0, 8)
-          .map((tag) => tag.slice(0, 24))
-      : [];
     const board = await prisma.board.findFirst({
       where: {
         status: 'ACTIVE',
@@ -127,11 +103,41 @@ export async function POST(request: Request) {
       },
     });
     if (!board) throw new ApiError(404, 'BOARD_NOT_FOUND', '게시판을 찾을 수 없습니다.');
-    const metadata = sanitizePostMetadata(body.metadata);
-    const attachmentIds = parseAttachmentIds(body.attachmentIds);
-    if (!attachmentIds) {
-      throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일은 최대 5개까지 올릴 수 있어요.');
+    const photoPost = board.slug === 'photos';
+    const status = body.status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED';
+    const rawTitle = typeof body.title === 'string' ? body.title.trim() : '';
+    const rawContent = typeof body.content === 'string' ? body.content.trim() : '';
+    if (rawTitle.length > 180 || rawContent.length > 50_000) {
+      throw new ApiError(400, 'VALIDATION_ERROR', '제목은 180자, 본문은 50,000자 이하여야 합니다.');
     }
+    const attachmentIds = parseAttachmentIds(body.attachmentIds, photoPost ? 12 : 5);
+    if (!attachmentIds) {
+      throw new ApiError(400, 'INVALID_ATTACHMENTS', `첨부 파일은 최대 ${photoPost ? 12 : 5}개까지 올릴 수 있어요.`);
+    }
+    if (status === 'DRAFT' && !rawTitle && !rawContent && attachmentIds.length === 0) {
+      throw new ApiError(400, 'EMPTY_DRAFT', '임시저장할 제목이나 내용을 입력해 주세요.');
+    }
+    const title = status === 'DRAFT'
+      ? rawTitle
+      : requiredString(body.title, '제목', { min: photoPost ? 2 : 5, max: 180 });
+    const content = photoPost
+      ? ''
+      : status === 'DRAFT'
+        ? rawContent
+        : requiredString(body.content, '본문', { min: 1, max: 50_000, trim: false }).trim();
+    const contentText = plainTextFromMarkup(content);
+    if (!photoPost && status === 'PUBLISHED' && contentText.length < 20) {
+      throw new ApiError(400, 'CONTENT_TOO_SHORT', '게시하려면 본문을 20자 이상 작성해 주세요.');
+    }
+    if (photoPost && status === 'PUBLISHED' && attachmentIds.length === 0) {
+      throw new ApiError(400, 'PHOTO_REQUIRED', '사진을 한 장 이상 골라 주세요.');
+    }
+    const tags = !photoPost && Array.isArray(body.tags)
+      ? Array.from(new Set(body.tags.filter((tag): tag is string => typeof tag === 'string').map((tag) => tag.trim()).filter(Boolean)))
+          .slice(0, 8)
+          .map((tag) => tag.slice(0, 24))
+      : [];
+    const metadata = sanitizePostMetadata(body.metadata);
 
     const post = await prisma.$transaction(async (tx) => {
       const created = await tx.post.create({
@@ -150,6 +156,21 @@ export async function POST(request: Request) {
         select: postListSelect,
       });
       if (attachmentIds.length) {
+        const pendingAttachments = await tx.attachment.findMany({
+          where: {
+            id: { in: attachmentIds },
+            uploaderId: session.user.id,
+            postId: null,
+            messageId: null,
+          },
+          select: { id: true, mimeType: true },
+        });
+        if (pendingAttachments.length !== attachmentIds.length) {
+          throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않아요. 파일을 다시 선택해 주세요.');
+        }
+        if (photoPost && pendingAttachments.some((attachment) => !isPhotoMimeType(attachment.mimeType))) {
+          throw new ApiError(400, 'IMAGES_ONLY', '사진게시판에는 이미지만 올릴 수 있어요.');
+        }
         const attached = await tx.attachment.updateMany({
           where: {
             id: { in: attachmentIds },

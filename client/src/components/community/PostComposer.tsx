@@ -43,6 +43,8 @@ type ComposerAttachment = {
   file?: File;
   name: string;
   size: number;
+  mimeType?: string;
+  previewUrl?: string;
   id?: string;
   uploading?: boolean;
 };
@@ -67,10 +69,18 @@ type ServerDraft = {
     id: string;
     originalName: string;
     sizeBytes: string | number;
+    mimeType: string;
   }>;
 };
 
 const LEGACY_DRAFT_STORAGE_KEY = "igwak:post-composer-draft";
+const PHOTO_MIME_TYPES = new Set([
+  "image/avif",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 const draftStorageKeyFor = (userId: string) =>
   `igwak:post-composer-draft:${userId}`;
 const draftFingerprint = (
@@ -149,6 +159,8 @@ export default function PostComposer({
   const currentUserIdRef = useRef<string | null>(null);
   const serverSavedFingerprintRef = useRef<string | null>(null);
   const board = getBoard(selectedSlug) ?? initialBoard;
+  const photoMode = selectedSlug === "photos";
+  const attachmentLimit = photoMode ? 12 : 5;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -243,6 +255,7 @@ export default function PostComposer({
               id: attachment.id,
               name: attachment.originalName,
               size: Number(attachment.sizeBytes),
+              mimeType: attachment.mimeType,
             })),
           );
         }
@@ -370,14 +383,18 @@ export default function PostComposer({
   function addFiles(files: FileList | null) {
     if (!files?.length) return;
     const incoming = Array.from(files);
-    const available = 5 - attachments.length;
+    const available = attachmentLimit - attachments.length;
     if (available <= 0) {
-      setSubmitError("첨부 파일은 최대 5개까지예요. 이제 그만.");
+      setSubmitError(`첨부 파일은 최대 ${attachmentLimit}개까지예요.`);
       return;
     }
     const accepted = incoming.slice(0, available).filter((file) => {
       if (file.size > 20 * 1024 * 1024) {
         setSubmitError(`${file.name}: 20MB보다 커서 못 올려요.`);
+        return false;
+      }
+      if (photoMode && !PHOTO_MIME_TYPES.has(file.type.toLowerCase())) {
+        setSubmitError(`${file.name}: JPG, PNG, GIF, WebP, AVIF 사진만 올릴 수 있어요.`);
         return false;
       }
       return file.size > 0;
@@ -389,6 +406,8 @@ export default function PostComposer({
         file,
         name: file.name,
         size: file.size,
+        mimeType: file.type,
+        previewUrl: photoMode ? URL.createObjectURL(file) : undefined,
       })),
     ]);
   }
@@ -438,6 +457,7 @@ export default function PostComposer({
         return;
       }
     }
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
     setAttachments((current) =>
       current.filter((candidate) => candidate.key !== item.key),
     );
@@ -472,7 +492,7 @@ export default function PostComposer({
   }
 
   async function saveDraft() {
-    if (!title.trim() && !content.trim()) {
+    if (!title.trim() && !content.trim() && attachments.length === 0) {
       setSubmitError("임시저장할 제목이나 내용을 입력해 주세요.");
       return;
     }
@@ -499,12 +519,16 @@ export default function PostComposer({
 
   async function submitPost(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (title.trim().length < 5) {
-      setSubmitError("게시하려면 제목을 5자 이상 입력해 주세요.");
+    if (title.trim().length < (photoMode ? 2 : 5)) {
+      setSubmitError(`게시하려면 제목을 ${photoMode ? 2 : 5}자 이상 입력해 주세요.`);
       return;
     }
-    if (content.trim().length < 20) {
+    if (!photoMode && content.trim().length < 20) {
       setSubmitError("게시하려면 본문을 20자 이상 작성해 주세요.");
+      return;
+    }
+    if (photoMode && attachments.length === 0) {
+      setSubmitError("사진을 한 장 이상 골라 주세요.");
       return;
     }
     setSubmitting(true);
@@ -632,7 +656,7 @@ export default function PostComposer({
                 </label>
               </div>
 
-              <div>
+              {!photoMode ? <div>
                 <div className="mb-2 flex items-center justify-between gap-4">
                   <span className="text-xs font-extrabold text-slate-700">
                     내용 <span className="text-rose-500">*</span>
@@ -737,10 +761,10 @@ export default function PostComposer({
                     </span>
                   </div>
                 </div>
-              </div>
+              </div> : null}
 
               <div className="grid gap-5 lg:grid-cols-2">
-                <div>
+                {!photoMode ? <div>
                   <label
                     htmlFor="post-tags"
                     className="mb-2 flex items-center justify-between gap-3 text-xs font-extrabold text-slate-700"
@@ -792,20 +816,24 @@ export default function PostComposer({
                       </span>
                     ))}
                   </div>
-                </div>
+                </div> : null}
 
-                <div>
+                <div className={photoMode ? "lg:col-span-2" : undefined}>
                   <span className="mb-2 flex items-center justify-between gap-3 text-xs font-extrabold text-slate-700">
-                    <span>첨부 파일</span>
+                    <span>{photoMode ? "사진" : "첨부 파일"}</span>
                     <span className="font-normal text-slate-400">
-                      최대 5개 · 각 20MB
+                      최대 {attachmentLimit}개 · 각 20MB
                     </span>
                   </span>
-                  <label className="flex h-10 cursor-pointer items-center justify-center gap-2 border border-dashed border-slate-300 bg-slate-50 text-xs font-bold text-slate-600 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-700">
-                    <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
-                    파일 고르기
+                  <label className={cx(
+                    "flex cursor-pointer items-center justify-center gap-2 border border-dashed bg-slate-50 text-xs font-bold hover:bg-emerald-50",
+                    photoMode ? "min-h-24 border-violet-300 text-violet-700 hover:border-violet-500" : "h-10 border-slate-300 text-slate-600 hover:border-emerald-500 hover:text-emerald-700",
+                  )}>
+                    {photoMode ? <ImageIcon className="h-5 w-5" aria-hidden="true" /> : <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />}
+                    {photoMode ? "여러 사진 한 번에 고르기" : "파일 고르기"}
                     <input
                       type="file"
+                      accept={photoMode ? "image/jpeg,image/png,image/gif,image/webp,image/avif" : undefined}
                       multiple
                       className="sr-only"
                       onChange={(event) => {
@@ -815,29 +843,41 @@ export default function PostComposer({
                     />
                   </label>
                   {attachments.length ? (
-                    <ul className="mt-2 space-y-1.5">
+                    <ul className={photoMode ? "mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4" : "mt-2 space-y-1.5"}>
                       {attachments.map((item) => (
                         <li
                           key={item.key}
-                          className="flex items-center gap-2 border border-slate-200 bg-white px-2.5 py-2 text-[11px]"
+                          className={cx(
+                            "relative border border-slate-200 bg-white text-[11px]",
+                            photoMode ? "overflow-hidden" : "flex items-center gap-2 px-2.5 py-2",
+                          )}
                         >
-                          <Paperclip className="h-3.5 w-3.5 shrink-0 text-blue-600" />
-                          <span className="min-w-0 flex-1 truncate font-bold text-slate-700">
-                            {item.name}
-                          </span>
-                          <span className="shrink-0 text-slate-400">
-                            {item.uploading
-                              ? "올리는 중…"
-                              : item.id
-                                ? "저장됨"
-                                : `${(item.size / 1024 / 1024).toFixed(1)}MB`}
-                          </span>
+                          {photoMode ? (
+                            <>
+                              <div
+                                className="aspect-[4/3] bg-slate-100 bg-cover bg-center"
+                                style={{ backgroundImage: `url(${item.previewUrl || (item.id ? `/api/uploads/${encodeURIComponent(item.id)}` : "")})` }}
+                                role="img"
+                                aria-label={item.name}
+                              />
+                              <div className="flex items-center gap-2 p-2">
+                                <span className="min-w-0 flex-1 truncate font-bold text-slate-700">{item.name}</span>
+                                <span className="shrink-0 text-slate-400">{item.uploading ? "올리는 중…" : item.id ? "저장됨" : `${(item.size / 1_048_576).toFixed(1)}MB`}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <Paperclip className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+                              <span className="min-w-0 flex-1 truncate font-bold text-slate-700">{item.name}</span>
+                              <span className="shrink-0 text-slate-400">{item.uploading ? "올리는 중…" : item.id ? "저장됨" : `${(item.size / 1024 / 1024).toFixed(1)}MB`}</span>
+                            </>
+                          )}
                           {!item.uploading ? (
                             <button
                               type="button"
                               onClick={() => void removeAttachment(item)}
                               aria-label={`${item.name} 제거`}
-                              className="text-slate-400 hover:text-rose-600"
+                              className={photoMode ? "absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-slate-950/70 text-white hover:bg-rose-600" : "text-slate-400 hover:text-rose-600"}
                             >
                               <X className="h-3.5 w-3.5" />
                             </button>

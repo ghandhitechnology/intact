@@ -77,6 +77,7 @@ export async function PATCH(
         status: true,
         currentIgk: true,
         lifetimeIgk: true,
+        igkDebt: true,
         level: true,
       },
     });
@@ -180,17 +181,16 @@ export async function PATCH(
         if (requestedAmount === 0) throw new ApiError(400, 'ZERO_ADJUSTMENT', 'IGK 조정량은 0일 수 없습니다.');
         const freshTarget = await tx.user.findUniqueOrThrow({
           where: { id: target.id },
-          select: { currentIgk: true, igkDebt: true },
+          select: { currentIgk: true },
         });
         const actualAmount = Math.max(-freshTarget.currentIgk, requestedAmount);
-        const debtPayment = requestedAmount > 0
-          ? Math.min(freshTarget.igkDebt, requestedAmount)
-          : 0;
+        if (actualAmount === 0) {
+          throw new ApiError(409, 'NO_IGK_TO_REMOVE', '회수할 수 있는 IGK 잔액이 없습니다.');
+        }
         const updated = await tx.user.update({
           where: { id: target.id },
           data: {
-            currentIgk: { increment: actualAmount - debtPayment },
-            igkDebt: { decrement: debtPayment },
+            currentIgk: { increment: actualAmount },
           },
           select: safeUserSelect,
         });
@@ -206,7 +206,18 @@ export async function PATCH(
             sourceId: admin.user.id,
             idempotencyKey: `admin-adjust:${randomUUID()}`,
             note: reason,
-            metadata: debtPayment ? { debtPayment } : undefined,
+            metadata: { requestedAmount, actualAmount },
+          },
+        });
+        await tx.notification.create({
+          data: {
+            userId: target.id,
+            actorId: admin.user.id,
+            type: 'SYSTEM',
+            title: `관리자가 IGK를 ${actualAmount > 0 ? '지급' : '회수'}했습니다.`,
+            body: `${actualAmount > 0 ? '+' : ''}${actualAmount.toLocaleString('ko-KR')} IGK · ${reason}`,
+            href: '/igk',
+            metadata: { requestedAmount, actualAmount, balanceAfter: updated.currentIgk },
           },
         });
         after = updated;

@@ -1,5 +1,5 @@
 import prisma from '@/lib/prisma';
-import { commentSelect, parseAttachmentIds, publicAuthorSelect, sanitizePostMetadata } from '@/lib/server/content';
+import { commentSelect, isPhotoMimeType, parseAttachmentIds, publicAuthorSelect, sanitizePostMetadata } from '@/lib/server/content';
 import { awardIgk, reverseReward } from '@/lib/server/igk';
 import { lockResources } from '@/lib/server/locks';
 import {
@@ -141,7 +141,7 @@ export async function PATCH(
     assertSameOrigin(request);
     const session = await requireUser(request);
     const body = await readJson<UpdateBody>(request, 128 * 1024);
-    const old = await prisma.post.findUnique({ where: { id } });
+    const old = await prisma.post.findUnique({ where: { id }, include: { board: true } });
     if (!old || old.status === 'DELETED') {
       throw new ApiError(404, 'POST_NOT_FOUND', '게시글을 찾을 수 없습니다.');
     }
@@ -149,6 +149,19 @@ export async function PATCH(
       throw new ApiError(403, 'NOT_POST_OWNER', '게시글을 수정할 권한이 없습니다.');
     }
 
+    let targetBoard = old.board;
+    if (body.board !== undefined) {
+      const identifier = requiredString(body.board, '게시판', { max: 64 });
+      const board = await prisma.board.findFirst({ where: {
+        status: 'ACTIVE',
+        ...(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(identifier)
+          ? { id: identifier }
+          : { slug: identifier }),
+      } });
+      if (!board) throw new ApiError(404, 'BOARD_NOT_FOUND', '게시판을 찾을 수 없습니다.');
+      targetBoard = board;
+    }
+    const photoPost = targetBoard.slug === 'photos';
     const requestedStatus = body.status === 'DRAFT' || body.status === 'PUBLISHED'
       ? body.status
       : null;
@@ -162,48 +175,39 @@ export async function PATCH(
     if (rawTitle.length > 180 || rawContent.length > 50_000) {
       throw new ApiError(400, 'VALIDATION_ERROR', '제목은 180자, 본문은 50,000자 이하여야 합니다.');
     }
-    if (targetStatus === 'DRAFT' && !rawTitle && !rawContent) {
+    const attachmentIds = parseAttachmentIds(body.attachmentIds, photoPost ? 12 : 5);
+    if (!attachmentIds) {
+      throw new ApiError(400, 'INVALID_ATTACHMENTS', `첨부 파일은 최대 ${photoPost ? 12 : 5}개까지 올릴 수 있어요.`);
+    }
+    if (targetStatus === 'DRAFT' && !rawTitle && !rawContent && attachmentIds.length === 0) {
       throw new ApiError(400, 'EMPTY_DRAFT', '임시저장할 제목이나 내용을 입력해 주세요.');
     }
     const title = targetStatus === 'DRAFT'
       ? rawTitle
-      : requiredString(rawTitle, '제목', { min: 5, max: 180 });
-    const content = targetStatus === 'DRAFT'
-      ? rawContent
-      : requiredString(rawContent, '본문', { min: 1, max: 50_000, trim: false }).trim();
+      : requiredString(rawTitle, '제목', { min: photoPost ? 2 : 5, max: 180 });
+    const content = photoPost
+      ? ''
+      : targetStatus === 'DRAFT'
+        ? rawContent
+        : requiredString(rawContent, '본문', { min: 1, max: 50_000, trim: false }).trim();
     const contentText = plainTextFromMarkup(content);
-    if (targetStatus === 'PUBLISHED' && contentText.length < 20) {
+    if (!photoPost && targetStatus === 'PUBLISHED' && contentText.length < 20) {
       throw new ApiError(400, 'CONTENT_TOO_SHORT', '게시하려면 본문을 20자 이상 작성해 주세요.');
     }
-    const tags = body.tags === undefined
+    const tags = photoPost
+      ? []
+      : body.tags === undefined
       ? old.tags
       : Array.isArray(body.tags)
         ? Array.from(new Set(body.tags.filter((tag): tag is string => typeof tag === 'string').map((tag) => tag.trim()).filter(Boolean)))
             .slice(0, 8)
             .map((tag) => tag.slice(0, 24))
         : [];
-    let boardId = old.boardId;
-    let kind = old.kind;
-    if (body.board !== undefined) {
-      const identifier = requiredString(body.board, '게시판', { max: 64 });
-      const board = await prisma.board.findFirst({ where: {
-        status: 'ACTIVE',
-        ...(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(identifier)
-          ? { id: identifier }
-          : { slug: identifier }),
-      } });
-      if (!board) throw new ApiError(404, 'BOARD_NOT_FOUND', '게시판을 찾을 수 없습니다.');
-      boardId = board.id;
-      kind = board.kind;
-    }
+    const boardId = targetBoard.id;
+    const kind = targetBoard.kind;
     const editReason = typeof body.editReason === 'string'
       ? body.editReason.trim().slice(0, 300)
       : null;
-    const attachmentIds = parseAttachmentIds(body.attachmentIds);
-    if (!attachmentIds) {
-      throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일은 최대 5개까지 올릴 수 있어요.');
-    }
-
     const post = await prisma.$transaction(async (tx) => {
       await lockResources(tx, [`post:${old.id}`]);
       const current = await tx.post.findUnique({ where: { id: old.id } });
@@ -243,6 +247,21 @@ export async function PATCH(
         });
       }
       if (attachmentIds.length) {
+        const candidateAttachments = await tx.attachment.findMany({
+          where: {
+            id: { in: attachmentIds },
+            uploaderId: session.user.id,
+            messageId: null,
+            OR: [{ postId: null }, { postId: current.id }],
+          },
+          select: { id: true, mimeType: true },
+        });
+        if (candidateAttachments.length !== attachmentIds.length) {
+          throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않아요. 파일을 다시 선택해 주세요.');
+        }
+        if (photoPost && candidateAttachments.some((attachment) => !isPhotoMimeType(attachment.mimeType))) {
+          throw new ApiError(400, 'IMAGES_ONLY', '사진게시판에는 이미지만 올릴 수 있어요.');
+        }
         const attached = await tx.attachment.updateMany({
           where: {
             id: { in: attachmentIds },
@@ -254,6 +273,18 @@ export async function PATCH(
         });
         if (attached.count !== attachmentIds.length) {
           throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않아요. 파일을 다시 선택해 주세요.');
+        }
+      }
+      if (photoPost) {
+        const photos = await tx.attachment.findMany({
+          where: { postId: current.id },
+          select: { id: true, mimeType: true },
+        });
+        if (photos.length > 12 || photos.some((attachment) => !isPhotoMimeType(attachment.mimeType))) {
+          throw new ApiError(400, 'IMAGES_ONLY', '사진게시판에는 이미지를 최대 12장까지 올릴 수 있어요.');
+        }
+        if (targetStatus === 'PUBLISHED' && photos.length === 0) {
+          throw new ApiError(400, 'PHOTO_REQUIRED', '사진을 한 장 이상 골라 주세요.');
         }
       }
       const updated = await tx.post.update({

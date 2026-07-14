@@ -6,6 +6,7 @@ import {
   HelpCircle,
   MessageCircle,
   Microscope,
+  Image as ImageIcon,
   ThumbsUp,
   Users,
 } from "lucide-react";
@@ -144,6 +145,7 @@ export function BoardIcon({
     resources: <FileText className={iconClassName} strokeWidth={1.8} />,
     equipment: <Microscope className={iconClassName} strokeWidth={1.8} />,
     free: <MessageCircle className={iconClassName} strokeWidth={1.8} />,
+    photos: <ImageIcon className={iconClassName} strokeWidth={1.8} />,
   };
 
   return icons[board.icon];

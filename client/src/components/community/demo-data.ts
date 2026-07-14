@@ -1,4 +1,4 @@
-export type BoardSlug = 'question' | 'contest' | 'resources' | 'equipment' | 'free';
+export type BoardSlug = 'question' | 'contest' | 'resources' | 'equipment' | 'free' | 'photos';
 
 export type Member = {
   nickname: string;
@@ -15,7 +15,7 @@ export type BoardDefinition = {
   shortTitle: string;
   description: string;
   prompt: string;
-  icon: 'question' | 'contest' | 'resources' | 'equipment' | 'free';
+  icon: 'question' | 'contest' | 'resources' | 'equipment' | 'free' | 'photos';
   accent: 'emerald' | 'blue' | 'teal' | 'indigo';
   postCount: number;
   todayCount: number;
@@ -140,6 +140,18 @@ export const boards: BoardDefinition[] = [
     postCount: 4221,
     todayCount: 41,
     tags: ['일상', '급식', '기숙사', '동아리', '추천', '잡담'],
+  },
+  {
+    slug: 'photos',
+    title: '사진게시판',
+    shortTitle: '사진',
+    description: '학교생활의 순간을 사진 묶음으로 나눠요.',
+    prompt: '제목과 사진만 고르면 됩니다. 한 게시글에 최대 12장까지 올릴 수 있어요.',
+    icon: 'photos',
+    accent: 'indigo',
+    postCount: 0,
+    todayCount: 0,
+    tags: [],
   },
 ];
 

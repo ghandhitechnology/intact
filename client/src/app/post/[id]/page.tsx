@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 const demoMode = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === 'true';
 
 function isBoardSlug(value: unknown): value is PostSummary['board'] {
-  return value === 'question' || value === 'contest' || value === 'resources' || value === 'free';
+  return value === 'question' || value === 'contest' || value === 'resources' || value === 'equipment' || value === 'free' || value === 'photos';
 }
 
 const resolveLivePost = cache(async function resolveLivePost(

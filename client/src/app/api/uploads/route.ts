@@ -20,6 +20,16 @@ function safeName(value: string) {
   return (name || '첨부파일').slice(0, 255);
 }
 
+function detectedImageMime(bytes: Uint8Array) {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  if (bytes.length >= 8 && [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((value, index) => bytes[index] === value)) return 'image/png';
+  const signature = new TextDecoder('ascii').decode(bytes.slice(0, 16));
+  if (signature.startsWith('GIF87a') || signature.startsWith('GIF89a')) return 'image/gif';
+  if (signature.startsWith('RIFF') && signature.slice(8, 12) === 'WEBP') return 'image/webp';
+  if (signature.slice(4, 8) === 'ftyp' && ['avif', 'avis'].includes(signature.slice(8, 12))) return 'image/avif';
+  return null;
+}
+
 export async function POST(request: Request) {
   let storedKey: string | null = null;
   try {
@@ -40,8 +50,13 @@ export async function POST(request: Request) {
       throw new ApiError(413, 'FILE_TOO_LARGE', '빈 파일은 올릴 수 없고, 파일은 하나당 20MB까지 가능해요.');
     }
     const originalName = safeName(value.name);
-    const mimeType = (value.type || 'application/octet-stream').slice(0, 127);
     const bytes = new Uint8Array(await value.arrayBuffer());
+    const declaredMimeType = (value.type || 'application/octet-stream').slice(0, 127).toLowerCase();
+    const detectedMimeType = detectedImageMime(bytes);
+    if (declaredMimeType.startsWith('image/') && !detectedMimeType) {
+      throw new ApiError(400, 'INVALID_IMAGE', '이미지 파일 형식을 확인할 수 없어요. JPG, PNG, GIF, WebP, AVIF를 사용해 주세요.');
+    }
+    const mimeType = detectedMimeType || declaredMimeType;
     const sha256 = createHash('sha256').update(bytes).digest('hex');
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '/');
     storedKey = `${date}/${session.user.id}/${randomUUID()}`;

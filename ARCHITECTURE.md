@@ -69,6 +69,10 @@ Route handler는 입력 크기와 타입, same-origin, rate limit, session scope
 
 게시글은 최대 5개, 각 20MB 첨부를 허용합니다. 현재 별도 악성 파일 스캔은 없으므로 사용자가 내려받은 파일을 실행하지 않도록 운영 안내가 필요합니다.
 
+게시된 글의 첨부는 모든 로그인 사용자가 열 수 있고, 메시지 첨부는 해당 대화방의 현재 참여자만 열 수 있습니다. 안전한 이미지·PDF·미디어 MIME은 기본적으로 브라우저에서 inline 표시하고 `?download=1`일 때 원본 다운로드를 강제합니다. HTML, SVG 등 실행 가능성이 있는 형식은 inline 표시하지 않습니다.
+
+`photos` 게시판은 같은 Post/Attachment 모델을 사용하지만 API에서 별도 불변 조건을 적용합니다. 본문과 태그는 저장하지 않고, 게시 시 JPG·PNG·GIF·WebP·AVIF 중 1~12장이 반드시 연결되어야 합니다. 클라이언트 MIME만 신뢰하지 않고 업로드 시 파일 signature를 확인합니다.
+
 ## 5. 메시지와 실시간 이벤트
 
 브라우저는 먼저 Web API에서 대화방 목록과 최근 메시지를 읽고, Socket.IO 연결을 통해 새 메시지와 읽음 이벤트를 받습니다.
@@ -89,6 +93,8 @@ Realtime을 재시작해도 저장된 메시지는 PostgreSQL에서 복원됩니
 IGK는 `IgkLedger`가 원장이며 잔액, 송금, 활동 보상, 누적 기여 랭킹이 여기서 파생됩니다. 잔액 변경은 transaction과 lock을 사용해야 하며 UI 값만 수정해서는 안 됩니다.
 
 관리자는 신고·제재·공지·사용자·초대·지원 요청을 처리합니다. 중요한 변경은 `AdminAuditLog`에 사유와 변경 내용을 기록합니다.
+
+관리자의 IGK 지급·회수는 `User.currentIgk`를 직접 덮어쓰지 않고 계정 lock 안에서 증감합니다. 같은 transaction에서 `ADMIN_ADJUSTMENT` 원장, 사용자 알림, `USER_ADJUST_IGK` 감사 로그를 생성합니다. 활동으로 쌓인 `lifetimeIgk`와 레벨은 관리자의 단순 잔액 조정으로 바뀌지 않습니다.
 
 ## 7. 데이터 모델 변경
 

@@ -26,6 +26,7 @@ import {
   ChevronRight,
   Clipboard,
   Clock,
+  Coins,
   Eye,
   FileText,
   History,
@@ -76,6 +77,8 @@ type PortalUser = {
   status: UserStatus;
   level: number;
   igk: number;
+  lifetimeIgk?: number;
+  igkDebt?: number;
   posts: number;
   comments: number;
   reports: number;
@@ -178,6 +181,7 @@ type PendingActionKind =
   | "restore-user"
   | "delete-user"
   | "revoke-sessions"
+  | "adjust-igk"
   | "hide-content"
   | "delete-content"
   | "restore-content"
@@ -202,6 +206,8 @@ type DashboardUser = {
   loginId: string;
   status: string;
   currentIgk: number;
+  lifetimeIgk: number;
+  igkDebt: number;
   level: number;
   lastLoginAt: string | null;
   activeSessionCount: number;
@@ -635,6 +641,7 @@ export default function AdminPage() {
   );
   const [reason, setReason] = useState("");
   const [duration, setDuration] = useState("7");
+  const [igkAmount, setIgkAmount] = useState("");
   const [noticeDraft, setNoticeDraft] = useState({
     title: "",
     body: "",
@@ -762,6 +769,8 @@ export default function AdminPage() {
         status: normalizeUserStatus(user.status),
         level: user.level,
         igk: user.currentIgk,
+        lifetimeIgk: user.lifetimeIgk,
+        igkDebt: user.igkDebt,
         posts: user._count.posts,
         comments: user._count.comments,
         reports: user._count.reportsAgainst,
@@ -1136,6 +1145,7 @@ export default function AdminPage() {
   function closePendingAction() {
     setPendingAction(null);
     setReason("");
+    setIgkAmount("");
   }
 
   function openPendingAction(action: PendingAction) {
@@ -1143,6 +1153,7 @@ export default function AdminPage() {
     setSelectedContent(null);
     setReportQueueOpen(false);
     setReason("");
+    setIgkAmount("");
     setPendingAction(action);
   }
 
@@ -1157,6 +1168,7 @@ export default function AdminPage() {
           "restore-user",
           "delete-user",
           "revoke-sessions",
+          "adjust-igk",
         ].includes(pendingAction.kind)
       ) {
         const action =
@@ -1168,7 +1180,9 @@ export default function AdminPage() {
               ? "RESTORE"
               : pendingAction.kind === "delete-user"
                 ? "WITHDRAW"
-                : "REVOKE_SESSIONS";
+                : pendingAction.kind === "adjust-igk"
+                  ? "ADJUST_IGK"
+                  : "REVOKE_SESSIONS";
         response = await fetch(
           "/api/admin/users/" + encodeURIComponent(pendingAction.id),
           {
@@ -1178,6 +1192,7 @@ export default function AdminPage() {
               action,
               reason: reason.trim(),
               durationDays: action === "SUSPEND" ? Number(duration) : undefined,
+              amount: action === "ADJUST_IGK" ? Number(igkAmount) : undefined,
             }),
           },
         );
@@ -2337,6 +2352,31 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>
+            <div className="border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="inline-flex items-center gap-2 text-sm font-black text-slate-900">
+                    <Coins className="h-4 w-4 text-emerald-700" /> IGK 관리
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    누적 기여 {Number(selectedUser.lifetimeIgk || 0).toLocaleString()} · 미상환 회수 {Number(selectedUser.igkDebt || 0).toLocaleString()}
+                  </p>
+                </div>
+                <Button
+                  variant="green"
+                  className="h-9 text-xs"
+                  onClick={() =>
+                    openPendingAction({
+                      kind: "adjust-igk",
+                      id: selectedUser.id,
+                      label: "IGK 잔액 조정",
+                    })
+                  }
+                >
+                  <Coins className="h-4 w-4" /> 지급·회수
+                </Button>
+              </div>
+            </div>
             <div className="border border-slate-200">
               <div className="border-b border-slate-200 px-4 py-3 text-xs font-extrabold">
                 계정 조치
@@ -2805,12 +2845,20 @@ export default function AdminPage() {
             <Button
               variant={
                 pendingAction?.kind.includes("restore") ||
-                pendingAction?.kind === "resolve-report"
+                pendingAction?.kind === "resolve-report" ||
+                pendingAction?.kind === "adjust-igk"
                   ? "green"
                   : "danger"
               }
               onClick={() => void applyAction()}
-              disabled={applying || reason.trim().length < 4}
+              disabled={
+                applying ||
+                reason.trim().length < 4 ||
+                (pendingAction?.kind === "adjust-igk" &&
+                  (!Number.isInteger(Number(igkAmount)) ||
+                    Number(igkAmount) === 0 ||
+                    Math.abs(Number(igkAmount)) > 100000))
+              }
             >
               {applying ? "적용 중…" : pendingAction?.label || "적용"}
             </Button>
@@ -2838,6 +2886,24 @@ export default function AdminPage() {
                 <option value="30">30일</option>
                 <option value="0">영구 정지</option>
               </Select>
+            </Field>
+          ) : null}
+          {pendingAction?.kind === "adjust-igk" ? (
+            <Field
+              label="조정량"
+              required
+              hint="지급은 양수, 회수는 음수 · 1회 최대 100,000 IGK"
+            >
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={-100000}
+                max={100000}
+                step={1}
+                value={igkAmount}
+                onChange={(event) => setIgkAmount(event.target.value)}
+                placeholder="예: 500 또는 -200"
+              />
             </Field>
           ) : null}
           <Field

@@ -30,6 +30,7 @@ import {
   type BoardDefinition,
   type PostSummary,
 } from "./demo-data";
+import AttachmentGallery from "./AttachmentGallery";
 
 type Filter = "all" | "popular" | "solved" | "files";
 type Sort = "latest" | "likes" | "comments" | "views";
@@ -79,9 +80,50 @@ function mapApiPost(item: any, board: BoardDefinition): PostSummary {
     attachmentCount: Number(
       item?._count?.attachments || item.attachmentCount || 0,
     ),
+    attachments: Array.isArray(item.attachments)
+      ? item.attachments.map((attachment: any) => ({
+          id: String(attachment.id),
+          originalName: String(attachment.originalName || "사진"),
+          mimeType: String(attachment.mimeType || "application/octet-stream"),
+          sizeBytes: Number(attachment.sizeBytes || 0),
+        }))
+      : [],
     deadline:
       typeof metadata.deadline === "string" ? metadata.deadline : undefined,
   };
+}
+
+function PhotoPostCard({ post }: { post: PostSummary }) {
+  return (
+    <article className="border-b border-slate-200 bg-white p-4 sm:p-5">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <Link
+            href={`/post/${post.id}`}
+            className="line-clamp-2 text-base font-black tracking-[-0.02em] text-slate-900 hover:text-violet-700"
+          >
+            {post.title}
+          </Link>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
+            <MemberLine member={post.author} compact />
+            <span>{post.createdAt}</span>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-3 text-[11px] text-slate-400">
+          <span className="inline-flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{formatNumber(post.views)}</span>
+          <span className="inline-flex items-center gap-1"><ThumbsUp className="h-3.5 w-3.5" />{formatNumber(post.likes)}</span>
+          <span className="inline-flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{formatNumber(post.comments)}</span>
+        </div>
+      </div>
+      {post.attachments?.length ? (
+        <AttachmentGallery attachments={post.attachments} compact />
+      ) : (
+        <Link href={`/post/${post.id}`} className="grid h-40 place-items-center bg-slate-100 text-xs font-bold text-slate-400">
+          사진을 불러올 수 없어요.
+        </Link>
+      )}
+    </article>
+  );
 }
 
 function PostRow({ post }: { post: PostSummary }) {
@@ -399,9 +441,13 @@ export default function BoardListClient({
 
             <div>
               {filteredPosts.length > 0 ? (
-                filteredPosts.map((post) => (
-                  <PostRow key={post.id} post={post} />
-                ))
+                filteredPosts.map((post) =>
+                  board.slug === "photos" ? (
+                    <PhotoPostCard key={post.id} post={post} />
+                  ) : (
+                    <PostRow key={post.id} post={post} />
+                  ),
+                )
               ) : (
                 <div className="px-5 py-20 text-center">
                   <Search

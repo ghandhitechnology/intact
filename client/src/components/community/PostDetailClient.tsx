@@ -10,6 +10,7 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
+  Download,
   Eye,
   FileText,
   Flag,
@@ -45,6 +46,7 @@ import {
   type PostSummary,
 } from "./demo-data";
 import SafeMarkdown from "./SafeMarkdown";
+import AttachmentGallery from "./AttachmentGallery";
 
 type CommentItem = {
   id: string;
@@ -65,6 +67,7 @@ function BodyContent({
   post: PostSummary;
   isNotice: boolean;
 }) {
+  if (post.board === "photos") return null;
   if (post.content) {
     return <SafeMarkdown content={post.content} />;
   }
@@ -695,7 +698,7 @@ export default function PostDetailClient({
   }
 
   async function savePostEdit() {
-    if (editTitle.trim().length < 2 || !editContent.trim()) return;
+    if (editTitle.trim().length < 2 || (post.board !== "photos" && !editContent.trim())) return;
     setActionPending(true);
     setActionError("");
     try {
@@ -853,7 +856,7 @@ export default function PostDetailClient({
               <div className="px-5 py-8 sm:px-8 sm:py-10">
                 {editingPost ? (
                   <div>
-                    <textarea
+                    {post.board !== "photos" ? <textarea
                       value={editContent}
                       onChange={(event) =>
                         setEditContent(event.target.value.slice(0, 50_000))
@@ -861,7 +864,11 @@ export default function PostDetailClient({
                       rows={16}
                       className="w-full border border-slate-300 p-4 text-sm leading-7 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
                       aria-label="게시글 본문 수정"
-                    />
+                    /> : (
+                      <p className="border border-violet-200 bg-violet-50 p-4 text-sm text-violet-800">
+                        사진게시판에서는 제목만 수정할 수 있어요.
+                      </p>
+                    )}
                     <div className="mt-3 flex justify-end gap-2">
                       <button
                         type="button"
@@ -881,7 +888,7 @@ export default function PostDetailClient({
                         disabled={
                           actionPending ||
                           editTitle.trim().length < 2 ||
-                          !editContent.trim()
+                          (post.board !== "photos" && !editContent.trim())
                         }
                         onClick={savePostEdit}
                         className="h-9 border border-emerald-700 bg-emerald-700 px-4 text-xs font-bold text-white"
@@ -917,30 +924,46 @@ export default function PostDetailClient({
                       </h2>
                     </div>
                     {post.attachments?.length ? (
-                      post.attachments.map((attachment) => (
-                        <a
-                          key={attachment.id}
-                          href={`/api/uploads/${encodeURIComponent(attachment.id)}`}
-                          className="flex w-full items-center gap-3 border-b border-slate-100 p-4 text-left last:border-b-0 hover:bg-slate-50"
-                        >
-                          <span className="flex h-9 w-9 items-center justify-center border border-blue-200 bg-blue-50 text-blue-700">
-                            <FileText className="h-4 w-4" aria-hidden="true" />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-xs font-extrabold text-slate-700">
-                              {attachment.originalName}
+                      <div>
+                        {post.attachments.some((attachment) => attachment.mimeType.startsWith("image/")) ? (
+                          <div className="border-b border-slate-200 p-3 sm:p-4">
+                            <AttachmentGallery attachments={post.attachments} />
+                          </div>
+                        ) : null}
+                        {post.board !== "photos" ? post.attachments.map((attachment) => (
+                          <div
+                            key={attachment.id}
+                            className="flex w-full items-center gap-3 border-b border-slate-100 p-4 last:border-b-0"
+                          >
+                            <span className="flex h-9 w-9 items-center justify-center border border-blue-200 bg-blue-50 text-blue-700">
+                              <FileText className="h-4 w-4" aria-hidden="true" />
                             </span>
-                            <span className="mt-1 block text-[10px] text-slate-400">
-                              {attachment.mimeType} ·{" "}
-                              {(attachment.sizeBytes / 1024 / 1024).toFixed(1)}{" "}
-                              MB
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-xs font-extrabold text-slate-700">
+                                {attachment.originalName}
+                              </span>
+                              <span className="mt-1 block text-[10px] text-slate-400">
+                                {attachment.mimeType} · {(attachment.sizeBytes / 1024 / 1024).toFixed(1)} MB
+                              </span>
                             </span>
-                          </span>
-                          <span className="text-xs font-bold text-blue-700">
-                            받기
-                          </span>
-                        </a>
-                      ))
+                            <a
+                              href={`/api/uploads/${encodeURIComponent(attachment.id)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-bold text-blue-700 hover:underline"
+                            >
+                              열기
+                            </a>
+                            <a
+                              href={`/api/uploads/${encodeURIComponent(attachment.id)}?download=1`}
+                              className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-blue-700"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              받기
+                            </a>
+                          </div>
+                        )) : null}
+                      </div>
                     ) : (
                       <div className="flex items-center gap-3 p-4 text-xs text-slate-500">
                         데모 첨부 파일입니다.

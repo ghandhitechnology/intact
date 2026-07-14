@@ -13,6 +13,7 @@ import {
   Menu,
   MessageSquare,
   Microscope,
+  Image as PhotoIcon,
   Search,
   Trophy,
   User,
@@ -30,6 +31,7 @@ const navigation = [
   { href: '/boards/resources', label: '자료공유', icon: FileText },
   { href: '/boards/equipment', label: '심화기기', icon: Microscope },
   { href: '/boards/free', label: '자유게시판', icon: MessageSquare },
+  { href: '/boards/photos', label: '사진게시판', icon: PhotoIcon },
 ];
 const boardNavigation = navigation.slice(1);
 
