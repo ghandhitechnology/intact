@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { igkLevelLabel } from '@/lib/igk-levels';
 import {
   ArrowRight,
   ChevronRight,
@@ -310,8 +311,8 @@ function RankingPanel({ items }: { items: RankingMember[] }) {
     <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-[0_3px_12px_rgba(51,56,50,0.03)]">
       <div className="mb-4 flex items-center gap-2">
         <Trophy className="h-4 w-4 text-amber-500" aria-hidden="true" />
-        <h2 className="text-sm font-black text-slate-900">누적 기여 랭킹</h2>
-        <span className="ml-auto text-[10px] font-semibold text-slate-400">누적 IGK 기준</span>
+        <h2 className="text-sm font-black text-slate-900">보유 IGK 랭킹</h2>
+        <span className="ml-auto text-[10px] font-semibold text-slate-400">현재 잔액 기준</span>
       </div>
       <ol className="border-t border-slate-900">
         {items.map((member) => (
@@ -333,7 +334,7 @@ function RankingPanel({ items }: { items: RankingMember[] }) {
                 {member.nickname}
               </span>
               <span className="block text-[10px] text-slate-400">
-                {member.studentId} · LV.{member.level}
+                {member.studentId} · {igkLevelLabel(member.level)}
               </span>
             </span>
             <span className="text-xs font-black tabular-nums text-slate-700">
@@ -435,7 +436,7 @@ export default function HomePage() {
           initials: String(leader.realName || leader.nickname || '?').slice(0, 1),
           profileImage: leader.profileImage || null,
           accent: 'emerald',
-          igk: Number(leader.lifetimeIgk || 0),
+          igk: Number(leader.currentIgk || 0),
           change: 0,
         })));
         setLoaded(true);

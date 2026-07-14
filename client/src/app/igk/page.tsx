@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { igkLevelLabel } from "@/lib/igk-levels";
 
 const DEMO_MODE = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === "true";
 
@@ -92,6 +93,7 @@ type Ranking = {
   realName: string | null;
   profileImage: string | null;
   level: number;
+  currentIgk: number;
   lifetimeIgk: number;
   studentIdentity: { studentCode: string } | null;
 };
@@ -101,8 +103,8 @@ const demoWallet: Wallet = {
   lifetimeIgk: 2980,
   level: 6,
   rank: 18,
-  progress: 2980 / 3000,
-  nextLevel: { level: 7, minimumLifetimeIgk: 3000, label: "개척자" },
+  progress: (2980 - 2000) / (3500 - 2000),
+  nextLevel: { level: 7, minimumLifetimeIgk: 3500, label: "3등급" },
 };
 const demoTransactions: Transaction[] = [
   {
@@ -141,6 +143,7 @@ const demoRankings: Ranking[] = [
     realName: "강서준",
     profileImage: null,
     level: 9,
+    currentIgk: 7820,
     lifetimeIgk: 7820,
     studentIdentity: { studentCode: "360103" },
   },
@@ -151,6 +154,7 @@ const demoRankings: Ranking[] = [
     realName: "윤지민",
     profileImage: null,
     level: 8,
+    currentIgk: 6540,
     lifetimeIgk: 6540,
     studentIdentity: { studentCode: "331312" },
   },
@@ -161,6 +165,7 @@ const demoRankings: Ranking[] = [
     realName: "임도현",
     profileImage: null,
     level: 8,
+    currentIgk: 6210,
     lifetimeIgk: 6210,
     studentIdentity: { studentCode: "380204" },
   },
@@ -559,7 +564,7 @@ export default function IgkPage() {
               <span className="text-lg font-bold text-slate-300">IGK</span>
             </div>
             <p className="mt-3 text-sm text-slate-300">
-              누적 획득 {wallet.lifetimeIgk.toLocaleString()} IGK · 교내{" "}
+              등급 누적 {wallet.lifetimeIgk.toLocaleString()} IGK · 보유 IGK 교내{" "}
               {wallet.rank}위
             </p>
             {wallet.igkDebt ? (
@@ -572,7 +577,7 @@ export default function IgkPage() {
           <div className="w-full border border-white/15 bg-white/5 p-4 md:w-80">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-slate-300">
-                LEVEL {wallet.level}
+                {igkLevelLabel(wallet.level)}
               </span>
               {nextThreshold ? (
                 <span className="font-extrabold">
@@ -586,8 +591,8 @@ export default function IgkPage() {
             </div>
             <p className="mt-2 text-[11px] text-slate-400">
               {nextThreshold
-                ? `다음 레벨까지 ${Math.max(0, nextThreshold - wallet.lifetimeIgk).toLocaleString()} IGK`
-                : "등록된 최고 레벨"}
+                ? `다음 등급까지 ${Math.max(0, nextThreshold - wallet.lifetimeIgk).toLocaleString()} IGK`
+                : "최고 등급 선생님"}
             </p>
           </div>
         </div>
@@ -602,7 +607,7 @@ export default function IgkPage() {
                 label: "거래 내역",
                 count: transactions.length,
               },
-              { value: "levels", label: "레벨 안내" },
+              { value: "levels", label: "등급 안내" },
               { value: "ranking", label: "랭킹" },
             ]}
             value={tab}
@@ -670,14 +675,14 @@ export default function IgkPage() {
           {tab === "levels" ? (
             <div className="p-6">
               <div className="border-l-4 border-blue-700 bg-blue-50 p-4 text-xs leading-5 text-blue-900">
-                레벨은 <strong>누적 획득 IGK</strong>를 기준으로 올라갑니다.
-                선물한 금액은 레벨을 낮추지 않습니다.
+                등급은 활동 보상과 <strong>받은 선물을 합친 누적 IGK</strong>로 올라갑니다.
+                다른 학생에게 선물해도 이미 쌓은 등급 누적은 줄지 않습니다.
               </div>
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <div className="border border-emerald-300 bg-emerald-50 p-5">
                   <Badge tone="green">현재</Badge>
                   <p className="mt-3 text-lg font-black">
-                    LEVEL {wallet.level}
+                    {igkLevelLabel(wallet.level)}
                   </p>
                   <p className="mt-1 text-xs text-slate-600">
                     누적 {wallet.lifetimeIgk.toLocaleString()} IGK
@@ -687,10 +692,7 @@ export default function IgkPage() {
                   <div className="border border-slate-200 p-5">
                     <Badge tone="slate">다음</Badge>
                     <p className="mt-3 text-lg font-black">
-                      LEVEL {wallet.nextLevel.level}
-                      {wallet.nextLevel.label
-                        ? ` · ${wallet.nextLevel.label}`
-                        : ""}
+                      {wallet.nextLevel.label ?? igkLevelLabel(wallet.nextLevel.level)}
                     </p>
                     <p className="mt-1 text-xs text-slate-600">
                       누적{" "}
@@ -700,12 +702,19 @@ export default function IgkPage() {
                   </div>
                 ) : null}
               </div>
+              <Link
+                href="/igk/roadmap"
+                className="mt-5 flex h-11 items-center justify-center border border-slate-300 text-sm font-extrabold text-slate-800 hover:bg-slate-50"
+              >
+                전체 등급 로드맵 보기
+              </Link>
             </div>
           ) : null}
           {tab === "ranking" ? (
             <div>
               <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
-                <h2 className="text-sm font-extrabold">누적 IGK 랭킹</h2>
+                <h2 className="text-sm font-extrabold">보유 IGK 랭킹</h2>
+                <p className="mt-1 text-xs text-slate-500">현재 사용할 수 있는 IGK 잔액 기준</p>
                 <Badge tone="blue" className="mt-2">
                   내 순위 {wallet.rank}위
                 </Badge>
@@ -741,10 +750,10 @@ export default function IgkPage() {
                       <p className="text-[11px] text-slate-400">
                         {person.studentIdentity?.studentCode ??
                           "학번 정보 없음"}{" "}
-                        · LEVEL {person.level}
+                        · {igkLevelLabel(person.level)}
                       </p>
                     </div>
-                    <strong>{person.lifetimeIgk.toLocaleString()} IGK</strong>
+                    <strong>{person.currentIgk.toLocaleString()} IGK</strong>
                   </article>
                 );
               })}

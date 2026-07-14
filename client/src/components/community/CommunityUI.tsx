@@ -17,6 +17,7 @@ import type {
   PostSummary,
 } from "./demo-data";
 import { formatNumber, getBoard } from "./demo-data";
+import { igkLevelLabel } from "@/lib/igk-levels";
 
 const avatarStyles: Record<Member["accent"], string> = {
   emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
@@ -99,7 +100,7 @@ export function Avatar({
 export function LevelBadge({ level }: { level: number }) {
   return (
     <span className="inline-flex h-5 items-center rounded-full border border-emerald-200 bg-emerald-50 px-1.5 text-[10px] font-extrabold tracking-tight text-emerald-700">
-      LV.{level}
+      {igkLevelLabel(level)}
     </span>
   );
 }

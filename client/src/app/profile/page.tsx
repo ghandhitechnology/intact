@@ -37,6 +37,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
+import { igkLevelLabel } from '@/lib/igk-levels';
 
 const DEMO_MODE = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === 'true';
 
@@ -115,8 +116,8 @@ const demoIgk: IgkSummary = {
   lifetimeIgk: 2980,
   level: 6,
   rank: 18,
-  progress: 2980 / 3000,
-  nextLevel: { level: 7, minimumLifetimeIgk: 3000, label: '개척자' },
+  progress: (2980 - 2000) / (3500 - 2000),
+  nextLevel: { level: 7, minimumLifetimeIgk: 3500, label: '3등급' },
 };
 
 const demoSessions: PortalSession[] = [
@@ -466,16 +467,16 @@ export default function ProfilePage() {
 
         <section className="min-w-0 space-y-5">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="현재 레벨" value={`Lv. ${level}`} detail="누적 IGK 기준" icon={<Trophy className="h-4 w-4" />} tone="amber" />
+            <Stat label="현재 등급" value={igkLevelLabel(level)} detail="활동·받은 선물 누적" icon={<Trophy className="h-4 w-4" />} tone="amber" />
             <Stat label="보유 IGK" value={currentIgk.toLocaleString()} detail={`누적 ${lifetimeIgk.toLocaleString()}`} icon={<Gift className="h-4 w-4" />} tone="green" />
             <Stat label="작성한 글" value={profile._count.posts.toLocaleString()} detail="전체 게시판" icon={<Award className="h-4 w-4" />} />
-            <Stat label="교내 랭킹" value={igk ? `#${igk.rank}` : '—'} detail={igk ? '누적 IGK 기준' : '랭킹 정보 없음'} icon={<Users className="h-4 w-4" />} tone="slate" />
+            <Stat label="교내 랭킹" value={igk ? `#${igk.rank}` : '—'} detail={igk ? '보유 IGK 기준' : '랭킹 정보 없음'} icon={<Users className="h-4 w-4" />} tone="slate" />
           </div>
           <Card className="shadow-none"><CardHeader title="활동 요약" /><div className="grid gap-px bg-slate-200 sm:grid-cols-3"><div className="bg-white p-6"><FileText className="h-5 w-5 text-blue-700" /><strong className="mt-3 block text-2xl font-black">{profile._count.posts.toLocaleString()}</strong><span className="text-xs text-slate-500">작성한 게시글</span></div><div className="bg-white p-6"><MessageCircle className="h-5 w-5 text-emerald-700" /><strong className="mt-3 block text-2xl font-black">{profile._count.comments.toLocaleString()}</strong><span className="text-xs text-slate-500">작성한 댓글</span></div><div className="bg-white p-6"><Award className="h-5 w-5 text-amber-700" /><strong className="mt-3 block text-2xl font-black">{profile._count.bookmarks.toLocaleString()}</strong><span className="text-xs text-slate-500">저장한 글</span></div></div></Card>
         </section>
 
         <aside className="space-y-5 lg:col-span-2 xl:col-span-1">
-          <Card className="shadow-none"><CardHeader title="레벨 진행" action={<Link href="/igk" className="text-xs font-bold text-blue-700">IGK 자세히</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">LEVEL {level}</span><p className="mt-1 text-lg font-black text-slate-950">{igk?.nextLevel?.label ?? (nextThreshold ? `LEVEL ${igk?.nextLevel?.level}` : '최고 레벨')}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{lifetimeIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div><p className="mt-3 text-xs leading-5 text-slate-500">{nextThreshold ? <>다음 레벨까지 <strong className="text-slate-800">{Math.max(0, nextThreshold - lifetimeIgk).toLocaleString()} IGK</strong>가 필요합니다.</> : '현재 등록된 최고 레벨입니다.'}</p><Link href="/igk" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-extrabold text-slate-700 hover:bg-slate-50">IGK 내역과 랭킹 보기</Link></div></Card>
+          <Card className="shadow-none"><CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-blue-700">전체 로드맵</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level)}</span><p className="mt-1 text-lg font-black text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : '최고 등급 선생님'}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{lifetimeIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div><p className="mt-3 text-xs leading-5 text-slate-500">{nextThreshold ? <>다음 등급까지 <strong className="text-slate-800">{Math.max(0, nextThreshold - lifetimeIgk).toLocaleString()} IGK</strong>가 필요합니다.</> : '최종 등급에 도달했습니다.'}</p><Link href="/igk/roadmap" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-extrabold text-slate-700 hover:bg-slate-50">9등급부터 선생님까지 보기</Link></div></Card>
           <Card className="shadow-none"><CardHeader title="재학생 인증" /><div className="p-5"><p className="flex items-center gap-2 text-sm font-extrabold text-slate-900"><ShieldCheck className="h-4 w-4 text-emerald-700" />{profile.status === 'ACTIVE' ? '정상 이용 가능' : profile.status}</p><p className="mt-2 text-xs leading-5 text-slate-500">{profile.reverifyDueAt ? `${formatDate(profile.reverifyDueAt)}까지 재인증이 유효합니다.` : '재인증 만료일이 등록되지 않았습니다.'}</p></div></Card>
         </aside>
       </div>

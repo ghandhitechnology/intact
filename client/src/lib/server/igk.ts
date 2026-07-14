@@ -16,7 +16,7 @@ function startOfSeoulDay() {
   return new Date(seoul.getTime() - 9 * 60 * 60 * 1000);
 }
 
-async function levelForLifetime(tx: Tx, lifetimeIgk: number) {
+export async function levelForLifetime(tx: Tx, lifetimeIgk: number) {
   const rule = await tx.levelRule.findFirst({
     where: { minimumLifetimeIgk: { lte: lifetimeIgk } },
     orderBy: { minimumLifetimeIgk: 'desc' },

@@ -23,6 +23,7 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
+import { igkLevelLabel } from '@/lib/igk-levels';
 
 const navigation = [
   { href: '/', label: '홈', icon: Home },
@@ -193,7 +194,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
                   <span className="avatar avatar-sm bg-cover bg-center" style={sessionUser.profileImage ? { backgroundImage: `url(${sessionUser.profileImage})` } : undefined}>{sessionUser.profileImage ? <span className="sr-only">프로필 이미지</span> : (sessionUser.realName || sessionUser.nickname || '사용자').slice(0, 1)}</span>
                   <span className="hidden text-left lg:block">
                     <strong>{sessionUser.realName || sessionUser.nickname || '사용자'}</strong>
-                    <small>{sessionUser.studentCode || sessionUser.studentId || '------'} · Lv.{sessionUser.level || 1}</small>
+                    <small>{sessionUser.studentCode || sessionUser.studentId || '------'} · {igkLevelLabel(sessionUser.level || 1)}</small>
                   </span>
                   <ChevronDown size={14} className="hidden text-[var(--ink-faint)] lg:block" />
                 </button>
@@ -205,6 +206,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
                     </div>
                     <Link href="/profile" className="account-menu-item"><User size={16} />내 프로필</Link>
                     <Link href="/igk" className="account-menu-item"><Coins size={16} />IGK 지갑</Link>
+                    <Link href="/igk/roadmap" className="account-menu-item"><Trophy size={16} />등급 로드맵</Link>
                     <button type="button" onClick={logout} className="account-menu-item w-full text-left"><LogIn size={16} />로그아웃</button>
                   </div>
                 )}
@@ -227,7 +229,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
               );
             })}
             <Link href="/igk?tab=ranking" className="ml-auto flex items-center gap-1.5 border-l border-[var(--line)] px-4 text-xs font-bold text-[var(--green-deep)] hover:bg-[var(--green-pale)]">
-              <Trophy size={14} /> 누적 활동 랭킹
+              <Trophy size={14} /> 보유 IGK 랭킹
             </Link>
           </div>
         </nav>
@@ -247,6 +249,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
                 </Link>
               ))}
               <Link href="/igk" className="mobile-nav-link"><Coins size={18} />IGK 지갑</Link>
+              <Link href="/igk/roadmap" className="mobile-nav-link"><Trophy size={18} />등급 로드맵</Link>
             </div>
           </div>
         )}

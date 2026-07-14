@@ -15,16 +15,30 @@ export async function GET(request: Request) {
       }),
       prisma.levelRule.findMany({ orderBy: { level: 'asc' } }),
       prisma.user.count({
-        where: { status: 'ACTIVE', lifetimeIgk: { gt: session.user.lifetimeIgk } },
+        where: {
+          status: 'ACTIVE',
+          studentIdentity: { isNot: null },
+          currentIgk: { gt: session.user.currentIgk },
+        },
       }),
     ]);
+    const currentLevel = [...rules]
+      .reverse()
+      .find((rule) => rule.minimumLifetimeIgk <= user.lifetimeIgk) ?? rules[0] ?? null;
     const nextLevel = rules.find((rule) => rule.minimumLifetimeIgk > user.lifetimeIgk) ?? null;
+    const progressRange = nextLevel && currentLevel
+      ? nextLevel.minimumLifetimeIgk - currentLevel.minimumLifetimeIgk
+      : 0;
     return json({
       ...user,
       rank: higherRanked + 1,
+      currentLevel,
       nextLevel,
       progress: nextLevel
-        ? Math.min(1, user.lifetimeIgk / nextLevel.minimumLifetimeIgk)
+        ? Math.min(
+            1,
+            Math.max(0, (user.lifetimeIgk - (currentLevel?.minimumLifetimeIgk ?? 0)) / Math.max(1, progressRange)),
+          )
         : 1,
     });
   } catch (error) {

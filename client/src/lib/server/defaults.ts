@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { IGK_LEVELS } from '@/lib/igk-levels';
 import { hashPassword, looksLikePlaceholderSecret } from './crypto';
 
 const DEFAULT_BOARDS = [
@@ -64,29 +65,12 @@ const DEFAULT_BOARDS = [
   },
 ];
 
-const LEVELS = [
-  [1, 0, '새싹'],
-  [2, 100, '탐구자'],
-  [3, 250, '연구자'],
-  [4, 500, '발견자'],
-  [5, 1_000, '개척자'],
-  [6, 2_000, '인곽인'],
-  [7, 3_500, '별빛'],
-  [8, 5_750, '은하'],
-  [9, 9_125, '초신성'],
-  [10, 14_190, '전설'],
-] as const;
-
 let initialization: Promise<void> | null = null;
 
 async function initialize() {
   await prisma.board.createMany({ data: DEFAULT_BOARDS, skipDuplicates: true });
   await prisma.levelRule.createMany({
-    data: LEVELS.map(([level, minimumLifetimeIgk, label]) => ({
-      level,
-      minimumLifetimeIgk,
-      label,
-    })),
+    data: IGK_LEVELS.map((rule) => ({ ...rule })),
     skipDuplicates: true,
   });
 

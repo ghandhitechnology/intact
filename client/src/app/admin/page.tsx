@@ -56,6 +56,7 @@ import {
   normalizeStudentCode,
   STUDENT_CODE_REQUIREMENTS,
 } from "@/lib/student-code";
+import { igkLevelLabel } from "@/lib/igk-levels";
 
 type AdminTab = "users" | "content" | "notices";
 type UserStatus =
@@ -1823,7 +1824,7 @@ export default function AdminPage() {
                     </span>
                     <span className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
                       <span>
-                        Lv.{user.level} · {user.igk.toLocaleString()} IGK
+                        {igkLevelLabel(user.level)} · {user.igk.toLocaleString()} IGK
                       </span>
                       <span>{user.lastActive}</span>
                     </span>
@@ -2330,7 +2331,7 @@ export default function AdminPage() {
                   {selectedUser.lastActive}
                 </p>
               </div>
-              <Badge tone="blue">LEVEL {selectedUser.level}</Badge>
+              <Badge tone="blue">{igkLevelLabel(selectedUser.level)}</Badge>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[

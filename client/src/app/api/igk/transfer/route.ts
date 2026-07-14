@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import prisma from '@/lib/prisma';
 import { verifyPassword } from '@/lib/server/crypto';
-import { lockIgkAccounts } from '@/lib/server/igk';
+import { levelForLifetime, lockIgkAccounts } from '@/lib/server/igk';
 import {
   ApiError,
   assertSameOrigin,
@@ -163,9 +163,17 @@ export async function POST(request: Request) {
               where: { id: recipient.id },
               data: {
                 currentIgk: { increment: amount - receiverDebtPayment },
+                lifetimeIgk: { increment: amount },
                 igkDebt: { decrement: receiverDebtPayment },
               },
             });
+            const receiverLevel = await levelForLifetime(tx, receiver.lifetimeIgk);
+            if (receiver.level !== receiverLevel) {
+              await tx.user.update({
+                where: { id: receiver.id },
+                data: { level: receiverLevel },
+              });
+            }
             await tx.igkLedger.createMany({
               data: [
                 {

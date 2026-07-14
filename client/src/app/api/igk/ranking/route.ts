@@ -12,19 +12,20 @@ export async function GET(request: Request) {
     const [leaders, higherRanked, totalParticipants] = await prisma.$transaction([
       prisma.user.findMany({
         where: eligible,
-        orderBy: [{ lifetimeIgk: 'desc' }, { createdAt: 'asc' }],
+        orderBy: [{ currentIgk: 'desc' }, { createdAt: 'asc' }],
         take: 100,
         select: {
           id: true,
           nickname: true, realName: true,
           profileImage: true,
           level: true,
+          currentIgk: true,
           lifetimeIgk: true,
           studentIdentity: { select: { studentCode: true } },
         },
       }),
       prisma.user.count({
-        where: { ...eligible, lifetimeIgk: { gt: session.user.lifetimeIgk } },
+        where: { ...eligible, currentIgk: { gt: session.user.currentIgk } },
       }),
       prisma.user.count({ where: eligible }),
     ]);
@@ -32,8 +33,8 @@ export async function GET(request: Request) {
     let previousRank = 0;
     return json({
       leaders: leaders.map((user, index) => {
-        if (user.lifetimeIgk !== previousScore) {
-          previousScore = user.lifetimeIgk;
+        if (user.currentIgk !== previousScore) {
+          previousScore = user.currentIgk;
           previousRank = index + 1;
         }
         return { ...user, rank: previousRank };
