@@ -64,6 +64,7 @@ async function storageRequest(
     headers,
     body: options.body ? (options.body as BodyInit) : undefined,
     cache: 'no-store',
+    signal: AbortSignal.timeout(30_000),
   });
 }
 

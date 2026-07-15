@@ -5,6 +5,7 @@ import { Button, Field, Input, LoadingLabel } from '@/components/operations/ui';
 import { CheckCircle2, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
+import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
 
 export default function ReverifyPage() {
   const router = useRouter();
@@ -15,10 +16,11 @@ export default function ReverifyPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError('');
     try {
-      const verificationResponse = await fetch('/api/auth/invite/verify', {
+      const verificationResponse = await fetchWithTimeout('/api/auth/invite/verify', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ code: code.trim(), purpose: 'REVERIFY' }),
@@ -27,7 +29,7 @@ export default function ReverifyPage() {
       if (!verificationResponse.ok || !verificationBody?.ok) {
         throw new Error(verificationBody?.error?.message || '재인증 코드를 확인하지 못했습니다.');
       }
-      const response = await fetch('/api/auth/reverify', {
+      const response = await fetchWithTimeout('/api/auth/reverify', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ verificationTicket: verificationBody.data.verificationTicket }),
@@ -40,7 +42,7 @@ export default function ReverifyPage() {
         router.refresh();
       }, 900);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '재인증을 완료하지 못했습니다.');
+      setError(requestErrorMessage(cause, '재인증을 완료하지 못했습니다.'));
     } finally {
       setLoading(false);
     }

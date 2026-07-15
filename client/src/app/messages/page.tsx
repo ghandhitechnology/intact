@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { isValidStudentCode, STUDENT_CODE_REQUIREMENTS } from "@/lib/student-code";
+import { fetchWithTimeout, isAbortError, requestErrorMessage } from "@/lib/client/request";
 import { io, type Socket } from "socket.io-client";
 import {
   FormEvent,
@@ -176,7 +177,7 @@ async function persistMessage(
   clientId: string,
   attachmentIds: string[] = [],
 ) {
-  const response = await fetch("/api/messages", {
+  const response = await fetchWithTimeout("/api/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -416,6 +417,9 @@ export default function MessagesPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentStudentCode, setCurrentStudentCode] = useState("");
+  const [connectionState, setConnectionState] = useState<"connecting" | "live" | "polling">(
+    DEMO_MODE ? "live" : "connecting",
+  );
   const [typingByRoom, setTypingByRoom] = useState<Record<string, string[]>>(
     {},
   );
@@ -468,7 +472,7 @@ export default function MessagesPage() {
   async function markRoomRead(roomId: string, messageId: string) {
     if (!roomId || !messageId || messageId.startsWith("local-")) return;
     try {
-      const response = await fetch("/api/messages", {
+      const response = await fetchWithTimeout("/api/messages", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ roomId, messageId }),
@@ -494,23 +498,31 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (DEMO_MODE) return undefined;
-    const timer = window.setInterval(
-      () => setReloadKey((value) => value + 1),
-      20_000,
-    );
-    return () => window.clearInterval(timer);
+    const refresh = () => {
+      if (document.visibilityState === "visible")
+        setReloadKey((value) => value + 1);
+    };
+    const timer = window.setInterval(refresh, 45_000);
+    window.addEventListener("online", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("online", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, []);
 
   useEffect(() => {
     if (DEMO_MODE) return undefined;
     let active = true;
+    const controller = new AbortController();
     async function loadRooms() {
       setLoadState((current) => (current === "ready" ? "ready" : "loading"));
       setLoadError("");
       try {
         const [sessionResponse, roomsResponse] = await Promise.all([
-          fetch("/api/auth/session", { cache: "no-store" }),
-          fetch("/api/chat/rooms", { cache: "no-store" }),
+          fetchWithTimeout("/api/auth/session", { cache: "no-store", signal: controller.signal }),
+          fetchWithTimeout("/api/chat/rooms", { cache: "no-store", signal: controller.signal }),
         ]);
         const sessionPayload = await readApiEnvelope<{
           authenticated: boolean;
@@ -613,11 +625,9 @@ export default function MessagesPage() {
         nearBottomRef.current = true;
         setLoadState("ready");
       } catch (cause) {
-        if (!active) return;
+        if (!active || isAbortError(cause)) return;
         setLoadError(
-          cause instanceof Error
-            ? cause.message
-            : "대화방을 불러오지 못했습니다.",
+          requestErrorMessage(cause, "대화방을 불러오지 못했습니다."),
         );
         setLoadState("error");
       }
@@ -625,19 +635,21 @@ export default function MessagesPage() {
     void loadRooms();
     return () => {
       active = false;
+      controller.abort();
     };
   }, [reloadKey]);
 
   useEffect(() => {
     if (DEMO_MODE || !selectedId || loadState !== "ready") return undefined;
     let active = true;
+    const controller = new AbortController();
     async function loadMessages() {
       setMessagesLoading(true);
       setMessagesError("");
       try {
-        const response = await fetch(
+        const response = await fetchWithTimeout(
           `/api/messages?roomId=${encodeURIComponent(selectedId)}`,
-          { cache: "no-store" },
+          { cache: "no-store", signal: controller.signal },
         );
         const payload = await readApiEnvelope<{
           messages: ServerMessage[];
@@ -668,11 +680,9 @@ export default function MessagesPage() {
           void markRoomRead(selectedId, latest.id);
         }
       } catch (cause) {
-        if (active)
+        if (active && !isAbortError(cause))
           setMessagesError(
-            cause instanceof Error
-              ? cause.message
-              : "메시지를 불러오지 못했습니다.",
+            requestErrorMessage(cause, "메시지를 불러오지 못했습니다."),
           );
       } finally {
         if (active) setMessagesLoading(false);
@@ -681,20 +691,29 @@ export default function MessagesPage() {
     void loadMessages();
     return () => {
       active = false;
+      controller.abort();
     };
   }, [currentUserId, loadState, selectedId]);
 
   useEffect(() => {
-    if (DEMO_MODE || !REALTIME_URL || !currentUserId || loadState !== "ready")
+    if (DEMO_MODE || !currentUserId || loadState !== "ready")
       return undefined;
+    if (!REALTIME_URL) {
+      setConnectionState("polling");
+      return undefined;
+    }
+    setConnectionState("connecting");
     const socket = io(REALTIME_URL, {
       withCredentials: true,
       transports: ["websocket", "polling"],
     });
     socketRef.current = socket;
     socket.on("connect", () => {
+      setConnectionState("live");
       roomsRef.current.forEach((room) => socket.emit("room:join", room.id));
     });
+    socket.on("connect_error", () => setConnectionState("polling"));
+    socket.on("disconnect", () => setConnectionState("polling"));
 
     socket.on("chat:message", (message: ServerMessage) => {
       const roomId = message.roomId;
@@ -888,7 +907,7 @@ export default function MessagesPage() {
     setOlderMessagesLoading(true);
     setMessagesError("");
     try {
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `/api/messages?roomId=${encodeURIComponent(selectedId)}&before=${encodeURIComponent(first.createdAt)}`,
         { cache: "no-store" },
       );
@@ -928,11 +947,7 @@ export default function MessagesPage() {
         loadingOlderRef.current = false;
       }
     } catch (cause) {
-      setMessagesError(
-        cause instanceof Error
-          ? cause.message
-          : "이전 메시지를 불러오지 못했습니다.",
-      );
+      setMessagesError(requestErrorMessage(cause, "이전 메시지를 불러오지 못했습니다."));
       loadingOlderRef.current = false;
     } finally {
       setOlderMessagesLoading(false);
@@ -970,10 +985,10 @@ export default function MessagesPage() {
       if (messageFile) {
         const form = new FormData();
         form.append("file", messageFile);
-        const uploadResponse = await fetch("/api/uploads", {
+        const uploadResponse = await fetchWithTimeout("/api/uploads", {
           method: "POST",
           body: form,
-        });
+        }, 30_000);
         const uploadPayload = await readApiEnvelope<{
           attachment: { id: string };
         }>(uploadResponse);
@@ -1072,7 +1087,7 @@ export default function MessagesPage() {
           ),
         }));
         if (uploadedAttachmentId) {
-          void fetch(
+          void fetchWithTimeout(
             `/api/uploads/${encodeURIComponent(uploadedAttachmentId)}`,
             {
               method: "DELETE",
@@ -1084,7 +1099,7 @@ export default function MessagesPage() {
       }
     } catch (cause) {
       if (uploadedAttachmentId) {
-        void fetch(`/api/uploads/${encodeURIComponent(uploadedAttachmentId)}`, {
+        void fetchWithTimeout(`/api/uploads/${encodeURIComponent(uploadedAttachmentId)}`, {
           method: "DELETE",
           headers: { "content-type": "application/json" },
         }).catch(() => undefined);
@@ -1143,7 +1158,7 @@ export default function MessagesPage() {
     }
     setCreatingRoom(true);
     try {
-      const response = await fetch("/api/chat/rooms", {
+      const response = await fetchWithTimeout("/api/chat/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: roomName.trim(), memberIds }),
@@ -1207,7 +1222,7 @@ export default function MessagesPage() {
       );
     } catch (cause) {
       setCreateError(
-        cause instanceof Error ? cause.message : "대화방을 만들지 못했습니다.",
+        requestErrorMessage(cause, "대화방을 만들지 못했습니다."),
       );
     } finally {
       setCreatingRoom(false);
@@ -1435,6 +1450,12 @@ export default function MessagesPage() {
                 </div>
               </div>
               <div className="flex items-center">
+                <span className={cn(
+                  "mr-2 hidden text-[10px] font-bold sm:inline",
+                  connectionState === "live" ? "text-emerald-700" : "text-amber-700",
+                )} role="status">
+                  {connectionState === "live" ? "실시간" : connectionState === "connecting" ? "연결 중" : "재연결 중"}
+                </span>
                 <IconButton
                   label="대화 내용 검색"
                   onClick={() => setShowMessageSearch((value) => !value)}

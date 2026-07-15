@@ -23,6 +23,7 @@ import {
   serializeAdminInvite,
   studentInviteAdminInclude,
 } from '@/lib/server/student-invites';
+import { withTransactionRetry } from '@/lib/server/transactions';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -120,7 +121,7 @@ export async function POST(request: Request) {
     const activeKey = `${purpose}:${student.studentCode}`;
     const schoolYear = currentKoreanSchoolYear(now);
 
-    const created = await prisma.$transaction(
+    const created = await withTransactionRetry(() => prisma.$transaction(
       async (tx) => {
         await lockResources(tx, [`student-invite:${activeKey}`]);
         await tx.studentInvite.updateMany({
@@ -198,7 +199,7 @@ export async function POST(request: Request) {
         return invite;
       },
       { isolationLevel: 'Serializable' },
-    );
+    ));
 
     return json({ invite: serializeAdminInvite(created), code }, 201);
   } catch (error) {

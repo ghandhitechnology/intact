@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { igkLevelLabel } from '@/lib/igk-levels';
+import { fetchWithTimeout, isAbortError } from '@/lib/client/request';
 import {
   ArrowRight,
   ChevronRight,
@@ -365,19 +366,36 @@ export default function HomePage() {
   const [homePosts, setHomePosts] = useState<PostSummary[]>(demoMode ? demoPosts : []);
   const [noticeItems, setNoticeItems] = useState<Notice[]>(demoMode ? demoNotices : []);
   const [rankingItems, setRankingItems] = useState<RankingMember[]>(demoMode ? demoRanking : []);
-  const [loaded, setLoaded] = useState(false);
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'partial' | 'error'>(demoMode ? 'ready' : 'loading');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (demoMode) return undefined;
     let active = true;
-    Promise.all([
-      fetch('/api/boards', { cache: 'no-store' }).then((response) => response.ok ? response.json() : Promise.reject()),
-      fetch('/api/notices?limit=10', { cache: 'no-store' }).then((response) => response.ok ? response.json() : Promise.reject()),
-      fetch('/api/igk/ranking', { cache: 'no-store' }).then((response) => response.ok ? response.json() : Promise.reject()),
+    const controller = new AbortController();
+    setLoadState('loading');
+    const loadJson = async (url: string) => {
+      const response = await fetchWithTimeout(url, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body) throw new Error('LOAD_FAILED');
+      return body;
+    };
+    Promise.allSettled([
+      loadJson('/api/boards'),
+      loadJson('/api/notices?limit=10'),
+      loadJson('/api/igk/ranking'),
     ])
-      .then(([boardPayload, noticePayload, rankingPayload]) => {
+      .then(([boardResult, noticeResult, rankingResult]) => {
         if (!active) return;
-        const apiBoards = boardPayload?.data?.boards || boardPayload?.boards || [];
-        const nextPosts: PostSummary[] = [];
+        let successful = 0;
+        if (boardResult.status === 'fulfilled') {
+          successful += 1;
+          const boardPayload = boardResult.value;
+          const apiBoards = boardPayload?.data?.boards || boardPayload?.boards || [];
+          const nextPosts: PostSummary[] = [];
         const nextBoards = boards.map((definition) => {
           const board = apiBoards.find((item: any) => item.slug === definition.slug);
           if (!board) return { ...definition, postCount: 0, todayCount: 0 };
@@ -394,35 +412,47 @@ export default function HomePage() {
             weeklyCommentCount: Number(board?.stats?.weeklyComments || 0),
           };
         });
-        const apiNotices = noticePayload?.data?.notices || noticePayload?.notices || [];
-        const apiLeaders = rankingPayload?.data?.leaders || rankingPayload?.leaders || [];
-        setBoardItems(nextBoards);
-        setHomePosts(nextPosts.sort((a, b) => (b.sortAt || 0) - (a.sortAt || 0)));
-        setNoticeItems(apiNotices.map((notice: any) => ({
-          id: notice.id,
-          title: notice.title,
-          date: new Date(notice.publishedAt || notice.createdAt).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace('.', ''),
-          label: notice.priority >= 50 ? '필독' : '안내',
-          important: notice.priority >= 50,
-        })));
-        setRankingItems(apiLeaders.slice(0, 7).map((leader: any, index: number) => ({
-          rank: Number(leader.rank || index + 1),
-          nickname: leader.realName || leader.nickname,
-          studentId: leader?.studentIdentity?.studentCode || '------',
-          level: Number(leader.level || 1),
-          initials: String(leader.realName || leader.nickname || '?').slice(0, 1),
-          profileImage: leader.profileImage || null,
-          accent: 'emerald',
-          igk: Number(leader.currentIgk || 0),
-          change: 0,
-        })));
-        setLoaded(true);
+          setBoardItems(nextBoards);
+          setHomePosts(nextPosts.sort((a, b) => (b.sortAt || 0) - (a.sortAt || 0)));
+        }
+        if (noticeResult.status === 'fulfilled') {
+          successful += 1;
+          const noticePayload = noticeResult.value;
+          const apiNotices = noticePayload?.data?.notices || noticePayload?.notices || [];
+          setNoticeItems(apiNotices.map((notice: any) => ({
+            id: notice.id,
+            title: notice.title,
+            date: new Date(notice.publishedAt || notice.createdAt).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace('.', ''),
+            label: notice.priority >= 50 ? '필독' : '안내',
+            important: notice.priority >= 50,
+          })));
+        }
+        if (rankingResult.status === 'fulfilled') {
+          successful += 1;
+          const rankingPayload = rankingResult.value;
+          const apiLeaders = rankingPayload?.data?.leaders || rankingPayload?.leaders || [];
+          setRankingItems(apiLeaders.slice(0, 7).map((leader: any, index: number) => ({
+            rank: Number(leader.rank || index + 1),
+            nickname: leader.realName || leader.nickname,
+            studentId: leader?.studentIdentity?.studentCode || '------',
+            level: Number(leader.level || 1),
+            initials: String(leader.realName || leader.nickname || '?').slice(0, 1),
+            profileImage: leader.profileImage || null,
+            accent: 'emerald',
+            igk: Number(leader.currentIgk || 0),
+            change: 0,
+          })));
+        }
+        setLoadState(successful === 3 ? 'ready' : successful > 0 ? 'partial' : 'error');
       })
-      .catch(() => {
-        if (active) setLoaded(demoMode);
+      .catch((error) => {
+        if (active && !isAbortError(error)) setLoadState('error');
       });
-    return () => { active = false; };
-  }, [demoMode]);
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [demoMode, reloadKey]);
 
   return (
     <div className="min-h-screen min-w-0 overflow-x-hidden px-0 py-2 text-slate-900 sm:px-6 sm:py-8 lg:px-8">
@@ -447,8 +477,13 @@ export default function HomePage() {
                 <h2 className="text-xl font-black tracking-[-0.035em] text-slate-950">게시판</h2>
                 <span className="hidden items-center gap-2 text-xs text-slate-400 sm:inline-flex">
                   <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
-                  {loaded ? '방금 업데이트됨' : '서버 정보를 불러오는 중…'}
+                  {loadState === 'ready' ? '방금 업데이트됨' : loadState === 'loading' ? '서버 정보를 불러오는 중…' : '일부 정보를 불러오지 못함'}
                 </span>
+                {(loadState === 'partial' || loadState === 'error') ? (
+                  <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="text-xs font-bold text-amber-800 underline underline-offset-2">
+                    다시 불러오기
+                  </button>
+                ) : null}
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 {boardItems.map((board) => (

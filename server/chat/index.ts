@@ -26,7 +26,14 @@ const internalApiUrl = process.env.INTERNAL_API_URL || webOrigin;
 const app = express();
 app.disable('x-powered-by');
 app.use(cors({ origin: webOrigin, credentials: true }));
-app.get('/health', (_request, response) => response.json({ ok: true, service: 'igwak-realtime' }));
+app.get('/health', (_request, response) => {
+  response.setHeader('cache-control', 'no-store');
+  response.json({
+    ok: true,
+    service: 'intact-realtime',
+    connections: io.engine.clientsCount,
+  });
+});
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -275,5 +282,19 @@ io.on('connection', (socket) => {
 
 server.listen(port, () => {
   const instanceId = crypto.randomBytes(3).toString('hex');
-  process.stdout.write(`igwak-realtime:${instanceId} listening on ${port}\n`);
+  process.stdout.write(`intact-realtime:${instanceId} listening on ${port}\n`);
 });
+
+let shuttingDown = false;
+function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  process.stdout.write(`intact-realtime shutting down after ${signal}\n`);
+  io.close(() => {
+    server.close(() => process.exit(0));
+  });
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

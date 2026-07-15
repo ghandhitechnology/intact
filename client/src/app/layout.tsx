@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Wrapper from '@/components/Wrapper';
 import PortalShell from '@/components/portal/PortalShell';
 import PwaRegistration from '@/components/portal/PwaRegistration';
+import NetworkStatus from '@/components/portal/NetworkStatus';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
@@ -46,6 +47,7 @@ export default function RootLayout({
         <Wrapper>
           <PortalShell>{children}</PortalShell>
           <PwaRegistration />
+          <NetworkStatus />
         </Wrapper>
       </body>
     </html>

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  ArrowUpRight,
   ChevronRight,
   Clock3,
   FileText,
@@ -25,6 +24,7 @@ import {
   type Member,
   type PostSummary,
 } from "./demo-data";
+import { fetchWithTimeout, isAbortError, requestErrorMessage } from "@/lib/client/request";
 
 type SearchTab = "posts" | "members" | "tags";
 type Sort = "relevance" | "latest" | "popular";
@@ -112,6 +112,8 @@ export default function SearchClient({
   const [membersLoaded, setMembersLoaded] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const demoMode = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === "true";
 
   const normalizedQuery = normalize(query);
@@ -152,6 +154,7 @@ export default function SearchClient({
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     const trimmedQuery = query.trim();
     const params = new URLSearchParams({ pageSize: "50" });
     if (!trimmedQuery && boardFilter !== "all")
@@ -163,11 +166,12 @@ export default function SearchClient({
       : `/api/posts?${params.toString()}`;
 
     setIsSearching(true);
+    setSearchError("");
     setServerLoaded(false);
     setMembersLoaded(false);
     if (!trimmedQuery) setServerMembers([]);
 
-    fetch(endpoint, { cache: "no-store" })
+    fetchWithTimeout(endpoint, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const body = await response.json().catch(() => null);
         if (!response.ok) throw new Error("search failed");
@@ -231,20 +235,22 @@ export default function SearchClient({
         setServerLoaded(true);
         setMembersLoaded(true);
       })
-      .catch(() => {
-        if (!active) return;
+      .catch((error) => {
+        if (!active || isAbortError(error)) return;
         setServerPosts([]);
         setServerMembers([]);
         setServerLoaded(!demoMode);
         setMembersLoaded(!demoMode);
+        setSearchError(requestErrorMessage(error, "검색 결과를 불러오지 못했습니다."));
       })
       .finally(() => {
         if (active) setIsSearching(false);
       });
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [boardFilter, demoMode, query, sort]);
+  }, [boardFilter, demoMode, query, reloadKey, sort]);
 
   const postResults = useMemo(() => {
     let result = (serverLoaded ? serverPosts : demoMode ? posts : []).filter(
@@ -430,7 +436,14 @@ export default function SearchClient({
               </div>
             </div>
 
-            {tab === "posts" && (
+            {searchError ? (
+              <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-5 py-3 text-xs text-amber-950" role="alert">
+                <span>{searchError}</span>
+                <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="shrink-0 font-bold underline underline-offset-2">다시 시도</button>
+              </div>
+            ) : null}
+
+            {!searchError && tab === "posts" && (
               <>
                 <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                   <p className="text-xs text-slate-500">
@@ -489,7 +502,7 @@ export default function SearchClient({
               </>
             )}
 
-            {tab === "members" && (
+            {!searchError && tab === "members" && (
               <div className="grid gap-px bg-slate-100 sm:grid-cols-2">
                 {memberResults.map((member) => (
                   <article
@@ -508,13 +521,6 @@ export default function SearchClient({
                         학번 {member.studentId}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      className="inline-flex h-8 w-8 items-center justify-center border border-slate-200 text-slate-400 hover:border-blue-400 hover:text-blue-700"
-                      aria-label={`${member.nickname} 프로필 보기`}
-                    >
-                      <ArrowUpRight className="h-3.5 w-3.5" />
-                    </button>
                   </article>
                 ))}
                 {!memberResults.length && (
@@ -525,7 +531,7 @@ export default function SearchClient({
               </div>
             )}
 
-            {tab === "tags" && (
+            {!searchError && tab === "tags" && (
               <div className="grid gap-px bg-slate-100 sm:grid-cols-2 lg:grid-cols-3">
                 {tagResults.map(([tag, count]) => (
                   <button

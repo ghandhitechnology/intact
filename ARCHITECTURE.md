@@ -37,6 +37,8 @@ Browser / installed PWA
 
 Route handler는 입력 크기와 타입, same-origin, rate limit, session scope를 공통 helper로 검증합니다. 관리자 API와 일반 포털 API는 별도 session scope를 사용합니다.
 
+브라우저의 주요 조회·저장 요청은 `client/src/lib/client/request.ts`의 12초 timeout과 `AbortController`를 사용합니다. 화면 전환으로 필요 없어진 요청은 취소하고, 오프라인·timeout·서버 실패와 실제 빈 결과를 서로 다른 상태로 표시합니다. 세션 API 장애는 미인증으로 간주하지 않으며, 명시적인 `authenticated: false` 응답만 로그인 화면 이동의 근거로 사용합니다.
+
 ## 3. 인증과 학생 계정
 
 일반 사용자의 로그인 ID는 허용된 6자리 학번입니다.
@@ -50,7 +52,7 @@ Route handler는 입력 크기와 타입, same-origin, rate limit, session scope
 - `User.loginId` unique
 - `StudentIdentity.studentCode` unique
 - 학번을 저장하는 표마다 동일한 DB CHECK
-- 가입은 serializable transaction
+- 가입은 serializable transaction이며 `P2034` 충돌만 최대 3회 짧게 재시도
 - unique conflict는 HTTP 409
 
 세션은 DB에 저장되며 HttpOnly cookie로 전달됩니다. 포털과 관리자 session/cookie는 분리됩니다. `PORTAL_ENCRYPTION_KEY`는 실명처럼 복호화가 필요한 개인정보에 사용되므로 분실하거나 무계획하게 회전하면 안 됩니다.
@@ -71,6 +73,8 @@ Route handler는 입력 크기와 타입, same-origin, rate limit, session scope
 
 게시된 글의 첨부는 모든 로그인 사용자가 열 수 있고, 메시지 첨부는 해당 대화방의 현재 참여자만 열 수 있습니다. 안전한 이미지·PDF·미디어 MIME은 기본적으로 브라우저에서 inline 표시하고 `?download=1`일 때 원본 다운로드를 강제합니다. HTML, SVG 등 실행 가능성이 있는 형식은 inline 표시하지 않습니다.
 
+MinIO 내부 요청은 30초 뒤 중단되어 object storage 장애가 Web 요청을 무기한 점유하지 않게 합니다. 미리보기는 `X-Frame-Options: SAMEORIGIN` 범위에서만 iframe 표시를 허용하며 외부 사이트의 framing은 차단합니다.
+
 `photos` 게시판은 같은 Post/Attachment 모델을 사용하지만 API에서 별도 불변 조건을 적용합니다. 본문과 태그는 저장하지 않고, 게시 시 JPG·PNG·GIF·WebP·AVIF 중 1~12장이 반드시 연결되어야 합니다. 클라이언트 MIME만 신뢰하지 않고 업로드 시 파일 signature를 확인합니다.
 
 ## 5. 메시지와 실시간 이벤트
@@ -85,6 +89,8 @@ Route handler는 입력 크기와 타입, same-origin, rate limit, session scope
 - 이전 내역 추가 시 사용자가 보던 화면 위치 유지
 
 Realtime을 재시작해도 저장된 메시지는 PostgreSQL에서 복원됩니다. 장애 분석에서는 Web API, realtime gateway, Redis, `/socket.io/` 프록시를 각각 확인해야 합니다.
+
+브라우저는 Socket.IO 연결 상태를 표시하고 연결이 끊기면 화면이 보이는 동안 45초 간격 조회로 보완합니다. gateway의 `/health`는 현재 연결 수를 반환하며 Compose healthcheck가 이 응답을 감시합니다. SIGTERM/SIGINT에서는 새 프로세스로 교체되기 전에 기존 연결을 닫습니다.
 
 ## 6. 알림, IGK와 운영 기능
 

@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import { igkLevelLabel } from '@/lib/igk-levels';
+import { fetchWithTimeout, isAbortError } from '@/lib/client/request';
 
 const navigation = [
   { href: '/', label: '홈', icon: Home },
@@ -45,6 +46,7 @@ function requiresPortalSession(pathname: string) {
 }
 
 type SessionUser = {
+  id?: string;
   nickname?: string;
   realName?: string;
   profileImage?: string | null;
@@ -63,41 +65,83 @@ export default function PortalShell({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState('');
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(DEMO_MODE ? DEMO_USER : null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [sessionCheckFailed, setSessionCheckFailed] = useState(false);
+  const [sessionRefreshKey, setSessionRefreshKey] = useState(0);
+  const sessionUserKey = sessionUser?.id || sessionUser?.studentCode || '';
 
   useEffect(() => {
     if (DEMO_MODE) return;
     let active = true;
-    fetch('/api/auth/session', { cache: 'no-store' })
+    const controller = new AbortController();
+    fetchWithTimeout('/api/auth/session', { cache: 'no-store', signal: controller.signal })
       .then(async (response) => ({ response, data: await response.json().catch(() => null) }))
       .then(({ response, data }) => {
         if (!active) return;
+        const authState = data?.data?.authenticated ?? data?.authenticated;
+        if (!response.ok || typeof authState !== 'boolean') {
+          throw new Error('SESSION_CHECK_FAILED');
+        }
+        setSessionCheckFailed(false);
         const reason = data?.data?.reason || data?.reason;
         if (reason === 'PENDING_REVERIFICATION' && pathname !== '/reverify') {
           router.replace('/reverify');
           return;
         }
         const user = data?.data?.user || data?.user;
-        const authenticated = data?.data?.authenticated ?? data?.authenticated ?? Boolean(user);
-        if ((response.status === 401 || !authenticated) && requiresPortalSession(pathname)) {
+        if (!authState && requiresPortalSession(pathname)) {
           setSessionUser(null);
           router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
           return;
         }
         setSessionUser(user || null);
       })
-      .catch(() => undefined);
+      .catch((error) => {
+        if (active && !isAbortError(error)) setSessionCheckFailed(true);
+      });
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [pathname, router]);
+  }, [pathname, router, sessionRefreshKey]);
 
   useEffect(() => {
-    if (!sessionUser) return;
-    fetch('/api/notifications?pageSize=1', { cache: 'no-store' })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((body) => setUnreadCount(Number(body?.data?.unreadCount || body?.unreadCount || 0)))
-      .catch(() => undefined);
-  }, [sessionUser, pathname]);
+    const refresh = () => setSessionRefreshKey((value) => value + 1);
+    window.addEventListener('online', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.removeEventListener('online', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sessionUserKey) return;
+    let active = true;
+    let controller: AbortController | null = null;
+    const loadUnread = () => {
+      if (document.visibilityState === 'hidden') return;
+      controller?.abort();
+      controller = new AbortController();
+      fetchWithTimeout('/api/notifications?pageSize=1', {
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((body) => {
+          if (active && body) setUnreadCount(Number(body?.data?.unreadCount || body?.unreadCount || 0));
+        })
+        .catch(() => undefined);
+    };
+    loadUnread();
+    const timer = window.setInterval(loadUnread, 60_000);
+    window.addEventListener('focus', loadUnread);
+    return () => {
+      active = false;
+      controller?.abort();
+      window.clearInterval(timer);
+      window.removeEventListener('focus', loadUnread);
+    };
+  }, [sessionUserKey]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -112,7 +156,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+    await fetchWithTimeout('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
     setSessionUser(null);
     setUnreadCount(0);
     router.replace('/login');
@@ -259,6 +303,15 @@ export default function PortalShell({ children }: { children: ReactNode }) {
           </div>
         )}
       </header>
+
+      {sessionCheckFailed && !isAdmin ? (
+        <div className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-xs text-amber-950" role="status">
+          서버 연결이 불안정합니다.
+          <button type="button" className="ml-2 font-bold underline underline-offset-2" onClick={() => setSessionRefreshKey((value) => value + 1)}>
+            다시 연결
+          </button>
+        </div>
+      ) : null}
 
       <main id="main-content" className={isAdmin ? 'min-h-[calc(100vh-120px)]' : 'portal-container min-h-[calc(100vh-240px)] py-5 lg:py-7'}>
         {children}

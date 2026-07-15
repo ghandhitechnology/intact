@@ -12,6 +12,7 @@ import {
   requiredString,
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
+import { isRetryableTransactionError } from '@/lib/server/transactions';
 
 export const runtime = 'nodejs';
 
@@ -26,10 +27,6 @@ function seoulDayStart() {
   const shifted = new Date(Date.now() + 9 * 60 * 60 * 1000);
   shifted.setUTCHours(0, 0, 0, 0);
   return new Date(shifted.getTime() - 9 * 60 * 60 * 1000);
-}
-
-function isRetryableTransactionError(error: unknown) {
-  return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === 'P2034';
 }
 
 export async function POST(request: Request) {

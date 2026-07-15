@@ -59,9 +59,23 @@ export function jsonError(error: unknown) {
     console.error('[api] unhandled error', error);
   }
 
+  const headers: Record<string, string> = { ...JSON_HEADERS };
+  if (
+    status === 429 &&
+    isApiError &&
+    typeof error.details === 'object' &&
+    error.details !== null &&
+    'retryAfter' in error.details
+  ) {
+    const retryAfter = Number((error.details as { retryAfter?: unknown }).retryAfter);
+    if (Number.isFinite(retryAfter) && retryAfter > 0) {
+      headers['Retry-After'] = String(Math.ceil(retryAfter));
+    }
+  }
+
   return new Response(JSON.stringify(body), {
     status,
-    headers: JSON_HEADERS,
+    headers,
   });
 }
 

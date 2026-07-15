@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { fetchWithTimeout, isAbortError, requestErrorMessage } from "@/lib/client/request";
 
 const DEMO_MODE = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === "true";
 
@@ -413,7 +414,7 @@ export default function NotificationsPage() {
       setLoadState("loading");
       setLoadError("");
       try {
-        const response = await fetch("/api/notifications?pageSize=100", {
+        const response = await fetchWithTimeout("/api/notifications?pageSize=100", {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -433,12 +434,8 @@ export default function NotificationsPage() {
         setNotifications(payload.data.notifications.map(mapNotification));
         setLoadState("ready");
       } catch (cause) {
-        if (!active || controller.signal.aborted) return;
-        setLoadError(
-          cause instanceof Error
-            ? cause.message
-            : "알림을 불러오지 못했습니다.",
-        );
+        if (!active || isAbortError(cause)) return;
+        setLoadError(requestErrorMessage(cause, "알림을 불러오지 못했습니다."));
         setLoadState("error");
       }
     }
@@ -536,7 +533,7 @@ export default function NotificationsPage() {
     successMessage?: string,
   ) {
     try {
-      const response = await fetch("/api/notifications", {
+      const response = await fetchWithTimeout("/api/notifications", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -554,11 +551,7 @@ export default function NotificationsPage() {
       return true;
     } catch (cause) {
       setToastTone("error");
-      setToast(
-        cause instanceof Error
-          ? cause.message
-          : "알림 상태를 서버에 반영하지 못했습니다.",
-      );
+      setToast(requestErrorMessage(cause, "알림 상태를 서버에 반영하지 못했습니다."));
       return false;
     }
   }

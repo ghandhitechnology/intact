@@ -31,6 +31,7 @@ import {
   type PostSummary,
 } from "./demo-data";
 import AttachmentGallery from "./AttachmentGallery";
+import { fetchWithTimeout, isAbortError, requestErrorMessage } from "@/lib/client/request";
 
 type Filter = "all" | "popular" | "solved" | "files";
 type Sort = "latest" | "likes" | "comments" | "views";
@@ -231,6 +232,8 @@ export default function BoardListClient({
   });
   const [serverLoaded, setServerLoaded] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const style = boardStyles[board.accent];
 
   useEffect(() => {
@@ -239,7 +242,7 @@ export default function BoardListClient({
 
   useEffect(() => {
     let active = true;
-    setIsRefreshing(true);
+    const controller = new AbortController();
     const params = new URLSearchParams({
       board: board.slug,
       page: String(page),
@@ -249,7 +252,13 @@ export default function BoardListClient({
     });
     if (query.trim()) params.set("q", query.trim());
     if (tag) params.set("tag", tag);
-    fetch(`/api/posts?${params.toString()}`, { cache: "no-store" })
+    const timer = window.setTimeout(() => {
+      setIsRefreshing(true);
+      setLoadError("");
+      fetchWithTimeout(`/api/posts?${params.toString()}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      })
       .then(async (response) => {
         const body = await response.json().catch(() => null);
         if (!response.ok) throw new Error("load failed");
@@ -263,14 +272,21 @@ export default function BoardListClient({
           setServerLoaded(true);
         }
       })
-      .catch(() => undefined)
+      .catch((error) => {
+        if (active && !isAbortError(error)) {
+          setLoadError(requestErrorMessage(error, "게시글을 불러오지 못했습니다."));
+        }
+      })
       .finally(() => {
         if (active) setIsRefreshing(false);
       });
+    }, query.trim() ? 250 : 0);
     return () => {
       active = false;
+      window.clearTimeout(timer);
+      controller.abort();
     };
-  }, [board, filter, page, query, sort, tag]);
+  }, [board, filter, page, query, reloadKey, sort, tag]);
 
   const filteredPosts = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("ko");
@@ -439,6 +455,13 @@ export default function BoardListClient({
               </div>
             )}
 
+            {loadError ? (
+              <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-5 py-3 text-xs text-amber-950" role="alert">
+                <span>{loadError}</span>
+                <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="shrink-0 font-bold underline underline-offset-2">다시 시도</button>
+              </div>
+            ) : null}
+
             <div>
               {filteredPosts.length > 0 ? (
                 filteredPosts.map((post) =>
@@ -455,10 +478,10 @@ export default function BoardListClient({
                     aria-hidden="true"
                   />
                   <p className="mt-3 text-sm font-extrabold text-slate-700">
-                    조건에 맞는 글이 없어요.
+                    {loadError ? "게시글을 표시할 수 없어요." : "조건에 맞는 글이 없어요."}
                   </p>
                   <p className="mt-1 text-xs text-slate-400">
-                    검색어나 필터를 바꿔 보세요.
+                    {loadError ? "다시 시도해 주세요." : "검색어나 필터를 바꿔 보세요."}
                   </p>
                 </div>
               )}

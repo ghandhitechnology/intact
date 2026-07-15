@@ -10,6 +10,7 @@ import {
   normalizeStudentCode,
   STUDENT_CODE_REQUIREMENTS,
 } from '@/lib/student-code';
+import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
 
 function safeReturnTo(raw: string | null) {
   if (!raw || raw.includes('\\') || /[\u0000-\u001f]/.test(raw)) return '/';
@@ -34,19 +35,20 @@ export default function LoginPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setError(null);
     if (!isValidStudentCode(studentId)) {
       setError(STUDENT_CODE_REQUIREMENTS);
       return;
     }
-    if (password.length < 8) {
-      setError('비밀번호는 8자 이상이어야 합니다.');
+    if (password.length < 10) {
+      setError('비밀번호는 10자 이상이어야 합니다.');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetchWithTimeout('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId, password, remember }),
@@ -68,7 +70,7 @@ export default function LoginPage() {
       }
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '로그인 중 문제가 발생했습니다.');
+      setError(requestErrorMessage(cause, '로그인 중 문제가 발생했습니다.'));
     } finally {
       setLoading(false);
     }
@@ -76,7 +78,7 @@ export default function LoginPage() {
 
   return (
     <AuthFrame mode="login" title="로그인">
-      <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+      <form onSubmit={handleSubmit} className="space-y-6" noValidate aria-busy={loading}>
         <Field label="6자리 학번" error={error?.includes('학번') ? error : undefined}>
           <Input
             required
@@ -86,6 +88,7 @@ export default function LoginPage() {
             className="h-12  border-[#c9ccc6] bg-white px-4 text-[15px] focus:border-[#28745c] focus:ring-2 focus:ring-[#dcebe5]"
             maxLength={6}
             value={studentId}
+            disabled={loading}
             onChange={(event) => setStudentId(normalizeStudentCode(event.target.value))}
           />
         </Field>
@@ -98,6 +101,7 @@ export default function LoginPage() {
               placeholder="비밀번호 입력"
               className="h-12  border-[#c9ccc6] bg-white px-4 pr-16 text-[15px] focus:border-[#28745c] focus:ring-2 focus:ring-[#dcebe5]"
               value={password}
+              disabled={loading}
               onChange={(event) => setPassword(event.target.value)}
             />
             <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'} className="absolute right-1 top-1 grid h-10 min-w-12 place-items-center px-2 text-xs font-semibold text-[#5d645e] hover:text-[#20231f]">

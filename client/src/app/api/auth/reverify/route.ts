@@ -12,6 +12,7 @@ import {
 } from '@/lib/server/http';
 import { attachSessionCookie, createPortalSession, resolveSession } from '@/lib/server/session';
 import { parseStudentCode } from '@/lib/server/student-invites';
+import { withTransactionRetry } from '@/lib/server/transactions';
 
 export const runtime = 'nodejs';
 
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
     const now = new Date();
     const tokenHash = hashToken(verificationTicket);
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await withTransactionRetry(() => prisma.$transaction(async (tx) => {
       const ticket = await tx.verificationTicket.findUnique({ where: { tokenHash } });
       if (!ticket || ticket.purpose !== 'REVERIFY' || ticket.usedAt || ticket.expiresAt <= now) {
         throw new ApiError(400, 'INVALID_TICKET', '재인증이 만료되었습니다. 운영자에게 새 재인증 코드를 요청해 주세요.');
@@ -128,7 +129,7 @@ export async function POST(request: Request) {
         data: { usedAt: now },
       });
       return { studentCode: ticket.studentCode, schoolYear: ticket.schoolYear };
-    }, { isolationLevel: 'Serializable' });
+    }, { isolationLevel: 'Serializable' }));
 
     const rotatedSession = await createPortalSession(session.user.id, request, 'PORTAL', true);
     return attachSessionCookie(

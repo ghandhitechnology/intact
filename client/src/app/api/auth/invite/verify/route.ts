@@ -12,6 +12,7 @@ import {
 } from '@/lib/server/http';
 import { resolveSession } from '@/lib/server/session';
 import { parseStudentCode, parseVerificationPurpose } from '@/lib/server/student-invites';
+import { withTransactionRetry } from '@/lib/server/transactions';
 
 export const runtime = 'nodejs';
 
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
 
     const now = new Date();
     const verificationTicket = randomToken();
-    const result = await prisma.$transaction(
+    const result = await withTransactionRetry(() => prisma.$transaction(
       async (tx) => {
         const invite = await tx.studentInvite.findUnique({ where: { codeHash } });
         if (!invite || invite.purpose !== purpose) {
@@ -143,7 +144,7 @@ export async function POST(request: Request) {
         };
       },
       { isolationLevel: 'Serializable' },
-    );
+    ));
 
     return json({
       verificationTicket,

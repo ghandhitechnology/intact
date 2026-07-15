@@ -2,6 +2,7 @@
 
 import { AlertCircle, Bell, CalendarClock, Megaphone } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { fetchWithTimeout, isAbortError, requestErrorMessage } from '@/lib/client/request';
 
 type NoticeItem = {
   id: string;
@@ -17,10 +18,14 @@ export default function NoticesPage() {
   const [items, setItems] = useState<NoticeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
-    fetch('/api/notices?limit=50', { cache: 'no-store' })
+    const controller = new AbortController();
+    setLoading(true);
+    setError('');
+    fetchWithTimeout('/api/notices?limit=50', { cache: 'no-store', signal: controller.signal })
       .then(async (response) => {
         const body = await response.json().catch(() => null);
         if (!response.ok || !body?.ok) throw new Error(body?.error?.message || '공지를 불러오지 못했습니다.');
@@ -30,13 +35,16 @@ export default function NoticesPage() {
         if (active) setItems(notices);
       })
       .catch((cause) => {
-        if (active) setError(cause instanceof Error ? cause.message : '공지를 불러오지 못했습니다.');
+        if (active && !isAbortError(cause)) setError(requestErrorMessage(cause, '공지를 불러오지 못했습니다.'));
       })
       .finally(() => {
         if (active) setLoading(false);
       });
-    return () => { active = false; };
-  }, []);
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [reloadKey]);
 
   useEffect(() => {
     if (loading) return;
@@ -75,7 +83,7 @@ export default function NoticesPage() {
       </header>
       <div className="border-x border-b border-slate-300 bg-white">
         {loading && <div className="px-6 py-16 text-center text-sm font-bold text-slate-400">공지를 불러오는 중…</div>}
-        {error && <div role="alert" className="m-6 flex gap-2 border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700"><AlertCircle size={18} />{error}</div>}
+        {error && <div role="alert" className="m-6 flex items-center gap-2 border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700"><AlertCircle size={18} /><span className="min-w-0 flex-1">{error}</span><button type="button" onClick={() => setReloadKey((value) => value + 1)} className="shrink-0 underline underline-offset-2">다시 시도</button></div>}
         {!loading && !error && items.length === 0 && <div className="px-6 py-16 text-center"><Bell className="mx-auto text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-500">공지 없음</p></div>}
         {items.map((notice) => (
           <article

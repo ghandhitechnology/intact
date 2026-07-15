@@ -6,6 +6,7 @@
 - 소스 저장소: [ghandhitechnology/intact](https://github.com/ghandhitechnology/intact)
 - 운영·배포 인수인계: [DEPLOYMENT_HANDOVER.md](./DEPLOYMENT_HANDOVER.md)
 - 시스템 구조와 데이터 흐름: [ARCHITECTURE.md](./ARCHITECTURE.md)
+- 안정성 점검과 읽기 전용 부하 테스트: [STABILITY_REPORT.md](./STABILITY_REPORT.md)
 
 실제 비밀번호, 암호화 키, 운영 DB, 첨부 파일 및 백업은 저장소에 포함하지 않습니다.
 
@@ -134,6 +135,12 @@ Docker 배포 전에는 추가로 다음을 확인합니다.
 ```bash
 git diff --check
 docker compose config --quiet
+```
+
+공개 운영 경로의 5xx, timeout과 응답 지연 분포는 쓰기 작업이 없는 반복 테스트로 확인합니다.
+
+```bash
+node scripts/stress-readonly.mjs --base=https://ishsoutside.com --requests=120 --concurrency=12
 ```
 
 운영 배포는 반드시 백업 후 진행하고, `/api/health`, Socket.IO handshake, 로그인, 글·첨부·메시지·알림 경로를 실제 환경에서 확인합니다. 전체 절차는 [DEPLOYMENT_HANDOVER.md](./DEPLOYMENT_HANDOVER.md)를 따릅니다.

@@ -3,6 +3,7 @@
 import { CheckCircle2, Loader2, ShieldAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
+import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
 
 export default function AdminChangePasswordPage() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function AdminChangePasswordPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (loading) return;
     if (newPassword !== confirm) {
       setError('새 비밀번호가 일치하지 않습니다.');
       return;
@@ -21,7 +23,7 @@ export default function AdminChangePasswordPage() {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/admin/auth/password', {
+      const response = await fetchWithTimeout('/api/admin/auth/password', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ currentPassword, newPassword }),
@@ -31,7 +33,7 @@ export default function AdminChangePasswordPage() {
       router.replace('/admin');
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '비밀번호를 변경하지 못했습니다.');
+      setError(requestErrorMessage(cause, '비밀번호를 변경하지 못했습니다.'));
     } finally {
       setLoading(false);
     }

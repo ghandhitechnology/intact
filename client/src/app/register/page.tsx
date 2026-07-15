@@ -10,6 +10,7 @@ import {
   normalizeStudentCode,
   STUDENT_CODE_REQUIREMENTS,
 } from '@/lib/student-code';
+import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
 
 export default function RegisterPage() {
   const demoMode = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === 'true';
@@ -27,6 +28,7 @@ export default function RegisterPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setError(null);
     const normalizedName = realName.normalize('NFKC').trim();
     const normalizedStudentCode = normalizeStudentCode(studentCode);
@@ -54,7 +56,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       if (!demoMode) {
-        const response = await fetch('/api/auth/register', {
+        const response = await fetchWithTimeout('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -73,7 +75,7 @@ export default function RegisterPage() {
       setPasswordConfirm('');
       setDone(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '계정을 만들지 못했습니다.');
+      setError(requestErrorMessage(cause, '계정을 만들지 못했습니다.'));
     } finally {
       setLoading(false);
     }
@@ -92,7 +94,7 @@ export default function RegisterPage() {
           <Link href="/" className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 border border-blue-700 bg-blue-700 text-sm font-extrabold text-white hover:bg-blue-800">인텍트 시작하기 <ArrowRight className="h-4 w-4" /></Link>
         </div>
       ) : (
-        <form onSubmit={submit} className="space-y-5">
+        <form onSubmit={submit} className="space-y-5" aria-busy={loading}>
           <Field label="실명" required>
             <Input value={realName} onChange={(event) => setRealName(event.target.value)} autoComplete="name" maxLength={40} placeholder="이름" />
           </Field>

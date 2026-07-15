@@ -37,42 +37,61 @@ export async function GET(request: Request) {
     const todayStart = new Date(`${datePart('year')}-${datePart('month')}-${datePart('day')}T00:00:00+09:00`);
     const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1_000);
 
-    const boardsWithStats = await Promise.all(boards.map(async (board) => {
-      const [todayPosts, todayComments, weeklyPosts, weeklyComments] = await prisma.$transaction([
-        prisma.post.count({
-          where: {
-            boardId: board.id,
-            status: 'PUBLISHED',
-            publishedAt: { gte: todayStart, lte: now },
-          },
-        }),
-        prisma.comment.count({
-          where: {
-            status: 'PUBLISHED',
-            createdAt: { gte: todayStart, lte: now },
-            post: { boardId: board.id, status: 'PUBLISHED' },
-          },
-        }),
-        prisma.post.count({
-          where: {
-            boardId: board.id,
-            status: 'PUBLISHED',
-            publishedAt: { gte: weekStart, lte: now },
-          },
-        }),
-        prisma.comment.count({
-          where: {
-            status: 'PUBLISHED',
-            createdAt: { gte: weekStart, lte: now },
-            post: { boardId: board.id, status: 'PUBLISHED' },
-          },
-        }),
-      ]);
+    const statsRows = await prisma.$queryRaw<Array<{
+      boardId: string;
+      todayPosts: bigint;
+      todayComments: bigint;
+      weeklyPosts: bigint;
+      weeklyComments: bigint;
+    }>>`
+      WITH post_stats AS (
+        SELECT
+          "boardId",
+          COUNT(*) FILTER (WHERE "publishedAt" >= ${todayStart}) AS "todayPosts",
+          COUNT(*) AS "weeklyPosts"
+        FROM "Post"
+        WHERE status = 'PUBLISHED'
+          AND "publishedAt" >= ${weekStart}
+          AND "publishedAt" <= ${now}
+        GROUP BY "boardId"
+      ),
+      comment_stats AS (
+        SELECT
+          p."boardId",
+          COUNT(*) FILTER (WHERE c."createdAt" >= ${todayStart}) AS "todayComments",
+          COUNT(*) AS "weeklyComments"
+        FROM "Comment" c
+        INNER JOIN "Post" p ON p.id = c."postId"
+        WHERE c.status = 'PUBLISHED'
+          AND p.status = 'PUBLISHED'
+          AND c."createdAt" >= ${weekStart}
+          AND c."createdAt" <= ${now}
+        GROUP BY p."boardId"
+      )
+      SELECT
+        b.id AS "boardId",
+        COALESCE(ps."todayPosts", 0) AS "todayPosts",
+        COALESCE(cs."todayComments", 0) AS "todayComments",
+        COALESCE(ps."weeklyPosts", 0) AS "weeklyPosts",
+        COALESCE(cs."weeklyComments", 0) AS "weeklyComments"
+      FROM "Board" b
+      LEFT JOIN post_stats ps ON ps."boardId" = b.id
+      LEFT JOIN comment_stats cs ON cs."boardId" = b.id
+      WHERE b.status = 'ACTIVE'
+    `;
+    const statsByBoard = new Map(statsRows.map((row) => [row.boardId, row]));
+    const boardsWithStats = boards.map((board) => {
+      const row = statsByBoard.get(board.id);
       return {
         ...board,
-        stats: { todayPosts, todayComments, weeklyPosts, weeklyComments },
+        stats: {
+          todayPosts: Number(row?.todayPosts ?? 0),
+          todayComments: Number(row?.todayComments ?? 0),
+          weeklyPosts: Number(row?.weeklyPosts ?? 0),
+          weeklyComments: Number(row?.weeklyComments ?? 0),
+        },
       };
-    }));
+    });
     return json({ boards: boardsWithStats });
   } catch (error) {
     return jsonError(error);

@@ -4,7 +4,7 @@
 
 이 문서는 새 개발자나 자동화 에이전트가 별도 대화 기록 없이 인텍트를 로컬에서 실행하고, 운영 VPS에 안전하게 배포하고, 장애 복구까지 수행할 수 있도록 현재 구성을 정리한 기준 문서입니다. 비밀번호, 세션 키, 암호화 키 같은 실제 비밀값은 절대 이 문서나 Git에 기록하지 않습니다.
 
-프로젝트 기능과 빠른 시작은 [README.md](./README.md), 런타임 경계와 데이터 흐름은 [ARCHITECTURE.md](./ARCHITECTURE.md)를 먼저 확인합니다.
+프로젝트 기능과 빠른 시작은 [README.md](./README.md), 런타임 경계와 데이터 흐름은 [ARCHITECTURE.md](./ARCHITECTURE.md)를 먼저 확인합니다. 안정성 회귀와 부하 기준은 [STABILITY_REPORT.md](./STABILITY_REPORT.md)에 기록합니다.
 
 ## 1. 현재 운영 환경
 
@@ -358,7 +358,7 @@ docker inspect --format='{{.State.Health.Status}}' igwak-portal-web-1
 REMOTE
 ```
 
-`web`, `postgres`, `redis`는 `healthy`여야 합니다. `migrate`와 `minio-init`은 성공 후 종료되는 일회성 서비스입니다.
+`web`, `realtime`, `postgres`, `redis`는 `healthy`여야 합니다. `migrate`와 `minio-init`은 성공 후 종료되는 일회성 서비스입니다. realtime health 응답의 `connections`는 현재 연결 수이며 0도 정상입니다.
 
 ### 공개 endpoint
 
@@ -367,6 +367,17 @@ curl -fsS https://ishsoutside.com/api/health
 curl -fsS https://ishsoutside.com/manifest.webmanifest
 curl -fsS 'https://ishsoutside.com/socket.io/?EIO=4&transport=polling'
 ```
+
+기능 smoke test가 끝난 뒤 공개 읽기 부하를 실행합니다. 운영 중에는 기본값보다 높은 동시성을 임의로 사용하지 않습니다.
+
+```bash
+node scripts/stress-readonly.mjs \
+  --base=https://ishsoutside.com \
+  --requests=120 \
+  --concurrency=12
+```
+
+network error 또는 5xx가 있으면 스크립트가 실패합니다. p95가 기존 [안정성 기준](./STABILITY_REPORT.md)보다 크게 악화되면 컨테이너 log와 PostgreSQL 상태를 확인한 뒤 배포를 완료하지 않습니다.
 
 기대 결과:
 

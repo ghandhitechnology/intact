@@ -3,6 +3,7 @@
 import { Eye, EyeOff, KeyRound, Loader2, Lock, ShieldCheck } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, useState } from 'react';
+import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -15,10 +16,11 @@ export default function AdminLoginPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/admin/auth/login', {
+      const response = await fetchWithTimeout('/api/admin/auth/login', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ identifier, password }),
@@ -33,7 +35,7 @@ export default function AdminLoginPage() {
       }
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '관리자 로그인에 실패했습니다.');
+      setError(requestErrorMessage(cause, '관리자 로그인에 실패했습니다.'));
     } finally {
       setLoading(false);
     }

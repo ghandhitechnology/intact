@@ -13,6 +13,7 @@ import {
 } from '@/lib/server/http';
 import { attachSessionCookie, createPortalSession, publicUser } from '@/lib/server/session';
 import { currentKoreanSchoolYear, normalizeStudentName, parseStudentCode } from '@/lib/server/student-invites';
+import { withTransactionRetry } from '@/lib/server/transactions';
 
 export const runtime = 'nodejs';
 
@@ -84,7 +85,7 @@ export async function POST(request: Request) {
       const identityFingerprint = privateFingerprint(`open-registration:${student.studentCode}`);
       const internalNickname = `${student.studentCode}-${realName}`.slice(0, 32);
 
-      const user = await prisma.$transaction(
+      const user = await withTransactionRetry(() => prisma.$transaction(
         async (tx) => {
           const [existingIdentity, existingLogin] = await Promise.all([
             tx.studentIdentity.findUnique({
@@ -122,7 +123,7 @@ export async function POST(request: Request) {
           });
         },
         { isolationLevel: 'Serializable' },
-      );
+      ));
       const session = await createPortalSession(user.id, request);
       return attachSessionCookie(
         json({ user: publicUser(user), mustChangePassword: false }, 201),
@@ -156,7 +157,7 @@ export async function POST(request: Request) {
     const passwordHash = await hashPassword(password);
     const now = new Date();
 
-    const user = await prisma.$transaction(
+    const user = await withTransactionRetry(() => prisma.$transaction(
       async (tx) => {
         const ticket = await tx.verificationTicket.findUnique({
           where: { tokenHash: hashToken(verificationTicket) },
@@ -242,7 +243,7 @@ export async function POST(request: Request) {
         return created;
       },
       { isolationLevel: 'Serializable' },
-    );
+    ));
 
     const session = await createPortalSession(user.id, request);
     return attachSessionCookie(

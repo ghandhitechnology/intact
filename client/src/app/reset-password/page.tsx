@@ -5,6 +5,7 @@ import { apiErrorMessage, Button, Field, Input, LoadingLabel, readApiEnvelope } 
 import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
+import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
 
 type VerificationResponse = {
   verificationTicket: string;
@@ -24,10 +25,11 @@ export default function ResetPasswordPage() {
 
   async function verifyIdentity(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/auth/invite/verify', {
+      const response = await fetchWithTimeout('/api/auth/invite/verify', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ code: inviteCode.trim(), purpose: 'RESET' }),
@@ -39,7 +41,7 @@ export default function ResetPasswordPage() {
       setInviteCode('');
       setStep('password');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '본인 확인을 진행하지 못했습니다.');
+      setError(requestErrorMessage(cause, '본인 확인을 진행하지 못했습니다.'));
     } finally {
       setLoading(false);
     }
@@ -47,6 +49,7 @@ export default function ResetPasswordPage() {
 
   async function resetPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setError('');
     if (newPassword.length < 10 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
       setError('새 비밀번호는 영문자와 숫자를 포함해 10자 이상으로 설정해 주세요.');
@@ -58,7 +61,7 @@ export default function ResetPasswordPage() {
     }
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/reset-password', {
+      const response = await fetchWithTimeout('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ verificationTicket: ticket, newPassword }),
@@ -70,7 +73,7 @@ export default function ResetPasswordPage() {
       setConfirmPassword('');
       setStep('done');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '비밀번호를 재설정하지 못했습니다.');
+      setError(requestErrorMessage(cause, '비밀번호를 재설정하지 못했습니다.'));
     } finally {
       setLoading(false);
     }

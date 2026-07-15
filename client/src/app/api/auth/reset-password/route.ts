@@ -11,6 +11,7 @@ import {
   requiredString,
 } from '@/lib/server/http';
 import { parseStudentCode } from '@/lib/server/student-invites';
+import { withTransactionRetry } from '@/lib/server/transactions';
 
 export const runtime = 'nodejs';
 
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
     const now = new Date();
     const tokenHash = hashToken(verificationTicket);
     const passwordHash = await hashPassword(newPassword);
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await withTransactionRetry(() => prisma.$transaction(async (tx) => {
       const ticket = await tx.verificationTicket.findUnique({
         where: { tokenHash },
         include: { studentInvite: { select: { id: true } } },
@@ -124,7 +125,7 @@ export async function POST(request: Request) {
         data: { usedAt: now },
       });
       return { studentCode: ticket.studentCode };
-    }, { isolationLevel: 'Serializable' });
+    }, { isolationLevel: 'Serializable' }));
 
     return json({ reset: true, studentCode: result.studentCode });
   } catch (error) {
