@@ -13,9 +13,13 @@ export const IGK_LEVELS = [
 
 export type IgkLevelRule = (typeof IGK_LEVELS)[number];
 
-export function igkLevelLabel(level: number) {
+export function igkLevelLabel(level: number, teacherRank?: number | null) {
   const normalized = Math.max(1, Math.min(IGK_LEVELS.length, Math.trunc(level) || 1));
-  return IGK_LEVELS[normalized - 1]?.label ?? IGK_LEVELS[0].label;
+  const label = IGK_LEVELS[normalized - 1]?.label ?? IGK_LEVELS[0].label;
+  const rank = Math.trunc(Number(teacherRank));
+  return normalized === IGK_LEVELS.length && rank >= 1 && rank <= 10
+    ? `${label} · ${rank}짱`
+    : label;
 }
 
 export function igkLevelForLifetime(lifetimeIgk: number) {

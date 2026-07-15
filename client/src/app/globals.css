@@ -34,6 +34,11 @@
   border-radius: 9999px !important;
 }
 
+.teacher-avatar {
+  border-color: #2563eb !important;
+  border-width: 2px !important;
+}
+
 html {
   scroll-behavior: smooth;
   background: var(--surface-muted);

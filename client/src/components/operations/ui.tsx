@@ -119,14 +119,14 @@ export function Badge({ tone = 'slate', children, className }: {
   return <span className={cn('inline-flex min-h-[24px] items-center  border px-2 text-[11px] font-bold leading-5', tones[tone], className)}>{children}</span>;
 }
 
-export function Avatar({ name, imageUrl, size = 'md', status, tone = 'blue' }: {
-  name: string; imageUrl?: string | null; size?: 'sm' | 'md' | 'lg' | 'xl'; status?: 'online' | 'offline'; tone?: 'blue' | 'green' | 'violet' | 'amber' | 'slate';
+export function Avatar({ name, imageUrl, size = 'md', status, tone = 'blue', className }: {
+  name: string; imageUrl?: string | null; size?: 'sm' | 'md' | 'lg' | 'xl'; status?: 'online' | 'offline'; tone?: 'blue' | 'green' | 'violet' | 'amber' | 'slate'; className?: string;
 }) {
   const sizes = { sm: 'h-8 w-8 text-xs', md: 'h-10 w-10 text-sm', lg: 'h-12 w-12 text-base', xl: 'h-20 w-20 text-2xl' };
   const tones = { blue: 'bg-blue-100 text-blue-800', green: 'bg-emerald-100 text-emerald-800', violet: 'bg-violet-100 text-violet-800', amber: 'bg-amber-100 text-amber-800', slate: 'bg-slate-200 text-slate-700' };
   return (
     <span className="relative inline-flex shrink-0">
-      <span className={cn('inline-flex items-center justify-center rounded-full border border-white bg-cover bg-center font-black tracking-[-0.04em]', sizes[size], tones[tone])} style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}>{imageUrl ? <span className="sr-only">{name} 프로필 이미지</span> : name.slice(0, 2)}</span>
+      <span className={cn('inline-flex items-center justify-center rounded-full border border-white bg-cover bg-center font-black tracking-[-0.04em]', sizes[size], tones[tone], className)} style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}>{imageUrl ? <span className="sr-only">{name} 프로필 이미지</span> : name.slice(0, 2)}</span>
       {status ? <span className={cn('absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white', status === 'online' ? 'bg-emerald-500' : 'bg-slate-300')} /> : null}
     </span>
   );

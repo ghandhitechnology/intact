@@ -34,6 +34,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { fetchWithTimeout, isAbortError, requestErrorMessage } from "@/lib/client/request";
 
@@ -379,7 +380,17 @@ function mapNotification(item: ServerNotification): NotificationItem {
   };
 }
 
+function notificationTarget(item: NotificationItem) {
+  if (item.sourceType === "MESSAGE" && item.metadata.roomId) {
+    return `/messages?roomId=${encodeURIComponent(item.metadata.roomId)}`;
+  }
+  return item.href?.startsWith("/") && !item.href.startsWith("//")
+    ? item.href
+    : undefined;
+}
+
 export default function NotificationsPage() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationItem[]>(
     DEMO_MODE ? initialNotifications : [],
   );
@@ -390,7 +401,7 @@ export default function NotificationsPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [category, setCategory] =
     useState<(typeof categories)[number]["value"]>("all");
-  const [onlyUnread, setOnlyUnread] = useState(false);
+  const [onlyUnread, setOnlyUnread] = useState(true);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     () => new Set(),
   );
@@ -467,31 +478,6 @@ export default function NotificationsPage() {
   );
   const visibleGroups = useMemo(() => groupNotifications(visible), [visible]);
 
-  function markRead(id: string) {
-    const previous = notifications;
-    setNotifications((current) =>
-      current.map((item) =>
-        item.id === id ? { ...item, unread: false } : item,
-      ),
-    );
-    void syncReadState({ ids: [id] }).then((ok) => {
-      if (!ok) setNotifications(previous);
-    });
-  }
-
-  async function markGroupRead(group: NotificationGroup) {
-    const ids = group.items.filter((item) => item.unread).map((item) => item.id);
-    if (!ids.length) return;
-    const previous = notifications;
-    setNotifications((current) =>
-      current.map((item) =>
-        ids.includes(item.id) ? { ...item, unread: false } : item,
-      ),
-    );
-    const ok = await syncReadState({ ids });
-    if (!ok) setNotifications(previous);
-  }
-
   function toggleGroup(key: string) {
     setExpandedGroups((current) => {
       const next = new Set(current);
@@ -501,19 +487,24 @@ export default function NotificationsPage() {
     });
   }
 
-  async function openNotification(item: NotificationItem) {
+  function openNotification(item: NotificationItem) {
+    setNotifications((current) => current.filter((candidate) => candidate.id !== item.id));
     if (item.unread) {
-      const ok = await syncReadState({ ids: [item.id] });
-      if (!ok) return;
-      setNotifications((current) =>
-        current.map((candidate) =>
-          candidate.id === item.id
-            ? { ...candidate, unread: false }
-            : candidate,
-        ),
-      );
+      void syncReadState({ ids: [item.id] }, undefined, true);
     }
-    if (item.href) window.location.assign(item.href);
+    const target = notificationTarget(item);
+    if (target) router.push(target);
+  }
+
+  function openGroup(group: NotificationGroup) {
+    const ids = group.items.filter((item) => item.unread).map((item) => item.id);
+    const groupIds = new Set(group.items.map((item) => item.id));
+    setNotifications((current) => current.filter((item) => !groupIds.has(item.id)));
+    if (ids.length) {
+      void syncReadState({ ids }, undefined, true);
+    }
+    const target = notificationTarget(group.latest);
+    if (target) router.push(target);
   }
 
   function markAllRead() {
@@ -531,12 +522,14 @@ export default function NotificationsPage() {
   async function syncReadState(
     body: { ids?: string[]; all?: boolean },
     successMessage?: string,
+    keepalive = false,
   ) {
     try {
       const response = await fetchWithTimeout("/api/notifications", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        keepalive,
       });
       const payload = await readApiEnvelope<{ markedRead: number }>(response);
       if (!response.ok || !payload?.ok) {
@@ -753,7 +746,7 @@ export default function NotificationsPage() {
                               ) : null}
                               {item.title}
                             </h3>
-                            {item.unread ? <Badge tone="blue">NEW</Badge> : null}
+                              {item.unread ? <span className="h-2 w-2 bg-red-900" aria-label="읽지 않음" /> : null}
                           </div>
                           <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-slate-600">
                             {item.detail}
@@ -762,17 +755,7 @@ export default function NotificationsPage() {
                             {item.time}
                           </p>
                         </button>
-                        <div className="flex shrink-0 items-center gap-1">
-                          {item.unread ? (
-                            <IconButton
-                              label="읽음 처리"
-                              onClick={() => markRead(item.id)}
-                            >
-                              <CheckCheck className="h-4 w-4" />
-                            </IconButton>
-                          ) : null}
-                          <ChevronRight className="h-4 w-4 text-slate-300" />
-                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
                       </article>
                     );
                   }
@@ -799,8 +782,7 @@ export default function NotificationsPage() {
                         </span>
                         <button
                           type="button"
-                          aria-expanded={expanded}
-                          onClick={() => toggleGroup(group.key)}
+                          onClick={() => openGroup(group)}
                           className="min-w-0 flex-1 text-left"
                         >
                           <div className="flex flex-wrap items-center gap-2">
@@ -826,14 +808,6 @@ export default function NotificationsPage() {
                           </p>
                         </button>
                         <div className="flex shrink-0 items-center gap-1">
-                          {group.unreadCount > 0 ? (
-                            <IconButton
-                              label="그룹 모두 읽음"
-                              onClick={() => void markGroupRead(group)}
-                            >
-                              <CheckCheck className="h-4 w-4" />
-                            </IconButton>
-                          ) : null}
                           <IconButton
                             label={expanded ? "알림 그룹 접기" : "알림 그룹 펼치기"}
                             aria-expanded={expanded}
@@ -870,7 +844,7 @@ export default function NotificationsPage() {
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={() => void openNotification(child)}
+                                  onClick={() => openNotification(child)}
                                   className="min-w-0 flex-1 text-left"
                                 >
                                   <p

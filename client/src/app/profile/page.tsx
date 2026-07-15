@@ -73,6 +73,7 @@ type IgkSummary = {
   currentIgk: number;
   lifetimeIgk: number;
   level: number;
+  teacherRank?: number | null;
   rank: number;
   progress: number;
   nextLevel: { level: number; minimumLifetimeIgk: number; label: string | null } | null;
@@ -454,7 +455,7 @@ export default function ProfilePage() {
           <Card className="overflow-hidden ">
             <div className="h-1 bg-emerald-700" />
             <div className="p-4">
-              <div className="flex items-end justify-between"><Avatar name={profile.realName || profile.nickname} imageUrl={profile.profileImage} size="xl" tone="blue" /><Badge tone={profile.status === 'ACTIVE' ? 'green' : 'amber'} className="mb-1"><ShieldCheck className="mr-1 h-3 w-3" />{profile.status === 'ACTIVE' ? '재학생 인증' : profile.status}</Badge></div>
+              <div className="flex items-end justify-between"><Avatar name={profile.realName || profile.nickname} imageUrl={profile.profileImage} size="xl" tone="blue" className={level >= 10 ? 'teacher-avatar' : undefined} /><Badge tone={profile.status === 'ACTIVE' ? 'green' : 'amber'} className="mb-1"><ShieldCheck className="mr-1 h-3 w-3" />{profile.status === 'ACTIVE' ? '재학생 인증' : profile.status}</Badge></div>
               <h2 className="mt-4 text-xl font-black tracking-[-0.035em] text-slate-950">{profile.realName || profile.nickname}</h2>
               <p className="mt-1 text-xs font-bold text-slate-500">{identityLine}</p>
               <p className="mt-4 text-sm leading-6 text-slate-600">{profile.bio || '아직 소개가 없습니다.'}</p>
@@ -467,7 +468,7 @@ export default function ProfilePage() {
 
         <section className="min-w-0 space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="현재 등급" value={igkLevelLabel(level)} detail="활동·받은 선물 누적" icon={<Trophy className="h-4 w-4" />} tone="amber" />
+            <Stat label="현재 등급" value={igkLevelLabel(level, igk?.teacherRank)} detail="활동·받은 선물 누적" icon={<Trophy className="h-4 w-4" />} tone="amber" />
             <Stat label="보유 IGK" value={currentIgk.toLocaleString()} detail={`누적 ${lifetimeIgk.toLocaleString()}`} icon={<Gift className="h-4 w-4" />} tone="green" />
             <Stat label="작성한 글" value={profile._count.posts.toLocaleString()} detail="전체 게시판" icon={<Award className="h-4 w-4" />} />
             <Stat label="교내 랭킹" value={igk ? `#${igk.rank}` : '—'} detail={igk ? '보유 IGK 기준' : '랭킹 정보 없음'} icon={<Users className="h-4 w-4" />} tone="slate" />
@@ -476,7 +477,7 @@ export default function ProfilePage() {
         </section>
 
         <aside className="space-y-4 lg:col-span-2 xl:col-span-1">
-          <Card className=""><CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-blue-700">전체 로드맵</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level)}</span><p className="mt-1 text-lg font-black text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : '최고 등급 선생님'}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{lifetimeIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div><p className="mt-3 text-xs leading-5 text-slate-500">{nextThreshold ? <>다음 등급까지 <strong className="text-slate-800">{Math.max(0, nextThreshold - lifetimeIgk).toLocaleString()} IGK</strong>가 필요합니다.</> : '최종 등급에 도달했습니다.'}</p><Link href="/igk/roadmap" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-extrabold text-slate-700 hover:bg-slate-50">9등급부터 선생님까지 보기</Link></div></Card>
+          <Card className=""><CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-blue-700">전체 로드맵</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level, igk?.teacherRank)}</span><p className="mt-1 text-lg font-black text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : igkLevelLabel(level, igk?.teacherRank)}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{lifetimeIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div><p className="mt-3 text-xs leading-5 text-slate-500">{nextThreshold ? <>다음 등급까지 <strong className="text-slate-800">{Math.max(0, nextThreshold - lifetimeIgk).toLocaleString()} IGK</strong>가 필요합니다.</> : '선생님 상위 10명은 보유 IGK 순으로 짱 호칭을 받습니다.'}</p><Link href="/igk/roadmap" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-extrabold text-slate-700 hover:bg-slate-50">9등급부터 선생님까지 보기</Link></div></Card>
           <Card className=""><CardHeader title="재학생 인증" /><div className="p-5"><p className="flex items-center gap-2 text-sm font-extrabold text-slate-900"><ShieldCheck className="h-4 w-4 text-emerald-700" />{profile.status === 'ACTIVE' ? '정상 이용 가능' : profile.status}</p><p className="mt-2 text-xs leading-5 text-slate-500">{profile.reverifyDueAt ? `${formatDate(profile.reverifyDueAt)}까지 재인증이 유효합니다.` : '재인증 만료일이 등록되지 않았습니다.'}</p></div></Card>
         </aside>
       </div>
@@ -644,7 +645,7 @@ export default function ProfilePage() {
       </section>
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="프로필 편집" description="학번과 학적은 재학생 인증 정보이므로 변경하거나 숨길 수 없습니다." footer={<><Button variant="secondary" onClick={() => setEditOpen(false)}>취소</Button><Button onClick={() => void saveProfile()} disabled={saving}>{saving ? '저장 중…' : '변경사항 저장'}</Button></>}>
-        <form onSubmit={(event) => { event.preventDefault(); void saveProfile(); }} className="space-y-5"><div className="flex items-center gap-4 border border-slate-200 bg-slate-50 p-4"><Avatar name={profile.realName || profile.nickname} imageUrl={draftProfileImage || null} size="lg" tone="blue" /><div><p className="text-sm font-black text-slate-900">{profile.realName || profile.nickname}</p><p className="text-xs text-slate-500">인증된 실명</p></div></div><Field label="프로필 이미지 주소" hint="HTTPS 이미지"><Input type="url" value={draftProfileImage} onChange={(event) => setDraftProfileImage(event.target.value)} maxLength={2048} placeholder="https://example.com/profile.jpg" /></Field><Field label="소개" hint={`${draftBio.length}/280`}><Textarea rows={4} value={draftBio} onChange={(event) => setDraftBio(event.target.value)} maxLength={280} /></Field><Field label="관심 분야" hint="쉼표로 구분, 최대 5개"><Input value={interestDraft} onChange={(event) => setInterestDraft(event.target.value)} placeholder="물리, 천문, 과학대회" /></Field><div className="border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-bold text-slate-700">인증 정보</p><p className="mt-2 text-sm text-slate-900">{identityLine}</p><p className="mt-1 text-[11px] leading-5 text-slate-500">게시글과 댓글에는 인증된 실명과 학번이 표시됩니다.</p></div><button type="submit" className="hidden">저장</button></form>
+        <form onSubmit={(event) => { event.preventDefault(); void saveProfile(); }} className="space-y-5"><div className="flex items-center gap-4 border border-slate-200 bg-slate-50 p-4"><Avatar name={profile.realName || profile.nickname} imageUrl={draftProfileImage || null} size="lg" tone="blue" className={level >= 10 ? 'teacher-avatar' : undefined} /><div><p className="text-sm font-black text-slate-900">{profile.realName || profile.nickname}</p><p className="text-xs text-slate-500">인증된 실명</p></div></div><Field label="프로필 이미지 주소" hint="HTTPS 이미지"><Input type="url" value={draftProfileImage} onChange={(event) => setDraftProfileImage(event.target.value)} maxLength={2048} placeholder="https://example.com/profile.jpg" /></Field><Field label="소개" hint={`${draftBio.length}/280`}><Textarea rows={4} value={draftBio} onChange={(event) => setDraftBio(event.target.value)} maxLength={280} /></Field><Field label="관심 분야" hint="쉼표로 구분, 최대 5개"><Input value={interestDraft} onChange={(event) => setInterestDraft(event.target.value)} placeholder="물리, 천문, 과학대회" /></Field><div className="border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-bold text-slate-700">인증 정보</p><p className="mt-2 text-sm text-slate-900">{identityLine}</p><p className="mt-1 text-[11px] leading-5 text-slate-500">게시글과 댓글에는 인증된 실명과 학번이 표시됩니다.</p></div><button type="submit" className="hidden">저장</button></form>
       </Modal>
       <Modal
         open={Boolean(pendingSessionAction)}

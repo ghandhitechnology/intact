@@ -25,7 +25,6 @@ import {
   Check,
   Coins,
   FileText,
-  Gift,
   Loader2,
   LogIn,
   MessageCircle,
@@ -60,6 +59,7 @@ type Wallet = {
   lifetimeIgk: number;
   igkDebt?: number;
   level: number;
+  teacherRank?: number | null;
   rank: number;
   progress: number;
   nextLevel: {
@@ -92,6 +92,7 @@ type Ranking = {
   realName: string | null;
   profileImage: string | null;
   level: number;
+  teacherRank?: number | null;
   currentIgk: number;
   lifetimeIgk: number;
   studentIdentity: { studentCode: string } | null;
@@ -574,7 +575,7 @@ export default function IgkPage() {
           <div className="w-full border border-slate-200 bg-slate-50 p-4 md:w-80">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-slate-600">
-                {igkLevelLabel(wallet.level)}
+                {igkLevelLabel(wallet.level, wallet.teacherRank)}
               </span>
               {nextThreshold ? (
                 <span className="font-extrabold text-slate-800">
@@ -675,7 +676,7 @@ export default function IgkPage() {
                 <div className="border border-emerald-300 bg-white p-5">
                   <Badge tone="green">현재</Badge>
                   <p className="mt-3 text-lg font-black">
-                    {igkLevelLabel(wallet.level)}
+                    {igkLevelLabel(wallet.level, wallet.teacherRank)}
                   </p>
                   <p className="mt-1 text-xs text-slate-600">
                     누적 {wallet.lifetimeIgk.toLocaleString()} IGK
@@ -730,6 +731,7 @@ export default function IgkPage() {
                       name={displayName}
                       imageUrl={person.profileImage}
                       size="sm"
+                      className={person.level >= 10 ? "teacher-avatar" : undefined}
                       tone={
                         (
                           ["blue", "green", "violet", "amber", "slate"] as const
@@ -743,7 +745,7 @@ export default function IgkPage() {
                       <p className="text-[11px] text-slate-400">
                         {person.studentIdentity?.studentCode ??
                           "학번 정보 없음"}{" "}
-                        · {igkLevelLabel(person.level)}
+                        · {igkLevelLabel(person.level, person.teacherRank)}
                       </p>
                     </div>
                     <strong>{person.currentIgk.toLocaleString()} IGK</strong>
@@ -763,7 +765,11 @@ export default function IgkPage() {
           <Card className="">
             <CardHeader
               title="IGK 선물하기"
-              action={<Gift className="h-5 w-5 text-emerald-700" />}
+              action={
+                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-800">
+                  <Coins className="h-4 w-4" />보유 {balance.toLocaleString()} IGK
+                </span>
+              }
             />
             <form onSubmit={prepareTransfer} className="space-y-4 p-5">
               <Field
@@ -800,6 +806,11 @@ export default function IgkPage() {
                   onChange={(event) => setAmount(event.target.value)}
                 />
               </Field>
+              {giftAmount > 0 && giftAmount <= balance ? (
+                <p className="-mt-2 text-right text-[11px] font-bold text-slate-500">
+                  선물 후 {(balance - giftAmount).toLocaleString()} IGK
+                </p>
+              ) : null}
               <Field label="메시지" hint={`${message.length}/300`}>
                 <Textarea
                   rows={3}

@@ -4,6 +4,7 @@ export type Member = {
   nickname: string;
   studentId: string;
   level: number;
+  teacherRank?: number | null;
   initials: string;
   profileImage?: string | null;
   accent: 'emerald' | 'blue' | 'slate' | 'violet' | 'amber';

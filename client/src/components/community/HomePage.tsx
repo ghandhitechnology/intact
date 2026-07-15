@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Clock3,
   Coins,
+  Eye,
   Flame,
   LogIn,
   LogOut,
@@ -61,6 +62,7 @@ function HomeAccountPanel({ demoMode }: { demoMode: boolean }) {
       : null,
   );
   const [currentIgk, setCurrentIgk] = useState(demoMode ? 1840 : 0);
+  const [teacherRank, setTeacherRank] = useState<number | null>(null);
   const [unreadCount, setUnreadCount] = useState(demoMode ? 3 : 0);
   const [loading, setLoading] = useState(!demoMode);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -78,21 +80,12 @@ function HomeAccountPanel({ demoMode }: { demoMode: boolean }) {
         if (!response.ok || !data?.authenticated || !data?.user) {
           setUser(null);
           setCurrentIgk(0);
+          setTeacherRank(null);
           setUnreadCount(0);
           return;
         }
         setUser(data.user);
         setCurrentIgk(Number(data.currentIgk || 0));
-        const notificationResponse = await fetchWithTimeout('/api/notifications?pageSize=1', {
-          cache: 'no-store',
-          signal: controller.signal,
-        });
-        const notificationBody = notificationResponse.ok
-          ? await notificationResponse.json().catch(() => null)
-          : null;
-        if (active) {
-          setUnreadCount(Number(notificationBody?.data?.unreadCount || notificationBody?.unreadCount || 0));
-        }
       })
       .catch((error) => {
         if (active && !isAbortError(error)) setUser(null);
@@ -107,12 +100,49 @@ function HomeAccountPanel({ demoMode }: { demoMode: boolean }) {
     };
   }, [demoMode]);
 
+  useEffect(() => {
+    if (demoMode || !user?.id) return undefined;
+    let active = true;
+    let controller: AbortController | null = null;
+    const loadAccountStatus = async () => {
+      if (document.visibilityState === 'hidden') return;
+      controller?.abort();
+      controller = new AbortController();
+      try {
+        const [notificationResponse, balanceResponse] = await Promise.all([
+          fetchWithTimeout('/api/notifications?pageSize=1', { cache: 'no-store', signal: controller.signal }),
+          fetchWithTimeout('/api/igk/balance', { cache: 'no-store', signal: controller.signal }),
+        ]);
+        const [notificationBody, balanceBody] = await Promise.all([
+          notificationResponse.ok ? notificationResponse.json().catch(() => null) : null,
+          balanceResponse.ok ? balanceResponse.json().catch(() => null) : null,
+        ]);
+        if (!active) return;
+        setUnreadCount(Number(notificationBody?.data?.unreadCount || notificationBody?.unreadCount || 0));
+        const balanceData = balanceBody?.data ?? balanceBody;
+        setTeacherRank(Number.isInteger(balanceData?.teacherRank) ? Number(balanceData.teacherRank) : null);
+      } catch (error) {
+        if (!active || isAbortError(error)) return;
+      }
+    };
+    void loadAccountStatus();
+    const timer = window.setInterval(() => void loadAccountStatus(), 60_000);
+    window.addEventListener('focus', loadAccountStatus);
+    return () => {
+      active = false;
+      controller?.abort();
+      window.clearInterval(timer);
+      window.removeEventListener('focus', loadAccountStatus);
+    };
+  }, [demoMode, user?.id]);
+
   async function logout() {
     if (loggingOut) return;
     setLoggingOut(true);
     await fetchWithTimeout('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
     setUser(null);
     setCurrentIgk(0);
+    setTeacherRank(null);
     setUnreadCount(0);
     setLoggingOut(false);
     router.refresh();
@@ -153,6 +183,7 @@ function HomeAccountPanel({ demoMode }: { demoMode: boolean }) {
     nickname: displayName,
     studentId: studentCode,
     level,
+    teacherRank,
     initials: displayName.slice(0, 1),
     profileImage: user.profileImage || null,
     accent: 'emerald' as const,
@@ -165,7 +196,7 @@ function HomeAccountPanel({ demoMode }: { demoMode: boolean }) {
         <Avatar member={avatarMember} />
         <span className="min-w-0 flex-1">
           <strong id="home-account-title" className="block truncate text-xs font-black text-slate-900">{displayName}</strong>
-          <span className="mt-0.5 block truncate text-[10px] text-slate-500">{studentCode} · {igkLevelLabel(level)}</span>
+          <span className="mt-0.5 block truncate text-[10px] text-slate-500">{studentCode} · {igkLevelLabel(level, teacherRank)}</span>
         </span>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" aria-hidden="true" />
       </Link>
@@ -174,8 +205,8 @@ function HomeAccountPanel({ demoMode }: { demoMode: boolean }) {
           <MessageCircle className="h-4 w-4" aria-hidden="true" />대화
         </Link>
         <Link href="/notifications" className="relative flex min-h-12 flex-col items-center justify-center gap-1 bg-white text-[10px] font-bold text-slate-600 hover:text-emerald-700">
-          <Bell className="h-4 w-4" aria-hidden="true" />알림
-          {unreadCount > 0 ? <span className="absolute right-1.5 top-1 bg-emerald-700 px-1 text-[9px] text-white">{Math.min(unreadCount, 99)}</span> : null}
+          <Bell className={cx('h-4 w-4', unreadCount > 0 && 'text-red-900')} aria-hidden="true" />알림
+          {unreadCount > 0 ? <span className="absolute right-1.5 top-1 bg-red-900 px-1 text-[9px] text-white">{Math.min(unreadCount, 99)}</span> : null}
         </Link>
         <Link href="/igk" className="flex min-h-12 flex-col items-center justify-center gap-1 bg-white text-[10px] font-bold text-slate-600 hover:text-emerald-700">
           <Coins className="h-4 w-4" aria-hidden="true" />{currentIgk.toLocaleString()}
@@ -338,8 +369,9 @@ function BoardCard({ board, items }: { board: BoardDefinition; items: PostSummar
                 {post.author.nickname} · {post.createdAt}
               </p>
             </div>
-            <span className="mt-0.5 shrink-0 text-[11px] font-bold tabular-nums text-slate-400">
-              {post.comments}
+            <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-[11px] font-bold tabular-nums text-slate-400" title="조회수">
+              <Eye className="h-3 w-3" aria-hidden="true" />
+              {post.views}
             </span>
           </Link>
         ))}
@@ -404,8 +436,9 @@ function LatestActivity({ items }: { items: PostSummary[] }) {
                 <h3 className="truncate text-xs font-bold text-slate-800 group-hover:text-emerald-700 sm:text-[13px]">
                   {post.title}
                 </h3>
-                <span className="shrink-0 text-xs font-extrabold text-emerald-600">
-                  {post.comments}
+                <span className="inline-flex shrink-0 items-center gap-1 text-xs font-extrabold text-emerald-700" title="조회수">
+                  <Eye className="h-3 w-3" aria-hidden="true" />
+                  {post.views}
                 </span>
               </Link>
               <div className="mt-1 sm:hidden">
@@ -512,7 +545,7 @@ function RankingPanel({ items }: { items: RankingMember[] }) {
                 {member.nickname}
               </span>
               <span className="block text-[10px] text-slate-400">
-                {member.studentId} · {igkLevelLabel(member.level)}
+                {member.studentId} · {igkLevelLabel(member.level, member.teacherRank)}
               </span>
             </span>
             <span className="text-xs font-black tabular-nums text-slate-700">
@@ -637,6 +670,7 @@ export default function HomePage() {
             nickname: leader.realName || leader.nickname,
             studentId: leader?.studentIdentity?.studentCode || '------',
             level: Number(leader.level || 1),
+            teacherRank: Number.isInteger(leader.teacherRank) ? Number(leader.teacherRank) : null,
             initials: String(leader.realName || leader.nickname || '?').slice(0, 1),
             profileImage: leader.profileImage || null,
             accent: 'emerald',

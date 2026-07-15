@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const session = await requireUser(request);
-    const [user, rules, higherRanked] = await prisma.$transaction([
+    const [user, rules, higherRanked, teacherLeaders] = await prisma.$transaction([
       prisma.user.findUniqueOrThrow({
         where: { id: session.user.id },
         select: { currentIgk: true, lifetimeIgk: true, igkDebt: true, level: true },
@@ -21,7 +21,14 @@ export async function GET(request: Request) {
           currentIgk: { gt: session.user.currentIgk },
         },
       }),
+      prisma.user.findMany({
+        where: { status: 'ACTIVE', level: 10, studentIdentity: { isNot: null } },
+        orderBy: [{ currentIgk: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
+        take: 10,
+        select: { id: true },
+      }),
     ]);
+    const teacherRank = teacherLeaders.findIndex((candidate) => candidate.id === session.user.id);
     const currentLevel = [...rules]
       .reverse()
       .find((rule) => rule.minimumLifetimeIgk <= user.lifetimeIgk) ?? rules[0] ?? null;
@@ -32,6 +39,7 @@ export async function GET(request: Request) {
     return json({
       ...user,
       level: currentLevel?.level ?? 1,
+      teacherRank: teacherRank >= 0 ? teacherRank + 1 : null,
       rank: higherRanked + 1,
       currentLevel,
       nextLevel,

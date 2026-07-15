@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge, Button, Card, PageHeading, Progress, readApiEnvelope } from '@/components/operations/ui';
-import { IGK_LEVELS, igkLevelForLifetime } from '@/lib/igk-levels';
+import { IGK_LEVELS, igkLevelForLifetime, igkLevelLabel } from '@/lib/igk-levels';
 import { ArrowLeft, Check, Coins, GraduationCap, Loader2, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -10,6 +10,7 @@ type Wallet = {
   currentIgk: number;
   lifetimeIgk: number;
   level: number;
+  teacherRank?: number | null;
 };
 
 export default function IgkRoadmapPage() {
@@ -43,7 +44,7 @@ export default function IgkRoadmapPage() {
     <div className="mx-auto w-full max-w-[1200px] px-4 py-4 sm:px-6 lg:px-8">
       <PageHeading
         title="등급 로드맵"
-        description="활동과 받은 선물의 누적 IGK로 9등급에서 선생님까지 올라갑니다."
+        description="누적 IGK로 선생님까지 올라가고, 이후 보유 IGK 상위 10명은 짱 호칭을 받습니다."
         actions={
           <Link href="/igk" className="inline-flex h-9 items-center gap-2 border border-slate-300 bg-white px-4 text-xs font-extrabold text-slate-700 hover:bg-slate-50">
             <ArrowLeft className="h-4 w-4" /> IGK 지갑
@@ -72,7 +73,7 @@ export default function IgkRoadmapPage() {
           <section className="mt-4 grid gap-px overflow-hidden border border-slate-200 bg-slate-200 md:grid-cols-[1.1fr_1fr_1fr]">
             <div className="bg-emerald-800 p-4 text-white">
               <p className="text-xs font-bold text-emerald-100">현재 등급</p>
-              <p className="mt-2 text-2xl font-black">{currentRule.label}</p>
+              <p className="mt-2 text-2xl font-black">{igkLevelLabel(wallet.level, wallet.teacherRank)}</p>
             </div>
             <div className="bg-white p-4">
               <p className="text-xs font-bold text-slate-500">등급 누적 IGK</p>
@@ -81,7 +82,7 @@ export default function IgkRoadmapPage() {
             </div>
             <div className="bg-white p-4">
               <p className="text-xs font-bold text-slate-500">다음 목표</p>
-              <p className="mt-2 text-xl font-black text-slate-950">{nextRule?.label ?? '완료'}</p>
+              <p className="mt-2 text-xl font-black text-slate-950">{nextRule?.label ?? (wallet.teacherRank ? `${wallet.teacherRank}짱` : '선생님 랭킹')}</p>
               <p className="mt-1 text-xs text-slate-500">
                 {nextRule ? `${Math.max(0, nextRule.minimumLifetimeIgk - wallet.lifetimeIgk).toLocaleString()} IGK 남음` : '최종 등급 도달'}
               </p>
@@ -90,11 +91,19 @@ export default function IgkRoadmapPage() {
 
           <Card className="mt-5 p-5 ">
             <div className="flex items-center justify-between gap-4 text-xs font-bold text-slate-600">
-              <span>{currentRule.label}</span>
+              <span>{igkLevelLabel(wallet.level, wallet.teacherRank)}</span>
               <span>{nextRule?.label ?? '선생님'}</span>
             </div>
             <div className="mt-3"><Progress value={segmentProgress} /></div>
           </Card>
+
+          {wallet.level >= 10 ? (
+            <section className="mt-4 bg-blue-50 p-4">
+              <p className="text-xs font-extrabold text-blue-800">선생님 랭킹</p>
+              <p className="mt-1 text-sm font-black text-slate-950">{igkLevelLabel(wallet.level, wallet.teacherRank)}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">보유 IGK가 많은 선생님부터 1짱–10짱을 표시하며, 11위부터는 선생님으로 표시합니다.</p>
+            </section>
+          ) : null}
 
           <div className="mt-4 grid gap-2 md:grid-cols-2">
             {IGK_LEVELS.map((rule, index) => {
