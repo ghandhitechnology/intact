@@ -23,7 +23,6 @@ import {
   DeadlineBadge,
   MemberLine,
   PostMetrics,
-  SectionTitle,
   SolvedBadge,
   boardStyles,
   cx,
@@ -45,14 +44,14 @@ function HomeActions() {
     <nav className="grid min-w-0 grid-cols-2 gap-2" aria-label="홈 바로가기">
       <Link
         href="/search"
-        className="inline-flex h-10 min-w-0 items-center justify-center gap-2  border border-stone-300 bg-white px-2 text-xs font-bold text-slate-700 transition-colors hover:border-slate-500 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 border border-slate-300 bg-white px-2 text-[11px] font-bold text-slate-700 transition-colors hover:border-slate-500 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500"
       >
         <Search className="h-3.5 w-3.5" aria-hidden="true" />
         통합검색
       </Link>
       <Link
         href="/boards/question/write"
-        className="inline-flex h-10 min-w-0 items-center justify-center gap-2  bg-emerald-700 px-2 text-xs font-bold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 bg-emerald-700 px-2 text-[11px] font-bold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
       >
         <PenSquare className="h-3.5 w-3.5" aria-hidden="true" />
         질문하기
@@ -61,27 +60,60 @@ function HomeActions() {
   );
 }
 
+function PortalMenu({ items }: { items: BoardDefinition[] }) {
+  return (
+    <section className="border border-slate-200 bg-white">
+      <div className="border-b border-slate-800 px-4 py-3">
+        <h2 className="text-xs font-black text-slate-900">게시판 바로가기</h2>
+      </div>
+      <nav className="divide-y divide-slate-100" aria-label="게시판 바로가기">
+        {items.map((board) => (
+          <Link
+            key={board.slug}
+            href={`/boards/${board.slug}`}
+            className="group flex min-h-11 items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-800"
+          >
+            <BoardMark board={board} size="sm" />
+            <span className="min-w-0 flex-1 truncate">{board.title}</span>
+            {board.todayCount > 0 ? (
+              <span className="text-[10px] font-black tabular-nums text-emerald-700">
+                +{board.todayCount}
+              </span>
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-emerald-600" />
+            )}
+          </Link>
+        ))}
+      </nav>
+      <div className="grid grid-cols-2 border-t border-slate-200 bg-slate-50">
+        <Link href="/messages" className="border-r border-slate-200 px-3 py-2.5 text-center text-[10px] font-bold text-slate-600 hover:text-emerald-700">대화</Link>
+        <Link href="/notifications" className="px-3 py-2.5 text-center text-[10px] font-bold text-slate-600 hover:text-emerald-700">알림</Link>
+      </div>
+    </section>
+  );
+}
+
 function NoticeRail({ items }: { items: Notice[] }) {
   return (
-    <aside className="overflow-hidden  border border-stone-200 bg-white ">
-      <div className="flex items-center justify-between border-b border-slate-200 bg-slate-950 px-5 py-4 text-white">
+    <aside className="overflow-hidden border border-slate-200 bg-white">
+      <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
         <div className="flex items-center gap-2">
-          <Megaphone className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-          <h2 className="text-sm font-extrabold tracking-[-0.02em]">관리자 공지</h2>
+          <Megaphone className="h-3.5 w-3.5 text-emerald-700" aria-hidden="true" />
+          <h2 className="text-xs font-black tracking-[-0.02em] text-slate-900">관리자 공지</h2>
         </div>
         <Link
           href="/notices"
-          className="text-[11px] font-semibold text-slate-300 hover:text-white"
+          className="text-[10px] font-bold text-slate-400 hover:text-emerald-700"
         >
           전체 보기
         </Link>
       </div>
-      <ol className="divide-y divide-slate-100 px-5">
-        {items.map((notice) => (
+      <ol className="divide-y divide-slate-100 px-4">
+        {items.slice(0, 5).map((notice) => (
           <li key={notice.id}>
             <Link
               href={`/notices#notice-${notice.id}`}
-              className="group block py-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
+              className="group block py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
             >
               <div className="mb-1.5 flex items-center justify-between gap-3">
                 <span
@@ -94,7 +126,7 @@ function NoticeRail({ items }: { items: Notice[] }) {
                 </span>
                 <span className="text-[10px] tabular-nums text-slate-400">{notice.date}</span>
               </div>
-              <p className="text-sm font-semibold leading-5 text-slate-700 transition-colors group-hover:text-emerald-700">
+              <p className="line-clamp-2 text-xs font-semibold leading-5 text-slate-700 transition-colors group-hover:text-emerald-700">
                 {notice.title}
               </p>
             </Link>
@@ -113,18 +145,18 @@ function BoardCard({ board, items }: { board: BoardDefinition; items: PostSummar
   return (
     <article
       className={cx(
-        'group flex flex-col  border border-stone-200 bg-white p-5  transition-colors hover:border-emerald-300 sm:p-5',
+        'group flex flex-col border border-slate-200 bg-white p-4 transition-colors hover:border-emerald-300',
         style.line,
       )}
     >
       <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-3">
-          <BoardMark board={board} />
+        <div className="flex min-w-0 items-start gap-2.5">
+          <BoardMark board={board} size="sm" />
           <div className="min-w-0">
-            <h2 className="text-lg font-black tracking-[-0.03em] text-slate-900">
+            <h2 className="text-sm font-black tracking-[-0.025em] text-slate-900">
               {board.title}
             </h2>
-            <p className="mt-1 text-xs leading-5 text-slate-500">{board.description}</p>
+            <p className="mt-0.5 line-clamp-1 text-[10px] leading-4 text-slate-500">{board.description}</p>
           </div>
         </div>
         <span className={cx('shrink-0 text-xs font-extrabold', style.text)}>
@@ -132,22 +164,22 @@ function BoardCard({ board, items }: { board: BoardDefinition; items: PostSummar
         </span>
       </div>
 
-      <div className="mt-5 flex-1 divide-y divide-slate-100 border-y border-slate-100">
+      <div className="mt-3 flex-1 divide-y divide-slate-100 border-y border-slate-100">
         {boardPosts.map((post) => (
           <Link
             key={post.id}
             href={`/post/${post.id}`}
-            className="flex items-start justify-between gap-3 py-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
+            className="flex items-start justify-between gap-3 py-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
           >
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 {post.solved && <SolvedBadge />}
                 {post.deadline && <DeadlineBadge deadline={post.deadline} />}
-                <p className="truncate text-sm font-bold tracking-[-0.015em] text-slate-800 transition-colors group-hover:text-slate-950">
+                <p className="truncate text-xs font-bold tracking-[-0.015em] text-slate-800 transition-colors group-hover:text-emerald-700">
                   {post.title}
                 </p>
               </div>
-              <p className="mt-1.5 truncate text-[11px] text-slate-400">
+              <p className="mt-1 truncate text-[10px] text-slate-400">
                 {post.author.nickname} · {post.createdAt}
               </p>
             </div>
@@ -161,7 +193,7 @@ function BoardCard({ board, items }: { board: BoardDefinition; items: PostSummar
       <Link
         href={`/boards/${board.slug}`}
         className={cx(
-          'mt-4 inline-flex items-center justify-between text-xs font-extrabold',
+          'mt-3 inline-flex items-center justify-between text-[11px] font-extrabold',
           style.text,
         )}
       >
@@ -179,23 +211,33 @@ function LatestActivity({ items }: { items: PostSummary[] }) {
   const latest = items.slice(0, 8);
 
   return (
-    <section className=" border border-stone-200 bg-white px-5 py-4  sm:px-6">
-      <SectionTitle
-        title="지금 올라오는 이야기"
-        href="/search"
-      />
+    <section className="border border-slate-200 bg-white px-3 py-2 sm:px-4">
+      <div className="flex h-8 items-center justify-between gap-4">
+        <h2 className="text-sm font-black tracking-[-0.02em] text-slate-900">
+          지금 올라오는 이야기
+        </h2>
+        <Link
+          href="/search"
+          className="text-[11px] font-bold text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-emerald-700"
+        >
+          전체 보기
+        </Link>
+      </div>
       <div className="border-t border-slate-900">
         {latest.map((post) => (
           <article
             key={post.id}
-            className="grid gap-2 border-b border-slate-100 py-3.5 sm:grid-cols-[100px_minmax(0,1fr)_auto] sm:items-center sm:gap-4"
+            className="grid grid-cols-[68px_minmax(0,1fr)] items-center gap-2 border-b border-slate-100 py-2 sm:grid-cols-[68px_92px_minmax(0,1fr)_150px_auto] sm:gap-3"
           >
-            <div className="flex items-center gap-2 sm:block">
+            <div className="min-w-0">
               <BoardBadge slug={post.board} />
-              <span className="text-[11px] tabular-nums text-slate-400 sm:mt-1.5 sm:block">
+              <span className="mt-1 block whitespace-nowrap text-[10px] tabular-nums text-slate-400 sm:hidden">
                 {post.createdAt}
               </span>
             </div>
+            <span className="hidden whitespace-nowrap text-[10px] tabular-nums text-slate-400 sm:block">
+              {post.createdAt}
+            </span>
             <div className="min-w-0">
               <Link
                 href={`/post/${post.id}`}
@@ -204,16 +246,19 @@ function LatestActivity({ items }: { items: PostSummary[] }) {
                 {post.hot && (
                   <Flame className="h-3.5 w-3.5 shrink-0 text-rose-500" aria-label="인기" />
                 )}
-                <h3 className="truncate text-sm font-bold text-slate-800 group-hover:text-emerald-700">
+                <h3 className="truncate text-xs font-bold text-slate-800 group-hover:text-emerald-700 sm:text-[13px]">
                   {post.title}
                 </h3>
                 <span className="shrink-0 text-xs font-extrabold text-emerald-600">
                   {post.comments}
                 </span>
               </Link>
-              <div className="mt-1.5">
+              <div className="mt-1 sm:hidden">
                 <MemberLine member={post.author} compact />
               </div>
+            </div>
+            <div className="hidden min-w-0 sm:block">
+              <MemberLine member={post.author} compact />
             </div>
             <div className="hidden sm:block">
               <PostMetrics post={post} />
@@ -232,7 +277,7 @@ function HotTopics({ items }: { items: PostSummary[] }) {
     .slice(0, 5);
 
   return (
-    <section className=" border border-stone-200 bg-white p-5 ">
+    <section className="border border-slate-200 bg-white p-4">
       <div className="mb-4 flex items-center gap-2">
         <Flame className="h-4 w-4 text-rose-500" aria-hidden="true" />
         <h2 className="text-sm font-black text-slate-900">인기 게시글</h2>
@@ -286,14 +331,14 @@ function getBoardLabel(post: PostSummary) {
 
 function RankingPanel({ items }: { items: RankingMember[] }) {
   return (
-    <section className=" border border-stone-200 bg-white p-5 ">
+    <section className="border border-slate-200 bg-white p-4">
       <div className="mb-4 flex items-center gap-2">
         <Trophy className="h-4 w-4 text-amber-500" aria-hidden="true" />
         <h2 className="text-sm font-black text-slate-900">보유 IGK 랭킹</h2>
         <span className="ml-auto text-[10px] font-semibold text-slate-400">현재 잔액 기준</span>
       </div>
       <ol className="border-t border-slate-900">
-        {items.map((member) => (
+        {items.slice(0, 5).map((member) => (
           <li
             key={member.studentId}
             className="grid grid-cols-[24px_32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-100 py-3"
@@ -396,22 +441,22 @@ export default function HomePage() {
           const boardPayload = boardResult.value;
           const apiBoards = boardPayload?.data?.boards || boardPayload?.boards || [];
           const nextPosts: PostSummary[] = [];
-        const nextBoards = boards.map((definition) => {
-          const board = apiBoards.find((item: any) => item.slug === definition.slug);
-          if (!board) return { ...definition, postCount: 0, todayCount: 0 };
-          const mapped: PostSummary[] = Array.isArray(board.posts) ? board.posts.map((item: any) => mapHomePost(item, definition.slug)) : [];
-          nextPosts.push(...mapped);
-          return {
-            ...definition,
-            title: board.name || definition.title,
-            description: board.description || definition.description,
-            postCount: Number(board?._count?.posts || 0),
-            todayCount: Number(board?.stats?.todayPosts || 0),
-            todayCommentCount: Number(board?.stats?.todayComments || 0),
-            weeklyPostCount: Number(board?.stats?.weeklyPosts || 0),
-            weeklyCommentCount: Number(board?.stats?.weeklyComments || 0),
-          };
-        });
+          const nextBoards = boards.map((definition) => {
+            const board = apiBoards.find((item: any) => item.slug === definition.slug);
+            if (!board) return { ...definition, postCount: 0, todayCount: 0 };
+            const mapped: PostSummary[] = Array.isArray(board.posts) ? board.posts.map((item: any) => mapHomePost(item, definition.slug)) : [];
+            nextPosts.push(...mapped);
+            return {
+              ...definition,
+              title: board.name || definition.title,
+              description: board.description || definition.description,
+              postCount: Number(board?._count?.posts || 0),
+              todayCount: Number(board?.stats?.todayPosts || 0),
+              todayCommentCount: Number(board?.stats?.todayComments || 0),
+              weeklyPostCount: Number(board?.stats?.weeklyPosts || 0),
+              weeklyCommentCount: Number(board?.stats?.weeklyComments || 0),
+            };
+          });
           setBoardItems(nextBoards);
           setHomePosts(nextPosts.sort((a, b) => (b.sortAt || 0) - (a.sortAt || 0)));
         }
@@ -455,26 +500,17 @@ export default function HomePage() {
   }, [demoMode, reloadKey]);
 
   return (
-    <div className="min-h-screen min-w-0 overflow-x-hidden px-0 py-2 text-slate-900 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mx-auto min-w-0 max-w-[1440px]">
-        <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="min-w-0 space-y-3">
+    <div className="min-h-screen min-w-0 overflow-x-hidden py-1 text-slate-900 sm:py-3">
+      <div className="mx-auto min-w-0 max-w-[1540px]">
+        <div className="grid min-w-0 items-start gap-3 xl:grid-cols-[220px_minmax(0,1fr)_280px]">
+          <aside className="hidden min-w-0 space-y-3 xl:block xl:sticky xl:top-[136px]">
             <HomeActions />
-            <NoticeRail items={noticeItems} />
-            <HotTopics items={homePosts} />
-            <RankingPanel items={rankingItems} />
-            <Link
-              href="/boards/free/write"
-              className="flex h-11 w-full items-center justify-center gap-2  border border-emerald-700 bg-white px-4 text-xs font-extrabold text-emerald-800 hover:bg-emerald-700 hover:text-white"
-            >
-              <PenSquare className="h-3.5 w-3.5" aria-hidden="true" />
-              새 글 쓰기
-            </Link>
+            <PortalMenu items={boardItems} />
           </aside>
           <div className="min-w-0">
             <section aria-label="게시판 둘러보기">
-              <div className="mb-4 flex items-center justify-between gap-4">
-                <h2 className="text-xl font-black tracking-[-0.035em] text-slate-950">게시판</h2>
+              <div className="mb-3 flex min-h-9 items-center justify-between gap-4 border-b border-slate-800 bg-white px-1">
+                <h1 className="text-sm font-black tracking-[-0.025em] text-slate-950">인텍트 게시판</h1>
                 <span className="hidden items-center gap-2 text-xs text-slate-400 sm:inline-flex">
                   <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
                   {loadState === 'ready' ? '방금 업데이트됨' : loadState === 'loading' ? '서버 정보를 불러오는 중…' : '일부 정보를 불러오지 못함'}
@@ -485,16 +521,21 @@ export default function HomePage() {
                   </button>
                 ) : null}
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 {boardItems.map((board) => (
                   <BoardCard key={board.slug} board={board} items={homePosts} />
                 ))}
               </div>
             </section>
+            <div className="mt-3">
+              <LatestActivity items={homePosts} />
+            </div>
           </div>
-        </div>
-        <div className="mt-6">
-          <LatestActivity items={homePosts} />
+          <aside className="grid min-w-0 gap-3 md:grid-cols-3 xl:sticky xl:top-[136px] xl:block xl:space-y-3">
+            <NoticeRail items={noticeItems} />
+            <HotTopics items={homePosts} />
+            <RankingPanel items={rankingItems} />
+          </aside>
         </div>
       </div>
     </div>

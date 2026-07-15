@@ -70,16 +70,16 @@ export default function SupportPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <header className="border-b-2 border-[var(--ink)] bg-white px-6 py-8">
+    <div className="mx-auto max-w-4xl">
+      <header className="border border-[var(--line-strong)] bg-white px-4 py-4 sm:px-5">
         <p className="section-kicker">{reportTarget ? "REPORT" : "SUPPORT"}</p>
-        <h1 className="mt-3 text-2xl font-black">
+        <h1 className="mt-2 text-xl font-black">
           {reportTarget ? "콘텐츠 신고" : "문의·신고"}
         </h1>
         {reportTarget ? <p className="mt-2 text-sm text-[var(--ink-soft)]">운영자만 확인</p> : null}
       </header>
       {sent ? (
-        <div className="surface-card border-t-0 px-6 py-14 text-center">
+        <div className="surface-card border-t-0 px-5 py-10 text-center">
           <CheckCircle2 className="mx-auto text-[var(--green)]" size={38} />
           <h2 className="mt-4 text-lg font-black">
             {reportTarget ? "신고를 접수했습니다" : "문의를 접수했습니다"}
@@ -88,7 +88,7 @@ export default function SupportPage() {
       ) : (
         <form
           onSubmit={submit}
-          className="surface-card space-y-5 border-t-0 px-6 py-8"
+          className="surface-card space-y-4 border-t-0 px-5 py-6"
         >
           <label className="block">
             <span className="mb-2 block text-xs font-black">

@@ -578,7 +578,7 @@ export default function NotificationsPage() {
     }).length;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[1200px] px-4 py-4 sm:px-6 lg:px-8">
       <PageHeading
         title="알림 센터"
         actions={
@@ -591,13 +591,13 @@ export default function NotificationsPage() {
         }
       />
 
-      <div className="mt-6 grid gap-6 md:grid-cols-[230px_minmax(0,1fr)]">
+      <div className="mt-4 grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
         <aside>
           <Card className="overflow-hidden ">
             <CardHeader
               title="알림 분류"
               description={`읽지 않음 ${unreadCount}개`}
-              className="min-h-0 px-4 py-3 md:min-h-[68px] md:px-5 md:py-4"
+              className="min-h-0 px-4 py-3"
             />
             <nav className="grid grid-cols-3 gap-1 p-2 md:block">
               {categories.map((item) => {
@@ -609,9 +609,9 @@ export default function NotificationsPage() {
                     type="button"
                     onClick={() => setCategory(item.value)}
                     className={cn(
-                      "flex min-w-0 w-full items-center gap-2 px-2 py-2.5 text-left text-xs font-bold transition md:gap-3 md:px-3 md:py-3 md:text-sm",
+                      "flex min-w-0 w-full items-center gap-2 px-2 py-2 text-left text-xs font-bold transition md:gap-3 md:px-3",
                       category === item.value
-                        ? "bg-blue-50 text-blue-700"
+                        ? "bg-emerald-50 text-emerald-700"
                         : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                     )}
                   >
@@ -621,7 +621,7 @@ export default function NotificationsPage() {
                       className={cn(
                         "text-xs",
                         category === item.value
-                          ? "text-blue-700"
+                          ? "text-emerald-700"
                           : "text-slate-400",
                       )}
                     >
@@ -639,7 +639,7 @@ export default function NotificationsPage() {
             <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-600">
               <input
                 type="checkbox"
-                className="h-4 w-4 accent-blue-700"
+                className="h-4 w-4 accent-emerald-700"
                 checked={onlyUnread}
                 onChange={(event) => setOnlyUnread(event.target.checked)}
               />
@@ -650,7 +650,7 @@ export default function NotificationsPage() {
                 type="button"
                 onClick={markAllRead}
                 disabled={unreadCount === 0 || loadState !== "ready"}
-                className="inline-flex h-9 items-center gap-2 px-3 text-xs font-bold text-blue-700 hover:bg-blue-50 disabled:text-slate-400"
+                className="inline-flex h-9 items-center gap-2 px-3 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:text-slate-400"
               >
                 <CheckCheck className="h-4 w-4" />
                 모두 읽음
@@ -715,11 +715,11 @@ export default function NotificationsPage() {
                         key={group.key}
                         className={cn(
                           "relative flex gap-3 border-b border-slate-100 px-4 py-4 last:border-b-0 sm:px-5",
-                          item.unread && "bg-blue-50/40",
+                          item.unread && "bg-emerald-50/40",
                         )}
                       >
                         {item.unread ? (
-                          <span className="absolute left-0 top-0 h-full w-0.5 bg-blue-600" />
+                          <span className="absolute left-0 top-0 h-full w-0.5 bg-emerald-600" />
                         ) : null}
                         {item.actor ? (
                           <Avatar
@@ -782,12 +782,12 @@ export default function NotificationsPage() {
                       key={group.key}
                       className={cn(
                         "border-b border-slate-200 last:border-b-0",
-                        group.unreadCount > 0 && "bg-blue-50/30",
+                        group.unreadCount > 0 && "bg-emerald-50/30",
                       )}
                     >
                       <div className="relative flex gap-3 px-4 py-4 sm:px-5">
                         {group.unreadCount > 0 ? (
-                          <span className="absolute left-0 top-0 h-full w-0.5 bg-blue-600" />
+                          <span className="absolute left-0 top-0 h-full w-0.5 bg-emerald-600" />
                         ) : null}
                         <span
                           className={cn(
@@ -857,7 +857,7 @@ export default function NotificationsPage() {
                                 key={child.id}
                                 className={cn(
                                   "relative flex gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0",
-                                  child.unread && "bg-blue-50/30",
+                                  child.unread && "bg-emerald-50/30",
                                 )}
                               >
                                 <span

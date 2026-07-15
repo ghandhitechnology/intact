@@ -37,10 +37,10 @@ export function PageHeading({ title, description, actions }: {
   title: string; description?: string; actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
+    <div className="flex flex-col gap-3 border-b border-slate-300 pb-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-2xl font-extrabold tracking-[-0.03em] text-slate-950 sm:text-[2rem]">{title}</h1>
-        {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{description}</p> : null}
+        <h1 className="text-xl font-extrabold tracking-[-0.03em] text-slate-950 sm:text-2xl">{title}</h1>
+        {description ? <p className="mt-1.5 max-w-3xl text-xs leading-5 text-slate-600 sm:text-sm">{description}</p> : null}
       </div>
       {actions ? <div className="shrink-0">{actions}</div> : null}
     </div>
@@ -48,14 +48,14 @@ export function PageHeading({ title, description, actions }: {
 }
 
 export function Card({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <section className={cn('border border-stone-200 bg-white', className)} {...props}>{children}</section>;
+  return <section className={cn('border border-slate-200 bg-white', className)} {...props}>{children}</section>;
 }
 
 export function CardHeader({ title, description, action, className }: {
   title: ReactNode; description?: ReactNode; action?: ReactNode; className?: string;
 }) {
   return (
-    <div className={cn('flex min-h-[68px] items-center justify-between gap-4 border-b border-slate-200 px-5 py-4', className)}>
+    <div className={cn('flex min-h-[50px] items-center justify-between gap-4 border-b border-slate-200 px-4 py-3', className)}>
       <div className="min-w-0">
         <h2 className="truncate text-sm font-extrabold tracking-[-0.01em] text-slate-950">{title}</h2>
         {description ? <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p> : null}
@@ -66,7 +66,7 @@ export function CardHeader({ title, description, action, className }: {
 }
 
 const buttonStyles = {
-  primary: 'border border-blue-700 bg-blue-700 text-white hover:border-blue-800 hover:bg-blue-800 focus-visible:ring-blue-200 disabled:border-slate-300 disabled:bg-slate-300',
+  primary: 'border border-emerald-700 bg-emerald-700 text-white hover:border-emerald-800 hover:bg-emerald-800 focus-visible:ring-emerald-200 disabled:border-slate-300 disabled:bg-slate-300',
   secondary: 'border border-slate-300 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50 focus-visible:ring-slate-200 disabled:text-slate-400',
   green: 'border border-emerald-700 bg-emerald-700 text-white hover:border-emerald-800 hover:bg-emerald-800 focus-visible:ring-emerald-200 disabled:border-slate-300 disabled:bg-slate-300',
   danger: 'border border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100 focus-visible:ring-red-200 disabled:text-red-300',
@@ -74,7 +74,7 @@ const buttonStyles = {
 };
 
 export function Button({ variant = 'primary', className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof buttonStyles }) {
-  return <button className={cn('inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap  px-4 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed', buttonStyles[variant], className)} {...props}>{children}</button>;
+  return <button className={cn('inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap px-3.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed', buttonStyles[variant], className)} {...props}>{children}</button>;
 }
 
 export function IconButton({ label, className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
@@ -82,15 +82,15 @@ export function IconButton({ label, className, children, ...props }: ButtonHTMLA
 }
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn('h-11 w-full  border border-stone-300 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-100 disabled:text-slate-500', className)} {...props} />;
+  return <input className={cn('h-10 w-full border border-slate-300 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100 disabled:text-slate-500', className)} {...props} />;
 }
 
 export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn('h-11 w-full  border border-stone-300 bg-white px-3 text-sm font-medium text-slate-800 transition focus:border-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-100', className)} {...props}>{children}</select>;
+  return <select className={cn('h-10 w-full border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 transition focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props}>{children}</select>;
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn('w-full resize-none  border border-stone-300 bg-white px-3 py-3 text-sm leading-6 text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-100', className)} {...props} />;
+  return <textarea className={cn('w-full resize-none border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props} />;
 }
 
 export function Field({ label, hint, error, required, children }: {
@@ -99,7 +99,7 @@ export function Field({ label, hint, error, required, children }: {
   return (
     <label className="block">
       <span className="mb-2 flex items-center justify-between gap-3 text-sm font-bold text-slate-800">
-        <span>{label}{required ? <span className="ml-1 text-blue-700">*</span> : null}</span>
+        <span>{label}{required ? <span className="ml-1 text-emerald-700">*</span> : null}</span>
         {hint ? <span className="text-xs font-normal text-slate-500">{hint}</span> : null}
       </span>
       {children}
@@ -141,7 +141,7 @@ export function Tabs<T extends string>({ items, value, onChange, className }: {
 }) {
   return (
     <div className={cn('flex overflow-x-auto border-b border-slate-200 bg-white', className)} role="tablist">
-      {items.map((item) => <button key={item.value} type="button" role="tab" aria-selected={value === item.value} onClick={() => onChange(item.value)} className={cn('relative flex h-12 shrink-0 items-center gap-2 px-4 text-sm font-bold transition', value === item.value ? 'text-blue-700 after:absolute after:bottom-0 after:left-3 after:right-3 after:h-0.5 after:bg-blue-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')}>{item.label}{typeof item.count === 'number' ? <span className={cn('min-w-[20px] px-1.5 py-0.5 text-[10px]', value === item.value ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500')}>{item.count}</span> : null}</button>)}
+      {items.map((item) => <button key={item.value} type="button" role="tab" aria-selected={value === item.value} onClick={() => onChange(item.value)} className={cn('relative flex h-10 shrink-0 items-center gap-2 px-4 text-xs font-bold transition', value === item.value ? 'text-emerald-700 after:absolute after:bottom-0 after:left-3 after:right-3 after:h-0.5 after:bg-emerald-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')}>{item.label}{typeof item.count === 'number' ? <span className={cn('min-w-[20px] px-1.5 py-0.5 text-[10px]', value === item.value ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500')}>{item.count}</span> : null}</button>)}
     </div>
   );
 }

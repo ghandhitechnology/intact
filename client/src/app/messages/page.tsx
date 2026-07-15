@@ -1238,9 +1238,9 @@ export default function MessagesPage() {
 
   if (loadState !== "ready") {
     return (
-      <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
+      <div className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6">
         <PageHeading title="메시지" />
-        <Card className="mt-6 p-10 text-center ">
+        <Card className="mt-4 p-8 text-center">
           <MessageSquare className="mx-auto h-8 w-8 text-blue-700" />
           {loadState === "loading" ? (
             <p className="mt-4 text-sm font-bold">
@@ -1280,7 +1280,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="-mx-3 w-[calc(100%+24px)] max-w-[1500px] pb-0 sm:mx-auto sm:w-full sm:px-6 sm:py-8 lg:px-8">
+    <div className="-mx-3 w-[calc(100%+24px)] max-w-[1540px] pb-0 sm:mx-auto sm:w-full sm:px-6 sm:py-4 lg:px-8">
       <div className="hidden sm:block">
         <PageHeading
           title="메시지"
@@ -1292,11 +1292,11 @@ export default function MessagesPage() {
         />
       </div>
 
-      <Card className="h-[calc(100dvh-130px-env(safe-area-inset-bottom))] min-h-0 overflow-hidden  border-x-0  sm:mt-6 sm:h-[min(760px,calc(100vh-210px))] sm:min-h-[620px]  sm:border-x">
+      <Card className="h-[calc(100dvh-130px-env(safe-area-inset-bottom))] min-h-0 overflow-hidden border-x-0 sm:mt-4 sm:h-[min(780px,calc(100vh-180px))] sm:min-h-[620px] sm:border-x">
         <div
           className={cn(
-            "h-full min-h-0 border-r border-slate-200 md:grid md:grid-cols-[300px_minmax(0,1fr)]",
-            showDetails && "xl:grid-cols-[300px_minmax(0,1fr)_280px]",
+            "h-full min-h-0 border-r border-slate-200 md:grid md:grid-cols-[280px_minmax(0,1fr)]",
+            showDetails && "xl:grid-cols-[280px_minmax(0,1fr)_260px]",
           )}
         >
           <aside
@@ -1319,7 +1319,7 @@ export default function MessagesPage() {
                   <Plus className="h-5 w-5" />
                 </IconButton>
               </div>
-              <div className="relative mt-4">
+              <div className="relative mt-3">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   value={query}
@@ -1336,8 +1336,8 @@ export default function MessagesPage() {
                   type="button"
                   onClick={() => selectRoom(item.id)}
                   className={cn(
-                    "flex w-full gap-3 border-b border-slate-100 px-4 py-4 text-left transition hover:bg-slate-50",
-                    selectedId === item.id && "bg-blue-50 hover:bg-blue-50",
+                    "flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50",
+                    selectedId === item.id && "bg-emerald-50 hover:bg-emerald-50",
                   )}
                 >
                   <Avatar
@@ -1405,11 +1405,11 @@ export default function MessagesPage() {
 
           <section
             className={cn(
-              "relative h-full min-h-0 min-w-0 flex-col bg-[#f7f6f2] md:flex",
+              "relative h-full min-h-0 min-w-0 flex-col bg-[var(--surface-muted)] md:flex",
               mobileView === "chat" ? "flex" : "hidden",
             )}
           >
-            <header className="flex h-[73px] shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-3 sm:px-5">
+            <header className="flex h-[61px] shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-3 sm:px-4">
               <div className="flex min-w-0 items-center gap-3">
                 <IconButton
                   label="대화 목록"
@@ -1520,7 +1520,7 @@ export default function MessagesPage() {
                 )
                   void loadOlderMessages();
               }}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-5 sm:px-7 sm:py-6"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-5"
             >
               <div ref={messagesContentRef} className="min-h-full">
               {messageHasMore[selectedId] ? (
@@ -1554,7 +1554,7 @@ export default function MessagesPage() {
                   {messagesError}
                 </div>
               ) : null}
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {visibleMessages.map((message, index) => {
                   const previous = visibleMessages[index - 1];
                   const grouped =
@@ -1686,7 +1686,7 @@ export default function MessagesPage() {
               <button
                 type="button"
                 onClick={() => scrollToLatest("smooth")}
-                className="absolute bottom-[86px] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-2  bg-slate-900 px-4 py-2 text-xs font-bold text-white "
+                className="absolute bottom-[78px] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-2 border border-emerald-800 bg-emerald-700 px-4 py-2 text-xs font-bold text-white"
               >
                 <ArrowDown className="h-3.5 w-3.5" />새 메시지
               </button>
@@ -1713,7 +1713,7 @@ export default function MessagesPage() {
                   </button>
                 </div>
               ) : null}
-              <div className="flex items-end gap-2  border border-slate-300 bg-slate-50 p-1.5 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-100">
+              <div className="flex items-end gap-2 border border-slate-300 bg-slate-50 p-1 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-100">
                 <div className="flex">
                   <input
                     ref={fileInputRef}
@@ -1795,7 +1795,7 @@ export default function MessagesPage() {
               mobileView === "details" ? "flex" : "hidden",
             )}
           >
-            <div className="flex h-[73px] items-center justify-between border-b border-slate-200 px-4">
+            <div className="flex h-[61px] items-center justify-between border-b border-slate-200 px-4">
               <div className="flex items-center gap-2">
                 <IconButton
                   label="대화로 돌아가기"
@@ -1819,7 +1819,7 @@ export default function MessagesPage() {
               </IconButton>
             </div>
             <div className="flex-1 overflow-y-auto">
-              <div className="border-b border-slate-200 px-5 py-6 text-center">
+              <div className="border-b border-slate-200 px-4 py-5 text-center">
                 <Avatar name={room.name} size="xl" tone={room.tone} />
                 <h3 className="mt-3 text-base font-black text-slate-950">
                   {room.name}

@@ -767,10 +767,10 @@ export default function PostDetailClient({
   }
 
   return (
-    <div className="min-h-screen bg-[#f6f8f8] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mx-auto max-w-[1220px]">
+    <div className="min-h-screen px-4 py-2 sm:px-6 sm:py-4 lg:px-8">
+      <div className="mx-auto max-w-[1540px]">
         <nav
-          className="mb-5 flex items-center gap-2 text-xs text-slate-400"
+          className="mb-3 flex items-center gap-2 text-[11px] text-slate-400"
           aria-label="현재 위치"
         >
           <Link
@@ -791,10 +791,10 @@ export default function PostDetailClient({
           <span className="truncate">게시글</span>
         </nav>
 
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_290px]">
+        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
           <div className="min-w-0">
             <article className="border border-slate-200 bg-white ">
-              <header className="border-b border-slate-200 px-5 py-6 sm:px-8 sm:py-8">
+              <header className="border-b border-slate-200 px-4 py-4 sm:px-5 sm:py-5">
                 <div className="flex flex-wrap items-center gap-2">
                   {post.notice && (
                     <span className="bg-slate-950 px-2.5 py-1.5 text-[10px] font-extrabold text-white">
@@ -823,11 +823,11 @@ export default function PostDetailClient({
                     aria-label="게시글 제목 수정"
                   />
                 ) : (
-                  <h1 className="mt-4 break-keep text-2xl font-black leading-[1.38] tracking-[-0.04em] text-slate-950 sm:text-[2rem]">
+                  <h1 className="mt-3 break-keep text-xl font-black leading-[1.4] tracking-[-0.035em] text-slate-950 sm:text-2xl">
                     {displayTitle}
                   </h1>
                 )}
-                <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <MemberLine member={post.author} />
                   <div className="flex flex-wrap items-center gap-3 text-[11px] tabular-nums text-slate-400">
                     <span>{post.createdAt}</span>
@@ -846,7 +846,7 @@ export default function PostDetailClient({
                 </div>
               </header>
 
-              <div className="px-5 py-8 sm:px-8 sm:py-10">
+              <div className="px-4 py-5 sm:px-5 sm:py-6">
                 {editingPost ? (
                   <div>
                     {post.board !== "photos" ? <textarea
@@ -904,7 +904,7 @@ export default function PostDetailClient({
                 {(Boolean(post.attachments?.length) ||
                   (demoMode && Boolean(post.attachmentCount))) && (
                   <section
-                    className="mt-8 border border-slate-200"
+                    className="mt-6 border border-slate-200"
                     aria-labelledby="attachments-heading"
                   >
                     <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
@@ -969,7 +969,7 @@ export default function PostDetailClient({
                 )}
               </div>
 
-              <footer className="flex flex-col gap-5 border-t border-slate-100 bg-slate-50 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+              <footer className="flex flex-col gap-4 border-t border-slate-100 bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -977,7 +977,7 @@ export default function PostDetailClient({
                     disabled={actionPending}
                     aria-pressed={liked}
                     className={cx(
-                      "inline-flex h-10 items-center gap-2 border px-4 text-xs font-extrabold",
+                      "inline-flex h-9 items-center gap-2 border px-3 text-xs font-extrabold",
                       liked
                         ? "border-emerald-700 bg-emerald-700 text-white"
                         : "border-slate-300 bg-white text-slate-600 hover:border-emerald-600 hover:text-emerald-700",
@@ -993,7 +993,7 @@ export default function PostDetailClient({
                     disabled={actionPending}
                     aria-pressed={bookmarked}
                     className={cx(
-                      "inline-flex h-10 w-10 items-center justify-center border",
+                      "inline-flex h-9 w-9 items-center justify-center border",
                       bookmarked
                         ? "border-blue-700 bg-blue-700 text-white"
                         : "border-slate-300 bg-white text-slate-500 hover:text-blue-700",
@@ -1058,10 +1058,10 @@ export default function PostDetailClient({
             </article>
 
             <section
-              className="mt-6 border border-slate-200 bg-white "
+              className="mt-4 border border-slate-200 bg-white"
               aria-labelledby="comments-heading"
             >
-              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-5 sm:px-7">
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-5">
                 <h2
                   id="comments-heading"
                   className="text-base font-black text-slate-900"
@@ -1125,7 +1125,7 @@ export default function PostDetailClient({
                 </div>
               )}
 
-              <form onSubmit={submitComment} className="bg-slate-50 p-5 sm:p-7">
+              <form onSubmit={submitComment} className="bg-slate-50 p-4 sm:p-5">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   {post.viewer || demoMode ? (
                     <MemberLine member={post.viewer ?? members[5]} compact />
@@ -1181,7 +1181,7 @@ export default function PostDetailClient({
           </div>
 
           <aside className="grid gap-4 sm:grid-cols-2 xl:sticky xl:top-6 xl:grid-cols-1">
-            <section className="border border-slate-200 bg-white p-5">
+            <section className="border border-slate-200 bg-white p-4">
               <p className="mb-4 text-xs font-bold text-slate-500">
                 작성자
               </p>
@@ -1248,7 +1248,7 @@ export default function PostDetailClient({
             </section>
 
             {relatedPosts.length > 0 && (
-              <section className="border border-slate-200 bg-white p-5">
+              <section className="border border-slate-200 bg-white p-4">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <h2 className="text-sm font-black text-slate-900">
                     같이 읽으면 좋은 글

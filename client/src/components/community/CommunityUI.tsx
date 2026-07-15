@@ -38,22 +38,22 @@ const boardStyles: Record<
     text: "text-emerald-700",
   },
   blue: {
-    icon: "border-blue-200 bg-blue-50 text-blue-700",
-    soft: "bg-blue-50 text-blue-800",
-    line: "border-t-blue-500",
-    text: "text-blue-700",
+    icon: "border-slate-200 bg-slate-50 text-emerald-700",
+    soft: "bg-slate-100 text-slate-700",
+    line: "border-t-emerald-500",
+    text: "text-emerald-700",
   },
   teal: {
-    icon: "border-teal-200 bg-teal-50 text-teal-700",
-    soft: "bg-teal-50 text-teal-800",
-    line: "border-t-teal-500",
-    text: "text-teal-700",
+    icon: "border-slate-200 bg-slate-50 text-emerald-700",
+    soft: "bg-slate-100 text-slate-700",
+    line: "border-t-emerald-500",
+    text: "text-emerald-700",
   },
   indigo: {
-    icon: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    soft: "bg-indigo-50 text-indigo-800",
-    line: "border-t-indigo-500",
-    text: "text-indigo-700",
+    icon: "border-slate-200 bg-slate-50 text-emerald-700",
+    soft: "bg-slate-100 text-slate-700",
+    line: "border-t-emerald-500",
+    text: "text-emerald-700",
   },
 };
 
@@ -223,13 +223,13 @@ export function PageHeading({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-5 border-b border-slate-200 pb-7 sm:flex-row sm:items-end sm:justify-between">
+    <div className="flex flex-col gap-3 border-b border-slate-300 pb-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-2xl font-black tracking-[-0.035em] text-slate-950 sm:text-3xl">
+        <h1 className="text-xl font-black tracking-[-0.03em] text-slate-950 sm:text-2xl">
           {title}
         </h1>
         {description && (
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          <p className="mt-1.5 max-w-2xl text-xs leading-5 text-slate-500 sm:text-sm">
             {description}
           </p>
         )}
@@ -249,9 +249,9 @@ export function SectionTitle({
   href?: string;
 }) {
   return (
-    <div className="mb-4 flex items-end justify-between gap-4">
+    <div className="mb-3 flex items-end justify-between gap-4">
       <div>
-        <h2 className="text-base font-black tracking-[-0.025em] text-slate-900 sm:text-lg">
+        <h2 className="text-sm font-black tracking-[-0.02em] text-slate-900 sm:text-base">
           {title}
         </h2>
         {description && (

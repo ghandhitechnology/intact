@@ -347,24 +347,24 @@ export default function SearchClient({
   };
 
   return (
-    <div className="min-h-screen bg-[#f6f8f8] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mx-auto max-w-[1220px]">
+    <div className="min-h-screen px-4 py-2 sm:px-6 sm:py-4 lg:px-8">
+      <div className="mx-auto max-w-[1540px]">
         <Link
           href="/"
-          className="mb-5 inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-emerald-700"
+          className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-emerald-700"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
           홈으로
         </Link>
 
-        <header className="border-b-2 border-slate-900 bg-white px-5 py-6 sm:px-8 sm:py-8">
-          <h1 className="text-2xl font-black tracking-[-0.04em] text-slate-950 sm:text-3xl">
+        <header className="border border-slate-200 bg-white px-4 py-4 sm:px-5">
+          <h1 className="text-xl font-black tracking-[-0.035em] text-slate-950 sm:text-2xl">
             인텍트 통합검색
           </h1>
 
           <form
             onSubmit={submit}
-            className="mt-6 flex max-w-3xl border-2 border-slate-900 bg-white focus-within:border-emerald-700"
+            className="mt-4 flex max-w-3xl border border-slate-400 bg-white focus-within:border-emerald-700 focus-within:ring-1 focus-within:ring-emerald-700"
           >
             <Search
               className="ml-4 h-5 w-5 shrink-0 self-center text-slate-400"
@@ -378,13 +378,13 @@ export default function SearchClient({
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder="게시글, 자료, 사용자 검색"
-              className="h-14 min-w-0 flex-1 border-0 px-3 text-base font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:ring-0"
+              className="h-10 min-w-0 flex-1 border-0 px-3 text-sm font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:ring-0"
             />
             {input && (
               <button
                 type="button"
                 onClick={() => setInput("")}
-                className="inline-flex h-14 w-11 items-center justify-center text-slate-400 hover:text-slate-700"
+                className="inline-flex h-10 w-10 items-center justify-center text-slate-400 hover:text-slate-700"
                 aria-label="검색어 지우기"
               >
                 <X className="h-4 w-4" />
@@ -392,14 +392,14 @@ export default function SearchClient({
             )}
             <button
               type="submit"
-              className="m-1.5 inline-flex min-w-[72px] items-center justify-center bg-slate-950 px-4 text-sm font-extrabold text-white hover:bg-emerald-700"
+              className="m-1 inline-flex min-w-[68px] items-center justify-center bg-emerald-700 px-4 text-xs font-extrabold text-white hover:bg-emerald-800"
             >
               검색
             </button>
           </form>
         </header>
 
-        <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="mt-4 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
           <section className="border border-slate-200 bg-white ">
             <div className="border-b border-slate-200 px-4 pt-4 sm:px-6 sm:pt-5">
               <div
@@ -507,7 +507,7 @@ export default function SearchClient({
                 {memberResults.map((member) => (
                   <article
                     key={member.studentId}
-                    className="flex items-center gap-3 bg-white p-5 sm:p-6"
+                    className="flex items-center gap-3 bg-white p-4"
                   >
                     <Avatar member={member} size="lg" />
                     <div className="min-w-0 flex-1">
@@ -538,7 +538,7 @@ export default function SearchClient({
                     key={tag}
                     type="button"
                     onClick={() => searchFor(tag)}
-                    className="group flex items-center gap-3 bg-white p-5 text-left hover:bg-emerald-50"
+                    className="group flex items-center gap-3 bg-white p-4 text-left hover:bg-emerald-50"
                   >
                     <span className="inline-flex h-9 w-9 items-center justify-center border border-slate-200 bg-slate-50 text-slate-500 group-hover:border-emerald-200 group-hover:bg-white group-hover:text-emerald-700">
                       <Hash className="h-4 w-4" aria-hidden="true" />
@@ -559,7 +559,7 @@ export default function SearchClient({
 
           <aside className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
             {suggestedQueries.length > 0 && (
-              <section className="border border-slate-200 bg-white p-5">
+              <section className="border border-slate-200 bg-white p-4">
                 <div className="mb-4 flex items-center gap-2">
                   <TrendingUp
                     className="h-4 w-4 text-rose-500"
@@ -600,7 +600,7 @@ export default function SearchClient({
               </section>
             )}
 
-            <section className="border border-slate-200 bg-white p-5">
+            <section className="border border-slate-200 bg-white p-4">
               <div className="mb-4 flex items-center gap-2">
                 <Clock3 className="h-4 w-4 text-blue-600" aria-hidden="true" />
                 <h2 className="text-sm font-black text-slate-900">최근 검색</h2>
@@ -633,7 +633,7 @@ export default function SearchClient({
               </div>
             </section>
 
-            <section className="border border-slate-200 bg-white p-5 sm:col-span-2 xl:col-span-1">
+            <section className="border border-slate-200 bg-white p-4 sm:col-span-2 xl:col-span-1">
               <div className="mb-4 flex items-center gap-2">
                 <FileText
                   className="h-4 w-4 text-emerald-600"

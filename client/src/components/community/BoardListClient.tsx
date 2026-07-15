@@ -96,8 +96,8 @@ function mapApiPost(item: any, board: BoardDefinition): PostSummary {
 
 function PhotoPostCard({ post }: { post: PostSummary }) {
   return (
-    <article className="border-b border-slate-200 bg-white p-4 sm:p-5">
-      <div className="mb-4 flex items-start justify-between gap-4">
+    <article className="border-b border-slate-200 bg-white p-3 sm:p-4">
+      <div className="mb-3 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <Link
             href={`/post/${post.id}`}
@@ -129,7 +129,7 @@ function PhotoPostCard({ post }: { post: PostSummary }) {
 
 function PostRow({ post }: { post: PostSummary }) {
   return (
-    <article className="border-b border-slate-100 px-4 py-[18px] transition-colors hover:bg-slate-50 sm:px-5">
+    <article className="border-b border-slate-100 px-4 py-3 transition-colors hover:bg-slate-50">
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_165px_154px] lg:items-center lg:gap-5">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
@@ -166,7 +166,7 @@ function PostRow({ post }: { post: PostSummary }) {
               />
             )}
           </Link>
-          <p className="mt-1.5 line-clamp-1 text-xs leading-5 text-slate-500">
+          <p className="mt-1 line-clamp-1 text-[11px] leading-5 text-slate-500">
             {post.excerpt}
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -335,23 +335,23 @@ export default function BoardListClient({
     board.weeklyCommentCount ?? (demoMode ? board.todayCount * 13 + 11 : null);
 
   return (
-    <div className="min-h-screen px-0 py-2 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mx-auto max-w-[1440px]">
+    <div className="min-h-screen py-1 sm:py-3">
+      <div className="mx-auto max-w-[1540px]">
         <Link
           href="/"
-          className="mb-5 inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-emerald-700"
+          className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-emerald-700"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
           모든 게시판
         </Link>
 
-        <header className=" border border-stone-200 bg-white p-5  sm:p-6">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex min-w-0 items-start gap-4">
-              <BoardMark board={board} size="lg" />
+        <header className="border border-slate-200 bg-white p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <BoardMark board={board} />
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl font-black tracking-[-0.04em] text-slate-950 sm:text-3xl">
+                  <h1 className="text-xl font-black tracking-[-0.035em] text-slate-950 sm:text-2xl">
                     {board.title}
                   </h1>
                   <span
@@ -363,17 +363,17 @@ export default function BoardListClient({
                     오늘 +{board.todayCount}
                   </span>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
+                <p className="mt-1 text-xs leading-5 text-slate-500">
                   {board.description}
                 </p>
-                <p className="mt-3 text-xs tabular-nums text-slate-400">
+                <p className="mt-2 text-[11px] tabular-nums text-slate-400">
                   게시글 {formatNumber(board.postCount)}개
                 </p>
               </div>
             </div>
             <Link
               href={`/boards/${board.slug}/write`}
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 border border-emerald-700 bg-emerald-700 px-5 text-sm font-extrabold text-white hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+              className="inline-flex h-9 shrink-0 items-center justify-center gap-2 border border-emerald-700 bg-emerald-700 px-4 text-xs font-extrabold text-white hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
             >
               <PenSquare className="h-4 w-4" aria-hidden="true" />
               글쓰기
@@ -381,9 +381,9 @@ export default function BoardListClient({
           </div>
         </header>
 
-        <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-          <section className="overflow-hidden  border border-stone-200 bg-white ">
-            <div className="border-b border-slate-200 px-4 pt-4 sm:px-5 sm:pt-5">
+        <div className="mt-4 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
+          <section className="overflow-hidden border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-3 pt-2">
               <div
                 className="flex gap-1 overflow-x-auto"
                 role="group"
@@ -396,7 +396,7 @@ export default function BoardListClient({
                     onClick={() => setFilter(item.value)}
                     aria-pressed={filter === item.value}
                     className={cx(
-                      "shrink-0 border-b-2 px-3 py-3 text-xs font-extrabold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
+                      "shrink-0 border-b-2 px-3 py-2.5 text-[11px] font-extrabold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
                       filter === item.value
                         ? "border-emerald-600 text-emerald-700"
                         : "border-transparent text-slate-400 hover:text-slate-700",
@@ -408,7 +408,7 @@ export default function BoardListClient({
               </div>
             </div>
 
-            <div className="grid gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:grid-cols-[minmax(0,1fr)_140px] sm:p-5">
+            <div className="grid gap-2 border-b border-slate-200 bg-slate-50 p-3 sm:grid-cols-[minmax(0,1fr)_130px]">
               <label className="relative block">
                 <span className="sr-only">게시판 안에서 검색</span>
                 <Search
@@ -419,7 +419,7 @@ export default function BoardListClient({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={`${board.shortTitle}에서 검색`}
-                  className="h-10 w-full border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                  className="h-9 w-full border border-slate-300 bg-white pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
                 />
               </label>
               <label className="relative block">
@@ -431,7 +431,7 @@ export default function BoardListClient({
                 <select
                   value={sort}
                   onChange={(event) => setSort(event.target.value as Sort)}
-                  className="h-10 w-full appearance-none border border-slate-300 bg-white pl-9 pr-3 text-xs font-bold text-slate-700 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                  className="h-9 w-full appearance-none border border-slate-300 bg-white pl-9 pr-3 text-[11px] font-bold text-slate-700 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
                 >
                   {(Object.keys(sortLabels) as Sort[]).map((item) => (
                     <option key={item} value={item}>
@@ -487,7 +487,7 @@ export default function BoardListClient({
               )}
             </div>
 
-            <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-[11px] text-slate-400">
                 {isRefreshing
                   ? "최신 게시글을 확인하는 중…"
@@ -540,8 +540,8 @@ export default function BoardListClient({
             </div>
           </section>
 
-          <aside className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-            <section className=" border border-stone-200 bg-white p-5">
+          <aside className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <section className="border border-slate-200 bg-white p-4">
               <div className="mb-4 flex items-center gap-2">
                 <FileText
                   className="h-4 w-4 text-blue-600"
@@ -570,7 +570,7 @@ export default function BoardListClient({
             </section>
 
             {weeklyPosts !== null && weeklyComments !== null && (
-              <section className="border border-slate-200 bg-white p-5 sm:col-span-2 xl:col-span-1">
+              <section className="border border-slate-200 bg-white p-4 sm:col-span-2 xl:col-span-1">
                 <div className="flex items-start gap-3">
                   <BarChart3
                     className="mt-0.5 h-5 w-5 shrink-0 text-blue-700"

@@ -192,7 +192,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
   const writeHref = `${currentBoard?.href ?? '/boards/free'}/write`;
 
   if (isFocusedAuth) {
-    return <div className="min-h-screen bg-[#f7f7f3]">{children}</div>;
+    return <div className="min-h-screen bg-[var(--surface-muted)]">{children}</div>;
   }
 
   if (isFilePreview) {
@@ -342,13 +342,13 @@ export default function PortalShell({ children }: { children: ReactNode }) {
         </div>
       ) : null}
 
-      <main id="main-content" className={isAdmin ? 'min-h-[calc(100vh-120px)]' : 'portal-container min-h-[calc(100vh-240px)] py-5 lg:py-7'}>
+      <main id="main-content" className={isAdmin ? 'min-h-[calc(100vh-120px)]' : 'portal-container min-h-[calc(100vh-220px)] py-4 lg:py-5'}>
         {children}
       </main>
 
       {!isAdmin && (
-        <footer className="mt-12 border-t border-[var(--line-strong)] bg-white">
-          <div className="portal-container grid gap-8 py-8 md:grid-cols-[1.4fr_1fr_1fr]">
+        <footer className="mt-8 border-t border-[var(--line-strong)] bg-white">
+          <div className="portal-container grid gap-6 py-6 md:grid-cols-[1.4fr_1fr_1fr]">
             <div>
               <strong>인텍트</strong>
             </div>
@@ -376,8 +376,8 @@ export default function PortalShell({ children }: { children: ReactNode }) {
           <section className={`absolute inset-x-0 bottom-0 border-t border-slate-300 bg-white px-4 pb-[calc(82px+env(safe-area-inset-bottom))] pt-3 transition-transform duration-200 ${boardPickerOpen ? 'translate-y-0' : 'translate-y-full'}`} aria-label="게시판 선택">
             <div className="mx-auto mb-4 h-1.5 w-10  bg-slate-200" />
             <div className="mb-4 flex items-center justify-between px-1"><h2 className="text-lg font-black tracking-[-0.03em] text-slate-950">게시판 선택</h2><button type="button" onClick={() => setBoardPickerOpen(false)} className="grid h-10 w-10 place-items-center  bg-slate-100 text-slate-600" aria-label="닫기"><X size={18} /></button></div>
-            <div className="grid grid-cols-2 gap-2.5">
-              {boardNavigation.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-[72px] items-center gap-3  border p-3.5 ${pathname.startsWith(item.href) ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700'}`}><span className="grid h-10 w-10 place-items-center  bg-white"><item.icon size={19} /></span><span className="min-w-0 flex-1 text-sm font-extrabold">{item.label}</span><ChevronRight size={15} className="text-slate-300" /></Link>)}
+            <div className="grid grid-cols-2 gap-2">
+              {boardNavigation.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-[60px] items-center gap-2.5 border p-3 ${pathname.startsWith(item.href) ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700'}`}><span className="grid h-8 w-8 place-items-center bg-white"><item.icon size={17} /></span><span className="min-w-0 flex-1 text-xs font-extrabold">{item.label}</span><ChevronRight size={14} className="text-slate-300" /></Link>)}
             </div>
           </section>
         </div>

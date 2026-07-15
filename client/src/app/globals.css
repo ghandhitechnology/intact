@@ -6,17 +6,17 @@
   --green: #176b50;
   --green-deep: #10503d;
   --green-pale: #edf5f1;
-  --blue: #315f84;
-  --blue-deep: #244966;
-  --blue-pale: #f0f4f7;
-  --ink: #20231f;
-  --ink-soft: #5c615c;
-  --ink-faint: #858a85;
-  --line: #e2e2dd;
-  --line-strong: #c9cbc5;
+  --blue: #416c91;
+  --blue-deep: #31536f;
+  --blue-pale: #edf3f8;
+  --ink: #202a33;
+  --ink-soft: #596572;
+  --ink-faint: #8a96a3;
+  --line: #dfe5ec;
+  --line-strong: #c8d2dd;
   --surface: #ffffff;
-  --surface-muted: #f7f7f4;
-  --surface-subtle: #f3f3ef;
+  --surface-muted: #f4f6f8;
+  --surface-subtle: #f0f3f6;
   --danger: #c43d3d;
   --warning: #a46309;
   color-scheme: light;
@@ -64,7 +64,7 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid rgba(23, 105, 194, 0.24);
+  outline: 2px solid rgba(23, 107, 80, 0.28);
   outline-offset: 2px;
 }
 
@@ -80,7 +80,7 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 .portal-container {
-  width: min(100% - 40px, 1360px);
+  width: min(100% - 32px, 1540px);
   margin-inline: auto;
 }
 

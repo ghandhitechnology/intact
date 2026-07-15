@@ -550,17 +550,17 @@ export default function PostComposer({
 
   if (published) {
     return (
-      <div className="min-h-screen bg-[#f6f8f8] px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl border border-slate-200 bg-white px-6 py-12 text-center  sm:px-12">
+      <div className="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl border border-slate-200 bg-white px-6 py-8 text-center sm:px-10">
           <span className="mx-auto flex h-14 w-14 items-center justify-center border border-emerald-200 bg-emerald-50 text-emerald-700">
             <CheckCircle2 className="h-7 w-7" aria-hidden="true" />
           </span>
-          <h1 className="mt-6 text-2xl font-black tracking-[-0.035em] text-slate-950">게시 완료</h1>
-          <div className="mt-8 flex flex-col justify-center gap-2 sm:flex-row">
+          <h1 className="mt-4 text-xl font-black tracking-[-0.035em] text-slate-950">게시 완료</h1>
+          <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
             <button
               type="button"
               onClick={() => setPublished(false)}
-              className="inline-flex h-11 items-center justify-center border border-slate-300 bg-white px-5 text-sm font-bold text-slate-600 hover:border-slate-500"
+              className="inline-flex h-9 items-center justify-center border border-slate-300 bg-white px-4 text-xs font-bold text-slate-600 hover:border-slate-500"
             >
               계속 수정하기
             </button>
@@ -568,7 +568,7 @@ export default function PostComposer({
               href={
                 publishedId ? `/post/${publishedId}` : `/boards/${board.slug}`
               }
-              className="inline-flex h-11 items-center justify-center border border-emerald-700 bg-emerald-700 px-5 text-sm font-extrabold text-white hover:bg-emerald-800"
+              className="inline-flex h-9 items-center justify-center border border-emerald-700 bg-emerald-700 px-4 text-xs font-extrabold text-white hover:bg-emerald-800"
             >
               {publishedId ? "게시글 확인하기" : "게시판으로 가기"}
             </Link>
@@ -579,9 +579,9 @@ export default function PostComposer({
   }
 
   return (
-    <div className="min-h-screen bg-[#f6f8f8] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <form onSubmit={submitPost} className="mx-auto max-w-[1220px]">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <div className="min-h-screen px-4 py-2 sm:px-6 sm:py-4 lg:px-8">
+      <form onSubmit={submitPost} className="mx-auto max-w-[1540px]">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <Link
             href={`/boards/${initialBoard.slug}`}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-emerald-700"
@@ -595,21 +595,21 @@ export default function PostComposer({
           </span>
         </div>
 
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_290px]">
+        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
           <section className="border border-slate-200 bg-white ">
-            <header className="border-b border-slate-200 px-5 py-6 sm:px-7">
+            <header className="border-b border-slate-200 px-4 py-4 sm:px-5">
               <div className="flex items-start gap-4">
                 <BoardMark board={board} />
                 <div>
-                  <h1 className="text-2xl font-black tracking-[-0.035em] text-slate-950">
+                  <h1 className="text-xl font-black tracking-[-0.035em] text-slate-950">
                     새 글 작성
                   </h1>
                 </div>
               </div>
             </header>
 
-            <div className="space-y-6 p-5 sm:p-7">
-              <div className="grid gap-5 sm:grid-cols-[190px_minmax(0,1fr)]">
+            <div className="space-y-5 p-4 sm:p-5">
+              <div className="grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
                 <label className="block">
                   <span className="mb-2 block text-xs font-extrabold text-slate-700">
                     게시판 <span className="text-rose-500">*</span>
@@ -620,7 +620,7 @@ export default function PostComposer({
                       onChange={(event) =>
                         setSelectedSlug(event.target.value as BoardSlug)
                       }
-                      className="h-11 w-full appearance-none border border-slate-300 bg-white px-3 pr-9 text-sm font-bold text-slate-700 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                      className="h-10 w-full appearance-none border border-slate-300 bg-white px-3 pr-9 text-sm font-bold text-slate-700 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
                     >
                       {boards.map((item) => (
                         <option key={item.slug} value={item.slug}>
@@ -649,7 +649,7 @@ export default function PostComposer({
                       setTitle(event.target.value.slice(0, 80))
                     }
                     placeholder="제목"
-                    className="h-11 w-full border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                    className="h-10 w-full border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
                     required
                   />
                 </label>
@@ -743,7 +743,7 @@ export default function PostComposer({
                       required
                     />
                   ) : (
-                    <div className="min-h-[428px] bg-white p-5">
+                    <div className="min-h-[360px] bg-white p-4">
                       {content.trim() ? (
                         <SafeMarkdown content={content} compact />
                       ) : (
@@ -762,7 +762,7 @@ export default function PostComposer({
                 </div>
               </div> : null}
 
-              <div className="grid gap-5 lg:grid-cols-2">
+              <div className="grid gap-4 lg:grid-cols-2">
                 {!photoMode ? <div>
                   <label
                     htmlFor="post-tags"
@@ -889,7 +889,7 @@ export default function PostComposer({
               </div>
             </div>
 
-            <footer className="flex flex-col gap-4 border-t border-slate-200 bg-slate-50 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+            <footer className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <div>
                 {submitError && (
                   <p
@@ -905,7 +905,7 @@ export default function PostComposer({
                   type="button"
                   onClick={saveDraft}
                   disabled={submitting}
-                  className="inline-flex h-10 flex-1 items-center justify-center gap-2 border border-slate-300 bg-white px-4 text-xs font-extrabold text-slate-600 hover:border-slate-500 sm:flex-none"
+                  className="inline-flex h-9 flex-1 items-center justify-center gap-2 border border-slate-300 bg-white px-4 text-xs font-extrabold text-slate-600 hover:border-slate-500 sm:flex-none"
                 >
                   <Save className="h-3.5 w-3.5" aria-hidden="true" />
                   임시저장
@@ -913,7 +913,7 @@ export default function PostComposer({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex h-10 flex-1 items-center justify-center gap-2 border border-emerald-700 bg-emerald-700 px-5 text-xs font-extrabold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300 sm:flex-none"
+                  className="inline-flex h-9 flex-1 items-center justify-center gap-2 border border-emerald-700 bg-emerald-700 px-4 text-xs font-extrabold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300 sm:flex-none"
                 >
                   <Send className="h-3.5 w-3.5" aria-hidden="true" />
                   {submitting ? "저장 중…" : "게시하기"}
@@ -923,7 +923,7 @@ export default function PostComposer({
           </section>
 
           <aside className="grid gap-4 sm:grid-cols-2 xl:sticky xl:top-6 xl:grid-cols-1">
-            <section className="border border-slate-200 bg-white p-5">
+            <section className="border border-slate-200 bg-white p-4">
               <p className="text-xs font-bold text-slate-500">
                 작성 계정
               </p>

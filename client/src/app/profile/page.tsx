@@ -425,9 +425,9 @@ export default function ProfilePage() {
 
   if (loadState !== 'ready' || !profile) {
     return (
-      <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 lg:px-8">
         <PageHeading title="내 프로필" />
-        <Card className="mt-6 p-10 text-center ">
+        <Card className="mt-4 p-8 text-center">
           {loadState === 'loading' ? <><Loader2 className="mx-auto h-7 w-7 animate-spin text-blue-700" /><h2 className="mt-4 text-sm font-extrabold text-slate-900">프로필을 불러오는 중입니다.</h2></> : null}
           {loadState === 'auth' ? <><LogIn className="mx-auto h-7 w-7 text-blue-700" /><h2 className="mt-4 text-sm font-extrabold text-slate-900">로그인이 필요합니다.</h2><Link href="/login" className="mt-5 inline-flex h-10 items-center bg-blue-700 px-4 text-sm font-bold text-white">로그인하기</Link></> : null}
           {loadState === 'error' ? <><RefreshCw className="mx-auto h-7 w-7 text-red-600" /><h2 className="mt-4 text-sm font-extrabold text-slate-900">프로필을 표시할 수 없습니다.</h2><p className="mt-2 text-xs text-red-600">{loadError}</p><Button className="mt-5" onClick={() => setReloadKey((value) => value + 1)}><RefreshCw className="h-4 w-4" />다시 시도</Button></> : null}
@@ -446,47 +446,47 @@ export default function ProfilePage() {
   const otherSessionCount = sessions.filter((session) => !session.current).length;
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[1540px] px-4 py-4 sm:px-6 lg:px-8">
       <PageHeading title="내 프로필" actions={<Button variant="secondary" onClick={openEditor}><Edit3 className="h-4 w-4" />프로필 편집</Button>} />
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_300px]">
-        <aside className="space-y-5">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_280px]">
+        <aside className="space-y-4">
           <Card className="overflow-hidden ">
-            <div className="h-20 bg-slate-900" />
-            <div className="px-5 pb-5">
-              <div className="-mt-10 flex items-end justify-between"><Avatar name={profile.realName || profile.nickname} imageUrl={profile.profileImage} size="xl" tone="blue" /><Badge tone={profile.status === 'ACTIVE' ? 'green' : 'amber'} className="mb-1"><ShieldCheck className="mr-1 h-3 w-3" />{profile.status === 'ACTIVE' ? '재학생 인증' : profile.status}</Badge></div>
+            <div className="h-1 bg-emerald-700" />
+            <div className="p-4">
+              <div className="flex items-end justify-between"><Avatar name={profile.realName || profile.nickname} imageUrl={profile.profileImage} size="xl" tone="blue" /><Badge tone={profile.status === 'ACTIVE' ? 'green' : 'amber'} className="mb-1"><ShieldCheck className="mr-1 h-3 w-3" />{profile.status === 'ACTIVE' ? '재학생 인증' : profile.status}</Badge></div>
               <h2 className="mt-4 text-xl font-black tracking-[-0.035em] text-slate-950">{profile.realName || profile.nickname}</h2>
               <p className="mt-1 text-xs font-bold text-slate-500">{identityLine}</p>
               <p className="mt-4 text-sm leading-6 text-slate-600">{profile.bio || '아직 소개가 없습니다.'}</p>
               {profile.interests.length ? <div className="mt-4 flex flex-wrap gap-1.5">{profile.interests.map((interest) => <Badge key={interest} tone="slate">#{interest}</Badge>)}</div> : null}
-              <div className="mt-5 border-t border-slate-200 pt-4 text-xs text-slate-500"><div className="flex items-center gap-2"><CalendarDays className="h-3.5 w-3.5" />{formatDate(profile.createdAt) ?? '날짜 정보 없음'} 가입</div>{profile.lastReverifiedAt ? <div className="mt-2 flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5" />{formatDate(profile.lastReverifiedAt)} 재인증</div> : null}</div>
+              <div className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500"><div className="flex items-center gap-2"><CalendarDays className="h-3.5 w-3.5" />{formatDate(profile.createdAt) ?? '날짜 정보 없음'} 가입</div>{profile.lastReverifiedAt ? <div className="mt-2 flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5" />{formatDate(profile.lastReverifiedAt)} 재인증</div> : null}</div>
             </div>
           </Card>
           <Card className=""><CardHeader title="활동 통계" /><div className="grid grid-cols-2 gap-px bg-slate-200">{[['게시글', profile._count.posts], ['댓글', profile._count.comments], ['스크랩', profile._count.bookmarks], ['누적 IGK', lifetimeIgk]].map(([label, value]) => <div key={String(label)} className="bg-white p-4 text-center"><strong className="block text-xl font-black text-slate-950">{Number(value).toLocaleString()}</strong><span className="mt-1 block text-[11px] font-medium text-slate-500">{label}</span></div>)}</div></Card>
         </aside>
 
-        <section className="min-w-0 space-y-5">
+        <section className="min-w-0 space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="현재 등급" value={igkLevelLabel(level)} detail="활동·받은 선물 누적" icon={<Trophy className="h-4 w-4" />} tone="amber" />
             <Stat label="보유 IGK" value={currentIgk.toLocaleString()} detail={`누적 ${lifetimeIgk.toLocaleString()}`} icon={<Gift className="h-4 w-4" />} tone="green" />
             <Stat label="작성한 글" value={profile._count.posts.toLocaleString()} detail="전체 게시판" icon={<Award className="h-4 w-4" />} />
             <Stat label="교내 랭킹" value={igk ? `#${igk.rank}` : '—'} detail={igk ? '보유 IGK 기준' : '랭킹 정보 없음'} icon={<Users className="h-4 w-4" />} tone="slate" />
           </div>
-          <Card className=""><CardHeader title="활동 요약" /><div className="grid gap-px bg-slate-200 sm:grid-cols-3"><div className="bg-white p-6"><FileText className="h-5 w-5 text-blue-700" /><strong className="mt-3 block text-2xl font-black">{profile._count.posts.toLocaleString()}</strong><span className="text-xs text-slate-500">작성한 게시글</span></div><div className="bg-white p-6"><MessageCircle className="h-5 w-5 text-emerald-700" /><strong className="mt-3 block text-2xl font-black">{profile._count.comments.toLocaleString()}</strong><span className="text-xs text-slate-500">작성한 댓글</span></div><div className="bg-white p-6"><Award className="h-5 w-5 text-amber-700" /><strong className="mt-3 block text-2xl font-black">{profile._count.bookmarks.toLocaleString()}</strong><span className="text-xs text-slate-500">저장한 글</span></div></div></Card>
+          <Card className=""><CardHeader title="활동 요약" /><div className="grid gap-px bg-slate-200 sm:grid-cols-3"><div className="bg-white p-4"><FileText className="h-5 w-5 text-blue-700" /><strong className="mt-2 block text-xl font-black">{profile._count.posts.toLocaleString()}</strong><span className="text-xs text-slate-500">작성한 게시글</span></div><div className="bg-white p-4"><MessageCircle className="h-5 w-5 text-emerald-700" /><strong className="mt-2 block text-xl font-black">{profile._count.comments.toLocaleString()}</strong><span className="text-xs text-slate-500">작성한 댓글</span></div><div className="bg-white p-4"><Award className="h-5 w-5 text-amber-700" /><strong className="mt-2 block text-xl font-black">{profile._count.bookmarks.toLocaleString()}</strong><span className="text-xs text-slate-500">저장한 글</span></div></div></Card>
         </section>
 
-        <aside className="space-y-5 lg:col-span-2 xl:col-span-1">
+        <aside className="space-y-4 lg:col-span-2 xl:col-span-1">
           <Card className=""><CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-blue-700">전체 로드맵</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level)}</span><p className="mt-1 text-lg font-black text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : '최고 등급 선생님'}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{lifetimeIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div><p className="mt-3 text-xs leading-5 text-slate-500">{nextThreshold ? <>다음 등급까지 <strong className="text-slate-800">{Math.max(0, nextThreshold - lifetimeIgk).toLocaleString()} IGK</strong>가 필요합니다.</> : '최종 등급에 도달했습니다.'}</p><Link href="/igk/roadmap" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-extrabold text-slate-700 hover:bg-slate-50">9등급부터 선생님까지 보기</Link></div></Card>
           <Card className=""><CardHeader title="재학생 인증" /><div className="p-5"><p className="flex items-center gap-2 text-sm font-extrabold text-slate-900"><ShieldCheck className="h-4 w-4 text-emerald-700" />{profile.status === 'ACTIVE' ? '정상 이용 가능' : profile.status}</p><p className="mt-2 text-xs leading-5 text-slate-500">{profile.reverifyDueAt ? `${formatDate(profile.reverifyDueAt)}까지 재인증이 유효합니다.` : '재인증 만료일이 등록되지 않았습니다.'}</p></div></Card>
         </aside>
       </div>
 
-      <section className="mt-8" aria-labelledby="account-security-title">
-        <div className="mb-4 border-b border-slate-200 pb-4">
-          <h2 id="account-security-title" className="text-xl font-black tracking-[-0.03em] text-slate-950">계정 보안</h2>
+      <section className="mt-6" aria-labelledby="account-security-title">
+        <div className="mb-3 border-b border-slate-200 pb-3">
+          <h2 id="account-security-title" className="text-lg font-black tracking-[-0.03em] text-slate-950">계정 보안</h2>
         </div>
 
-        <div className="grid items-start gap-5 lg:grid-cols-2">
+        <div className="grid items-start gap-4 lg:grid-cols-2">
           <Card className="">
             <CardHeader
               title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-blue-700" />비밀번호 변경</span>}

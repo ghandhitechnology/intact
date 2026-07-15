@@ -1399,11 +1399,11 @@ export default function AdminPage() {
   if (accessState === "denied") return null;
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
+    <div className="min-h-screen bg-[var(--surface-muted)] text-slate-900">
       <header className="border-b border-slate-800 bg-slate-950 text-white">
-        <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center bg-blue-700">
+            <span className="grid h-9 w-9 place-items-center bg-emerald-700">
               <Shield className="h-5 w-5" />
             </span>
             <div>
@@ -1449,13 +1449,13 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+            <h2 className="text-xl font-black tracking-[-0.035em] text-slate-950">
               운영 현황
             </h2>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-1 text-xs text-slate-600">
               가입 초대, 사용자, 콘텐츠, 공지를 실제 운영 데이터로 검토하고 모든
               위험 조치를 감사 기록으로 남깁니다.
             </p>
@@ -1499,7 +1499,7 @@ export default function AdminPage() {
           </div>
         ) : null}
 
-        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat
             label="전체 계정"
             value={summary.userCount.toLocaleString()}

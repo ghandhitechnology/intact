@@ -76,10 +76,10 @@ export default function NoticesPage() {
   }, [items, loading]);
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <header className="border-b-2 border-slate-950 bg-white px-6 py-8">
+    <div className="mx-auto max-w-5xl">
+      <header className="border border-slate-200 bg-white px-4 py-4 sm:px-5">
         <p className="section-kicker">NOTICE</p>
-        <div className="mt-3 flex items-start gap-3"><Megaphone className="mt-1 text-emerald-700" size={24} /><h1 className="text-2xl font-black">공지사항</h1></div>
+        <div className="mt-2 flex items-start gap-2"><Megaphone className="mt-0.5 text-emerald-700" size={20} /><h1 className="text-xl font-black">공지사항</h1></div>
       </header>
       <div className="border-x border-b border-slate-300 bg-white">
         {loading && <div className="px-6 py-16 text-center text-sm font-bold text-slate-400">공지를 불러오는 중…</div>}
@@ -90,15 +90,15 @@ export default function NoticesPage() {
             id={`notice-${notice.id}`}
             key={notice.id}
             tabIndex={-1}
-            className="scroll-mt-36 border-b border-slate-200 px-6 py-6 outline-none last:border-b-0 target:bg-emerald-50/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600"
+            className="scroll-mt-36 border-b border-slate-200 px-4 py-4 outline-none last:border-b-0 target:bg-emerald-50/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 sm:px-5"
           >
             <div className="flex flex-wrap items-center gap-2">
               {notice.priority >= 50 && <span className="bg-slate-950 px-2 py-1 text-[10px] font-black text-white">필독</span>}
               <span className="inline-flex items-center gap-1 text-[11px] text-slate-400"><CalendarClock size={13} />{new Date(notice.publishedAt || notice.createdAt).toLocaleString('ko-KR')}</span>
               <span className="ml-auto text-[11px] font-bold text-slate-500">{notice.author?.nickname || '인텍트 운영팀'}</span>
             </div>
-            <h2 className="mt-3 text-lg font-black tracking-tight text-slate-900">{notice.title}</h2>
-            <div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-600">{notice.content}</div>
+            <h2 className="mt-2 text-base font-black tracking-tight text-slate-900">{notice.title}</h2>
+            <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-600">{notice.content}</div>
           </article>
         ))}
       </div>
