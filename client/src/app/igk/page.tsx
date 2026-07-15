@@ -40,6 +40,7 @@ import {
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { igkLevelLabel } from "@/lib/igk-levels";
+import { usePlatformMode } from "@/components/portal/PlatformModeProvider";
 
 const DEMO_MODE = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === "true";
 
@@ -199,7 +200,7 @@ function toTransaction(entry: LedgerEntry): Transaction {
   const giftOut = entry.type === "TRANSFER_SENT";
   const reversal = entry.type === "REVERSAL" || (entry.amount < 0 && !giftOut);
   const counterparty = entry.counterparty
-    ? `${entry.counterparty.realName || entry.counterparty.nickname}${entry.counterparty.studentIdentity?.studentCode ? ` (${entry.counterparty.studentIdentity.studentCode})` : ""}`
+    ? `${entry.counterparty.realName || entry.counterparty.nickname}${entry.counterparty.studentIdentity?.studentCode && entry.counterparty.studentIdentity.studentCode !== '------' ? ` (${entry.counterparty.studentIdentity.studentCode})` : ""}`
     : null;
   return {
     id: entry.id,
@@ -226,6 +227,7 @@ function toTransaction(entry: LedgerEntry): Transaction {
 }
 
 export default function IgkPage() {
+  const { bSideEnabled } = usePlatformMode();
   const [tab, setTab] = useState<IgkTab>("ledger");
   const [wallet, setWallet] = useState<Wallet | null>(
     DEMO_MODE ? demoWallet : null,
@@ -373,7 +375,7 @@ export default function IgkPage() {
     [transactions, filter],
   );
   const transferValid =
-    /^\d{6}$/.test(recipient) &&
+    (bSideEnabled ? /^#[A-F0-9]{8}$/.test(recipient) : /^\d{6}$/.test(recipient)) &&
     Number.isInteger(giftAmount) &&
     giftAmount >= 1 &&
     giftAmount <= Math.min(500, balance) &&
@@ -743,9 +745,10 @@ export default function IgkPage() {
                         {displayName}
                       </h3>
                       <p className="text-[11px] text-slate-400">
-                        {person.studentIdentity?.studentCode ??
-                          "학번 정보 없음"}{" "}
-                        · {igkLevelLabel(person.level, person.teacherRank)}
+                        {person.studentIdentity?.studentCode && person.studentIdentity.studentCode !== '------'
+                          ? `${person.studentIdentity.studentCode} · `
+                          : ''}
+                        {igkLevelLabel(person.level, person.teacherRank)}
                       </p>
                     </div>
                     <strong>{person.currentIgk.toLocaleString()} IGK</strong>
@@ -773,27 +776,32 @@ export default function IgkPage() {
             />
             <form onSubmit={prepareTransfer} className="space-y-4 p-5">
               <Field
-                label="받는 학생의 6자리 학번"
+                label={bSideEnabled ? "받는 사용자의 익명 해시" : "받는 학생의 6자리 학번"}
                 required
                 error={
                   recipient &&
-                  (!/^\d{6}$/.test(recipient) || recipient === selfStudentCode)
+                  (!(bSideEnabled ? /^#[A-F0-9]{8}$/.test(recipient) : /^\d{6}$/.test(recipient)) || recipient === selfStudentCode)
                     ? recipient === selfStudentCode
                       ? "본인에게는 선물할 수 없습니다."
-                      : "6자리 학번을 입력하세요."
+                      : bSideEnabled ? "#으로 시작하는 8자리 익명 해시를 입력하세요." : "6자리 학번을 입력하세요."
                     : undefined
                 }
               >
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
-                    inputMode="numeric"
-                    maxLength={6}
+                    inputMode={bSideEnabled ? "text" : "numeric"}
+                    maxLength={bSideEnabled ? 9 : 6}
                     value={recipient}
                     onChange={(event) =>
-                      setRecipient(event.target.value.replace(/\D/g, ""))
+                      setRecipient(
+                        bSideEnabled
+                          ? event.target.value.toUpperCase().replace(/[^#A-F0-9]/g, "").replace(/(?!^)#/g, "")
+                          : event.target.value.replace(/\D/g, ""),
+                      )
                     }
                     className="pl-9"
+                    placeholder={bSideEnabled ? "#A1B2C3D4" : "331101"}
                   />
                 </div>
               </Field>

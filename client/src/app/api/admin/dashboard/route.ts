@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma';
 import { decryptText } from '@/lib/server/crypto';
 import { json, jsonError } from '@/lib/server/http';
 import { requireReadyAdmin } from '@/lib/server/session';
+import { getPlatformMode } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -208,6 +209,7 @@ export async function GET(request: Request) {
         : null,
       activeSessionCount: activeSessionCountByUser.get(user.id) ?? 0,
     }));
+    const platform = await getPlatformMode();
     return json({
       summary: {
         userCount,
@@ -221,6 +223,11 @@ export async function GET(request: Request) {
         scheduledNoticeCount: notices.filter((notice) => notice.status === 'SCHEDULED').length,
       },
       adminSession: { expiresAt: admin.expiresAt },
+      platform: {
+        bSideEnabled: platform.bSideEnabled,
+        bSideEpoch: platform.bSideEpoch,
+        updatedAt: platform.updatedAt,
+      },
       users: safeUsers,
       posts,
       comments,

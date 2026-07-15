@@ -34,6 +34,7 @@ import {
   Lock,
   LogOut,
   Megaphone,
+  Moon,
   Pin,
   Plus,
   RefreshCw,
@@ -57,6 +58,7 @@ import {
   STUDENT_CODE_REQUIREMENTS,
 } from "@/lib/student-code";
 import { igkLevelLabel } from "@/lib/igk-levels";
+import { usePlatformMode } from "@/components/portal/PlatformModeProvider";
 
 type AdminTab = "users" | "content" | "notices";
 type UserStatus =
@@ -298,6 +300,11 @@ type DashboardReport = {
 type DashboardPayload = {
   summary: Summary;
   adminSession: { expiresAt: string };
+  platform: {
+    bSideEnabled: boolean;
+    bSideEpoch: number;
+    updatedAt: string;
+  };
   users: DashboardUser[];
   posts: DashboardPost[];
   comments: DashboardComment[];
@@ -556,6 +563,8 @@ function auditActionLabel(action: string) {
     REPORT_DISMISS: "신고 기각",
     STUDENT_INVITE_CREATE: "가입 초대 발급",
     STUDENT_INVITE_REVOKE: "가입 초대 회수",
+    B_SIDE_ENABLE: "B-side 활성화",
+    B_SIDE_DISABLE: "B-side 비활성화",
   };
   return labels[action] || action;
 }
@@ -578,6 +587,7 @@ function contentStatusBadge(status: ContentStatus) {
 
 export default function AdminPage() {
   const router = useRouter();
+  const { refresh: refreshPlatformMode } = usePlatformMode();
   const demoMode = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === "true";
   const [accessState, setAccessState] = useState<
     "loading" | "ready" | "denied"
@@ -656,6 +666,9 @@ export default function AdminPage() {
     tone: "success" | "error";
   } | null>(null);
   const [applying, setApplying] = useState(false);
+  const [bSideEnabled, setBSideEnabled] = useState(false);
+  const [bSideEpoch, setBSideEpoch] = useState(0);
+  const [platformApplying, setPlatformApplying] = useState(false);
 
   const showToast = useCallback(
     (message: string, tone: "success" | "error" = "success") => {
@@ -877,6 +890,8 @@ export default function AdminPage() {
         })),
       );
       setSummary(payload.data.summary);
+      setBSideEnabled(payload.data.platform.bSideEnabled);
+      setBSideEpoch(payload.data.platform.bSideEpoch);
       setAdminExpiresAt(payload.data.adminSession.expiresAt);
       setLastUpdated(new Date());
       setAccessState("ready");
@@ -908,6 +923,39 @@ export default function AdminPage() {
     );
     router.replace("/admin/login");
     router.refresh();
+  }
+
+  async function toggleBSide() {
+    const enabled = !bSideEnabled;
+    const confirmed = window.confirm(
+      enabled
+        ? "B-side를 켜면 모든 사용자 화면이 즉시 다크 모드로 전환되고 다른 사용자의 이름이 익명 해시로 표시됩니다. 계속할까요?"
+        : "B-side를 끄면 일반 테마와 실제 사용자 이름 표시로 돌아갑니다. 계속할까요?",
+    );
+    if (!confirmed) return;
+    setPlatformApplying(true);
+    try {
+      const response = await fetch("/api/admin/platform", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      const payload = await readApiEnvelope<{
+        bSideEnabled: boolean;
+        bSideEpoch: number;
+      }>(response);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(apiErrorMessage(payload, "B-side 상태를 바꾸지 못했습니다."));
+      }
+      setBSideEnabled(payload.data.bSideEnabled);
+      setBSideEpoch(payload.data.bSideEpoch);
+      showToast(enabled ? "B-side를 전역 활성화했습니다." : "B-side를 비활성화했습니다.");
+      await refreshPlatformMode();
+    } catch (cause) {
+      showToast(cause instanceof Error ? cause.message : "B-side 상태를 바꾸지 못했습니다.", "error");
+    } finally {
+      setPlatformApplying(false);
+    }
   }
 
   function resetInviteDraft() {
@@ -1547,6 +1595,36 @@ export default function AdminPage() {
             tone="slate"
           />
         </div>
+
+        <Card className="mt-5 overflow-hidden bg-slate-950 text-white">
+          <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center bg-white/10 text-slate-100">
+                <Moon className="h-5 w-5" />
+              </span>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-black">B-side 전역 모드</h3>
+                  <Badge tone={bSideEnabled ? "green" : "slate"}>
+                    {bSideEnabled ? "활성" : "비활성"}
+                  </Badge>
+                </div>
+                <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-400">
+                  켜면 모든 사용자 화면이 다크 테마로 바뀌고, 본인을 제외한 이름·학번·프로필 이미지는 세션 {bSideEpoch}의 익명 해시로 대체됩니다.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant={bSideEnabled ? "danger" : "green"}
+              className="h-10 shrink-0 text-xs"
+              onClick={() => void toggleBSide()}
+              disabled={platformApplying || demoMode}
+            >
+              <Moon className="h-4 w-4" />
+              {platformApplying ? "적용 중" : bSideEnabled ? "B-side 끄기" : "B-side 켜기"}
+            </Button>
+          </div>
+        </Card>
 
         <Card className="mt-5 overflow-hidden ">
           <CardHeader

@@ -8,6 +8,8 @@ type SessionUser = {
   id: string;
   nickname: string;
   studentId: string;
+  anonymousNickname: string;
+  bSideEnabled: boolean;
 };
 
 type ClientMessage = {
@@ -54,7 +56,46 @@ function internalRequestAllowed(request: express.Request) {
 }
 
 app.use('/internal', express.json({ limit: '128kb' }));
-app.post('/internal/message', (request, response) => {
+type RealtimeMessage = {
+  sender?: {
+    id?: string;
+    nickname?: string;
+    realName?: string | null;
+    profileImage?: string | null;
+    studentIdentity?: { studentCode?: string } | null;
+  };
+  _bSide?: { enabled?: boolean; anonymousNickname?: string };
+  [key: string]: unknown;
+};
+
+function messageForViewer(input: RealtimeMessage, viewerId: string) {
+  const { _bSide, ...message } = input;
+  if (!_bSide?.enabled || !message.sender || message.sender.id === viewerId) return message;
+  const alias = _bSide.anonymousNickname || '#ANONYMOUS';
+  return {
+    ...message,
+    sender: {
+      ...message.sender,
+      nickname: alias,
+      realName: alias,
+      profileImage: null,
+      studentIdentity: message.sender.studentIdentity
+        ? { ...message.sender.studentIdentity, studentCode: '------' }
+        : message.sender.studentIdentity,
+    },
+  };
+}
+
+async function emitMessageToRoom(roomId: string, message: RealtimeMessage) {
+  const sockets = await io.in(`room:${roomId}`).fetchSockets();
+  for (const socket of sockets) {
+    const viewer = socket.data.user as SessionUser | undefined;
+    if (!viewer?.id) continue;
+    socket.emit('chat:message', messageForViewer(message, viewer.id));
+  }
+}
+
+app.post('/internal/message', async (request, response) => {
   if (!internalRequestAllowed(request)) {
     response.status(403).json({ ok: false });
     return;
@@ -65,8 +106,12 @@ app.post('/internal/message', (request, response) => {
     response.status(400).json({ ok: false });
     return;
   }
-  io.to(`room:${roomId}`).emit('chat:message', message);
-  response.json({ ok: true });
+  try {
+    await emitMessageToRoom(roomId, message as RealtimeMessage);
+    response.json({ ok: true });
+  } catch {
+    response.status(503).json({ ok: false });
+  }
 });
 app.post('/internal/room-created', (request, response) => {
   if (!internalRequestAllowed(request)) {
@@ -155,6 +200,7 @@ io.on('connection', (socket) => {
       socket.disconnect(true);
       return;
     }
+    Object.assign(user, refreshed);
     const roomIds = Array.from(socket.rooms)
       .filter((room) => room.startsWith('room:'))
       .map((room) => room.slice(5));
@@ -217,9 +263,9 @@ io.on('connection', (socket) => {
         signal: AbortSignal.timeout(8_000),
       });
       if (!response.ok) throw new Error('PERSIST_FAILED');
-      const message = await response.json();
-      io.to(`room:${input.roomId}`).emit('chat:message', message);
-      ack?.({ ok: true, message });
+      const message = (await response.json()) as RealtimeMessage;
+      await emitMessageToRoom(input.roomId, message);
+      ack?.({ ok: true, message: messageForViewer(message, user.id) });
     } catch {
       ack?.({ ok: false, error: 'DELIVERY_FAILED' });
     }
@@ -230,7 +276,7 @@ io.on('connection', (socket) => {
     socket.to(`room:${payload.roomId}`).emit('chat:typing', {
       roomId: payload.roomId,
       userId: user.id,
-      nickname: user.nickname,
+      nickname: user.bSideEnabled ? user.anonymousNickname : user.nickname,
       active: Boolean(payload.active),
     });
   });

@@ -7,6 +7,7 @@ import NetworkStatus from '@/components/portal/NetworkStatus';
 import ClientDataProvider from '@/components/portal/ClientDataProvider';
 import SessionProvider from '@/components/portal/SessionProvider';
 import WebVitals from '@/components/portal/WebVitals';
+import PlatformModeProvider from '@/components/portal/PlatformModeProvider';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
@@ -50,10 +51,12 @@ export default function RootLayout({
         <Wrapper>
           <ClientDataProvider>
             <SessionProvider>
-              <PortalShell>{children}</PortalShell>
-              <PwaRegistration />
-              <NetworkStatus />
-              <WebVitals />
+              <PlatformModeProvider>
+                <PortalShell>{children}</PortalShell>
+                <PwaRegistration />
+                <NetworkStatus />
+                <WebVitals />
+              </PlatformModeProvider>
             </SessionProvider>
           </ClientDataProvider>
         </Wrapper>

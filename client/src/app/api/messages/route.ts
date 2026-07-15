@@ -12,6 +12,11 @@ import {
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 import { isRealtimeGatewayRequest, publishRealtimeEvent } from '@/lib/server/realtime';
+import {
+  anonymousNickname,
+  getPlatformMode,
+  maskPublicIdentitiesWithMode,
+} from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -76,7 +81,10 @@ export async function GET(request: Request) {
         ),
     }));
     return json({
-      messages: chronological,
+      messages: await (async () => {
+        const platformMode = await getPlatformMode();
+        return maskPublicIdentitiesWithMode(chronological, session.user.id, platformMode);
+      })(),
       hasMore,
       nextCursor: hasMore ? chronological[0]?.createdAt.toISOString() ?? null : null,
     });
@@ -177,7 +185,7 @@ export async function POST(request: Request) {
               userId,
               actorId: session.user.id,
               type: 'MESSAGE',
-              title: `${session.user.nickname}님의 새 메시지`,
+              title: '새 메시지가 도착했습니다.',
               body: content.slice(0, 120),
               href: `/messages?roomId=${encodeURIComponent(roomId)}`,
               metadata: { roomId, messageId: created.id },
@@ -195,16 +203,32 @@ export async function POST(request: Request) {
         select: messageSelect,
       });
     }
-    if (!isRealtimeGatewayRequest(request)) {
-      await publishRealtimeEvent('message', { roomId, message });
+    const platformMode = await getPlatformMode();
+    const realtimeMessage = {
+      ...message,
+      _bSide: {
+        enabled: platformMode.bSideEnabled,
+        anonymousNickname: anonymousNickname(message.sender.id, platformMode.bSideEpoch),
+      },
+    };
+    const fromRealtimeGateway = isRealtimeGatewayRequest(request);
+    if (!fromRealtimeGateway) {
+      await publishRealtimeEvent('message', { roomId, message: realtimeMessage });
     }
-    if (clientId) {
-      return Response.json(message, {
+    if (fromRealtimeGateway) {
+      return Response.json(realtimeMessage, {
         status: 201,
         headers: { 'Cache-Control': 'no-store' },
       });
     }
-    return json({ message }, 201);
+    const publicMessage = maskPublicIdentitiesWithMode(message, session.user.id, platformMode);
+    if (clientId) {
+      return Response.json(publicMessage, {
+        status: 201,
+        headers: { 'Cache-Control': 'no-store' },
+      });
+    }
+    return json({ message: publicMessage }, 201);
   } catch (error) {
     return jsonError(error);
   }

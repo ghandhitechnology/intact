@@ -42,6 +42,7 @@ import Link from "next/link";
 import { isValidStudentCode, STUDENT_CODE_REQUIREMENTS } from "@/lib/student-code";
 import { fetchWithTimeout, isAbortError, requestErrorMessage } from "@/lib/client/request";
 import { usePortalSession } from "@/components/portal/SessionProvider";
+import { usePlatformMode } from "@/components/portal/PlatformModeProvider";
 import { io, type Socket } from "socket.io-client";
 import {
   FormEvent,
@@ -424,6 +425,7 @@ const people = [
 ];
 
 export default function MessagesPage() {
+  const { bSideEnabled } = usePlatformMode();
   const { session, loading: sessionLoading } = usePortalSession();
   const [rooms, setRooms] = useState<Room[]>(DEMO_MODE ? initialRooms : []);
   const [selectedId, setSelectedId] = useState(DEMO_MODE ? "physics" : "");
@@ -493,8 +495,10 @@ export default function MessagesPage() {
     [participantDraft],
   );
   const invalidParticipantCodes = useMemo(
-    () => enteredParticipantCodes.filter((code) => !isValidStudentCode(code)),
-    [enteredParticipantCodes],
+    () => enteredParticipantCodes.filter((code) =>
+      bSideEnabled ? !/^#[A-F0-9]{8}$/i.test(code) : !isValidStudentCode(code),
+    ),
+    [bSideEnabled, enteredParticipantCodes],
   );
   const createMemberCount = DEMO_MODE
     ? selectedPeople.length
@@ -504,7 +508,7 @@ export default function MessagesPage() {
     createMemberCount > 0 &&
     createMemberCount <= 9 &&
     invalidParticipantCodes.length === 0 &&
-    (!currentStudentCode ||
+    (bSideEnabled || !currentStudentCode ||
       !enteredParticipantCodes.includes(currentStudentCode)) &&
     (!createIsGroup || roomName.trim().length >= 2);
 
@@ -1189,7 +1193,7 @@ export default function MessagesPage() {
     const memberIds = DEMO_MODE ? selectedPeople : enteredParticipantCodes;
     setCreateError("");
     if (memberIds.length === 0) {
-      setCreateError("대화할 학생의 학번을 입력해 주세요.");
+      setCreateError(bSideEnabled ? "대화할 사용자의 익명 해시를 입력해 주세요." : "대화할 학생의 학번을 입력해 주세요.");
       return;
     }
     if (memberIds.length > 9) {
@@ -1197,7 +1201,7 @@ export default function MessagesPage() {
       return;
     }
     if (invalidParticipantCodes.length) {
-      setCreateError(STUDENT_CODE_REQUIREMENTS);
+      setCreateError(bSideEnabled ? "#으로 시작하는 8자리 익명 해시를 입력해 주세요." : STUDENT_CODE_REQUIREMENTS);
       return;
     }
     if (currentStudentCode && memberIds.includes(currentStudentCode)) {
@@ -1661,9 +1665,11 @@ export default function MessagesPage() {
                         {!message.mine && !grouped ? (
                           <p className="mb-1.5 text-xs font-bold text-slate-700">
                             {message.sender}{" "}
-                            <span className="ml-1 font-normal text-slate-400">
-                              {message.studentId}
-                            </span>
+                            {message.studentId && message.studentId !== '------' ? (
+                              <span className="ml-1 font-normal text-slate-400">
+                                {message.studentId}
+                              </span>
+                            ) : null}
                           </p>
                         ) : null}
                         <div className="flex items-end gap-2">
@@ -2138,17 +2144,17 @@ export default function MessagesPage() {
             <label className="block">
               <span className="mb-2 flex items-center justify-between text-sm font-bold text-slate-800">
                 <span>
-                  참여자 학번 <span className="text-blue-700">*</span>
+                  {bSideEnabled ? '참여자 익명 해시' : '참여자 학번'} <span className="text-blue-700">*</span>
                 </span>
                 <span className="text-xs font-normal text-blue-700">
                   {enteredParticipantCodes.length}/9명
                 </span>
               </span>
               <Input
-                inputMode="numeric"
+                inputMode={bSideEnabled ? "text" : "numeric"}
                 value={participantDraft}
                 onChange={(event) => {
-                  setParticipantDraft(event.target.value);
+                  setParticipantDraft(bSideEnabled ? event.target.value.toUpperCase() : event.target.value);
                   setCreateError("");
                 }}
                 onKeyDown={(event) => {
@@ -2160,9 +2166,9 @@ export default function MessagesPage() {
                 aria-invalid={Boolean(
                   createError || invalidParticipantCodes.length,
                 )}
-                placeholder="예: 331108, 331203"
+                placeholder={bSideEnabled ? "예: #A1B2C3D4, #91F0E2A7" : "예: 331108, 331203"}
               />
-              <span className="mt-2 block text-[11px] leading-5 text-slate-500">31~33기 학번 · 쉼표/공백 구분 · 본인 제외</span>
+              <span className="mt-2 block text-[11px] leading-5 text-slate-500">{bSideEnabled ? '화면에 표시된 해시 · 쉼표/공백 구분 · 본인 제외' : '31~33기 학번 · 쉼표/공백 구분 · 본인 제외'}</span>
             </label>
           )}
           {createError ? (
@@ -2174,7 +2180,7 @@ export default function MessagesPage() {
             </p>
           ) : invalidParticipantCodes.length ? (
             <p role="alert" className="text-xs font-bold text-red-600">
-              {STUDENT_CODE_REQUIREMENTS}
+              {bSideEnabled ? '#으로 시작하는 8자리 익명 해시를 확인하세요.' : STUDENT_CODE_REQUIREMENTS}
             </p>
           ) : null}
         </div>

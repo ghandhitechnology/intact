@@ -136,7 +136,21 @@ IGK는 `IgkLedger`가 원장이며 잔액, 선물, 활동 보상과 등급이 �
 
 이미지는 원본을 목록에서 직접 쓰지 않습니다. 업로드 시 크기와 blur placeholder를 기록하고 320/640/1280px WebP 파생본을 MinIO에 비동기 생성합니다. 파생본이 없는 기존 이미지는 최초 `/api/uploads/:id?variant=thumb&w=...` 요청에서 생성합니다. Web Vitals는 10%의 탭만 익명 sampling하며 콘텐츠, 사용자 ID와 query string을 기록하지 않습니다.
 
-## 10. 변경 시 함께 확인할 것
+## 10. B-side 전역 모드
+
+관리자 콘솔의 `B-side 전역 모드`는 `PlatformSetting` 단일 row에 저장됩니다. 활성화할 때마다 `bSideEpoch`가 증가하고, `PORTAL_ENCRYPTION_KEY`를 키로 사용하는 HMAC이 사용자별 `#XXXXXXXX` 익명 해시를 만듭니다. DB의 실제 닉네임이나 학번은 바꾸지 않습니다.
+
+- 본인은 자기 이름·학번·프로필 이미지를 그대로 봅니다.
+- 다른 사용자의 닉네임과 실명은 같은 activation 동안 안정적인 해시로, 학번은 숨김 값으로, 프로필 이미지는 `null`로 응답합니다.
+- 게시글, 댓글, 검색, 랭킹, 알림, IGK 원장, 대화방과 메시지의 API 응답에서 서버가 마스킹합니다. 화면에서만 가리는 구현으로 되돌리면 안 됩니다.
+- 관리자 scope의 운영 API는 신고와 사용자 관리를 위해 실제 정보를 유지합니다.
+- 클라이언트는 `/api/platform`을 5초마다 확인합니다. 모드 version이 바뀌면 session/chat cache를 비우고 다시 로드하며, 모드 확인 실패 시 개인정보 화면을 열지 않습니다.
+- realtime 메시지는 각 socket의 사용자 ID에 맞춰 개별 payload를 만들고 typing 표시는 익명 해시를 사용합니다.
+- B-side 중에는 익명 해시로 사용자 검색, 대화방 생성과 IGK 선물을 할 수 있습니다.
+
+관리자 변경은 `B_SIDE_ENABLE` 또는 `B_SIDE_DISABLE` 감사 로그를 남깁니다. 운영에서 토글하기 전 DB 백업이 필수는 아니지만, 마이그레이션 최초 배포 때는 일반 배포 절차대로 백업 후 `prisma migrate deploy`를 실행합니다.
+
+## 11. 변경 시 함께 확인할 것
 
 - 인증: login, registration, invite, reverify, reset, admin scope
 - 게시판: draft, create, edit, revision, comment, recommendation, bookmark, search
@@ -145,3 +159,4 @@ IGK는 `IgkLedger`가 원장이며 잔액, 선물, 활동 보상과 등급이 �
 - 알림: grouping key, unread count, group read, independent system notices
 - IGK: idempotency, balance, ledger, concurrent transfer, ranking
 - 운영: migration, health, audit log, backup, rollback
+- B-side: 관리자 토글, 본인 실명 유지, 타인 API 익명화, cache 제거, realtime 개별 마스킹, 다크 테마

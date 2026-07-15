@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma';
 import { json, jsonError } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
+import { maskPublicIdentities } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
     const teacherRankById = new Map(teacherLeaders.map((user, index) => [user.id, index + 1]));
     let previousScore: number | null = null;
     let previousRank = 0;
-    return json({
+    return json(await maskPublicIdentities({
       leaders: leaders.map((user, index) => {
         if (user.currentIgk !== previousScore) {
           previousScore = user.currentIgk;
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
       currentUserTeacherRank: teacherRankById.get(session.user.id) ?? null,
       currentUserRank: session.user.studentIdentity ? higherRanked + 1 : null,
       totalParticipants,
-    });
+    }, session.user.id));
   } catch (error) {
     return jsonError(error);
   }

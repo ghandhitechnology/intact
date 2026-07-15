@@ -11,6 +11,7 @@ import {
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 import { publishRealtimeEvent } from '@/lib/server/realtime';
+import { anonymousNickname, getPlatformMode, maskPublicIdentities } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -60,8 +61,8 @@ export async function GET(request: Request) {
         : 0;
       return { ...room, unreadCount };
     }));
-    return json({ rooms: roomsWithUnread }, 200, {
-      'Cache-Control': 'private, max-age=15, stale-while-revalidate=30',
+    return json({ rooms: await maskPublicIdentities(roomsWithUnread, session.user.id) }, 200, {
+      'Cache-Control': 'private, no-cache',
       Vary: 'Cookie',
     });
   } catch (error) {
@@ -106,6 +107,17 @@ export async function POST(request: Request) {
     if (memberIds.length < 1) {
       throw new ApiError(400, 'MEMBER_REQUIRED', '대화 상대를 한 명 이상 선택해 주세요.');
     }
+    const platformMode = await getPlatformMode();
+    const anonymousIdentifiers = platformMode.bSideEnabled
+      ? memberIds.filter((value) => /^#[A-F0-9]{8}$/i.test(value))
+      : [];
+    const anonymousCandidates = anonymousIdentifiers.length
+      ? await prisma.user.findMany({
+          where: { status: 'ACTIVE' },
+          select: { id: true },
+          take: 1_000,
+        })
+      : [];
     const uuidIdentifiers = memberIds.filter((value) =>
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value),
     );
@@ -124,11 +136,20 @@ export async function POST(request: Request) {
         studentIdentity: { select: { studentCode: true } },
       },
     });
-    const resolvedMemberIds = memberIds.map((identifier) => members.find((member) =>
-      member.id === identifier ||
-      member.loginId === identifier ||
-      member.studentIdentity?.studentCode === identifier,
-    )?.id ?? null);
+    const resolvedMemberIds = memberIds.map((identifier) => {
+      if (platformMode.bSideEnabled && /^#[A-F0-9]{8}$/i.test(identifier)) {
+        return anonymousCandidates.find(
+          (candidate) =>
+            anonymousNickname(candidate.id, platformMode.bSideEpoch).toLowerCase() ===
+            identifier.toLowerCase(),
+        )?.id ?? null;
+      }
+      return members.find((member) =>
+        member.id === identifier ||
+        member.loginId === identifier ||
+        member.studentIdentity?.studentCode === identifier,
+      )?.id ?? null;
+    });
     if (resolvedMemberIds.some((id) => !id)) {
       throw new ApiError(400, 'INVALID_MEMBER', '대화할 수 없는 사용자가 포함되어 있습니다.');
     }
@@ -163,7 +184,10 @@ export async function POST(request: Request) {
           },
         });
         await publishRealtimeEvent('room-created', { roomId: reactivated.id, memberIds: allMemberIds });
-        return json({ room: reactivated, existing: true });
+        return json({
+          room: await maskPublicIdentities(reactivated, session.user.id),
+          existing: true,
+        });
       }
     }
     const title = typeof body.title === 'string' ? body.title.trim().slice(0, 120) || null : null;
@@ -208,10 +232,16 @@ export async function POST(request: Request) {
         },
       });
       await publishRealtimeEvent('room-created', { roomId: reactivated.id, memberIds: allMemberIds });
-      return json({ room: reactivated, existing: true });
+      return json({
+        room: await maskPublicIdentities(reactivated, session.user.id),
+        existing: true,
+      });
     }
     await publishRealtimeEvent('room-created', { roomId: room.id, memberIds: allMemberIds });
-    return json({ room, existing: false }, 201);
+    return json({
+      room: await maskPublicIdentities(room, session.user.id),
+      existing: false,
+    }, 201);
   } catch (error) {
     return jsonError(error);
   }

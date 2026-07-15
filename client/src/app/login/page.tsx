@@ -104,18 +104,18 @@ export default function LoginPage() {
               disabled={loading}
               onChange={(event) => setPassword(event.target.value)}
             />
-            <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'} className="absolute right-1 top-1 grid h-10 min-w-12 place-items-center px-2 text-xs font-semibold text-[#5d645e] hover:text-[#20231f]">
+            <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'} className="absolute right-1 top-1 grid h-10 min-w-12 place-items-center px-2 text-xs font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]">
               {showPassword ? '숨기기' : '보기'}
             </button>
           </div>
         </Field>
 
         <div className="flex items-center justify-between gap-4 text-[13px]">
-          <label className="flex cursor-pointer items-center gap-2.5 text-[#555b55]">
+          <label className="flex cursor-pointer items-center gap-2.5 text-[var(--ink-soft)]">
             <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="h-4 w-4  accent-[#28745c]" />
             로그인 상태 유지
           </label>
-          <Link href="/reset-password" className="font-semibold text-[#315f50] underline decoration-[#aabdb5] underline-offset-4 hover:text-[#183f33]">비밀번호 재설정</Link>
+          <Link href="/reset-password" className="font-semibold text-[var(--green-deep)] underline underline-offset-4">비밀번호 재설정</Link>
         </div>
 
         <Button type="submit" variant="green" disabled={loading} className="h-12 w-full  border-[#255f4d] bg-[#255f4d] text-[15px] font-semibold hover:border-[#1d4d3e] hover:bg-[#1d4d3e]">
@@ -124,8 +124,8 @@ export default function LoginPage() {
       </form>
 
       <div className="mt-8 flex items-center justify-between gap-4 text-[13px]">
-        <span className="text-[#747971]">처음 방문하셨나요?</span>
-        <Link href="/register" className="font-semibold text-[#315f50] underline decoration-[#aabdb5] underline-offset-4 hover:text-[#183f33]">재학생 인증하고 가입하기</Link>
+        <span className="text-[var(--ink-faint)]">처음 방문하셨나요?</span>
+        <Link href="/register" className="font-semibold text-[var(--green-deep)] underline underline-offset-4">재학생 인증하고 가입하기</Link>
       </div>
     </AuthFrame>
   );

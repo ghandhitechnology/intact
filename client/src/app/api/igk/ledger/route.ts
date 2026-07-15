@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma';
 import { json, jsonError, paginationMeta, parsePagination } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
+import { maskPublicIdentities } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,10 @@ export async function GET(request: Request) {
       }),
       prisma.igkLedger.count({ where }),
     ]);
-    return json({ entries, pagination: paginationMeta(page, pageSize, total) });
+    return json({
+      entries: await maskPublicIdentities(entries, session.user.id),
+      pagination: paginationMeta(page, pageSize, total),
+    });
   } catch (error) {
     return jsonError(error);
   }

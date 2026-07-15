@@ -501,7 +501,7 @@ function RankingPanel({ items }: { items: RankingMember[] }) {
                 {member.nickname}
               </span>
               <span className="block text-[10px] text-slate-400">
-                {member.studentId} · {igkLevelLabel(member.level, member.teacherRank)}
+                {member.studentId !== '------' ? `${member.studentId} · ` : ''}{igkLevelLabel(member.level, member.teacherRank)}
               </span>
             </span>
             <span className="text-xs font-black tabular-nums text-slate-700">

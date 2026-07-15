@@ -1,6 +1,7 @@
 import { json, jsonError } from '@/lib/server/http';
 import { publicUser, resolveSession } from '@/lib/server/session';
 import { secureStringEqual } from '@/lib/server/crypto';
+import { anonymousNickname, getPlatformMode } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
       suppliedInternalSecret &&
       secureStringEqual(internalSecret, suppliedInternalSecret)
     ) {
+      const platformMode = await getPlatformMode();
       return Response.json(
         {
           user: {
@@ -28,6 +30,8 @@ export async function GET(request: Request) {
             nickname: session.user.realName ?? session.user.nickname,
             realName: session.user.realName ?? session.user.nickname,
             studentId: session.user.studentIdentity?.studentCode ?? session.user.loginId,
+            anonymousNickname: anonymousNickname(session.user.id, platformMode.bSideEpoch),
+            bSideEnabled: platformMode.bSideEnabled,
           },
         },
         { headers: { 'Cache-Control': 'no-store' } },

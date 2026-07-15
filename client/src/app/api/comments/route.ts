@@ -14,13 +14,14 @@ import {
   requiredString,
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
+import { maskPublicIdentities } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    await requireUser(request);
+    const session = await requireUser(request);
     const url = new URL(request.url);
     const postId = requiredString(url.searchParams.get('postId'), 'postId', { max: 64 });
     const { page, pageSize, skip } = parsePagination(url, 100);
@@ -44,7 +45,10 @@ export async function GET(request: Request) {
       }),
       prisma.comment.count({ where }),
     ]);
-    return json({ comments, pagination: paginationMeta(page, pageSize, total) });
+    return json({
+      comments: await maskPublicIdentities(comments, session.user.id),
+      pagination: paginationMeta(page, pageSize, total),
+    });
   } catch (error) {
     return jsonError(error);
   }
@@ -128,7 +132,7 @@ export async function POST(request: Request) {
       }
       return created;
     });
-    return json({ comment }, 201);
+    return json({ comment: await maskPublicIdentities(comment, session.user.id) }, 201);
   } catch (error) {
     return jsonError(error);
   }

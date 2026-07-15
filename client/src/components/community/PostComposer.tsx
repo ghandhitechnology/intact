@@ -33,6 +33,7 @@ import {
   type BoardSlug,
   type Member,
 } from "./demo-data";
+import { usePlatformMode } from "@/components/portal/PlatformModeProvider";
 import SafeMarkdown from "./SafeMarkdown";
 
 type EditorMode = "write" | "preview";
@@ -133,6 +134,7 @@ export default function PostComposer({
 }: {
   initialBoard: BoardDefinition;
 }) {
+  const { bSideEnabled } = usePlatformMode();
   const demoMode = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === "true";
   const [selectedSlug, setSelectedSlug] = useState<BoardSlug>(
     initialBoard.slug,
@@ -938,7 +940,7 @@ export default function PostComposer({
                       <LevelBadge level={author.level} />
                     </div>
                     <p className="mt-1 text-[11px] tabular-nums text-slate-400">
-                      학번 {author.studentId}
+                      {bSideEnabled ? '다른 사용자에게 익명 해시로 표시' : `학번 ${author.studentId}`}
                     </p>
                   </div>
                 </div>
@@ -953,7 +955,7 @@ export default function PostComposer({
                   aria-hidden="true"
                 />
                 <p className="text-[11px] leading-5 text-slate-500">
-                  학번 공개
+                  {bSideEnabled ? 'B-side 익명 처리' : '인증 계정으로 게시'}
                 </p>
               </div>
             </section>

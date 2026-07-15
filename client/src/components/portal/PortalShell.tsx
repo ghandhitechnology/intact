@@ -21,6 +21,7 @@ import Link from '@/components/portal/IntentLink';
 import { usePathname, useRouter } from 'next/navigation';
 import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import { usePortalSession } from '@/components/portal/SessionProvider';
+import { usePlatformMode } from '@/components/portal/PlatformModeProvider';
 
 const navigation = [
   { href: '/', label: '홈', icon: Home },
@@ -47,6 +48,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
   const [boardPickerOpen, setBoardPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const { session, error: sessionError, refresh: refreshSession } = usePortalSession();
+  const { bSideEnabled } = usePlatformMode();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -137,6 +139,11 @@ export default function PortalShell({ children }: { children: ReactNode }) {
               </span>
             </span>
           </Link>
+          {bSideEnabled ? (
+            <span className="b-side-mark shrink-0 px-2 py-1 text-[9px] font-black tracking-[0.18em]">
+              B-SIDE
+            </span>
+          ) : null}
 
           <form onSubmit={submitSearch} className="ml-auto hidden max-w-[480px] flex-1 md:block lg:ml-6">
             <label className="search-field header-search-field">
@@ -146,7 +153,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
                 ref={searchInputRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="게시글, 자료, 학번 검색"
+                placeholder={bSideEnabled ? '게시글, 자료, 익명 해시 검색' : '게시글, 자료, 학번 검색'}
                 autoComplete="off"
                 aria-keyshortcuts="/ Control+K Meta+K"
               />
@@ -161,7 +168,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
             <form onSubmit={submitSearch} className="p-4 md:hidden">
               <label className="search-field">
                 <Search size={17} />
-                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="인텍트 통합검색" />
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={bSideEnabled ? '게시글, 익명 해시 검색' : '인텍트 통합검색'} />
               </label>
             </form>
             <div className="grid grid-cols-2 border-t border-[var(--line)] sm:grid-cols-3">

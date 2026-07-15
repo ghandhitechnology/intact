@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { usePlatformMode } from '@/components/portal/PlatformModeProvider';
 import { FormEvent, useEffect, useState } from 'react';
 import { igkLevelLabel } from '@/lib/igk-levels';
 
@@ -163,6 +164,7 @@ function formatDateTime(value: string | null | undefined) {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { bSideEnabled } = usePlatformMode();
   const [profile, setProfile] = useState<Profile | null>(DEMO_MODE ? demoProfile : null);
   const [igk, setIgk] = useState<IgkSummary | null>(DEMO_MODE ? demoIgk : null);
   const [loadState, setLoadState] = useState<LoadState>(DEMO_MODE ? 'ready' : 'loading');
@@ -644,8 +646,8 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="프로필 편집" description="학번과 학적은 재학생 인증 정보이므로 변경하거나 숨길 수 없습니다." footer={<><Button variant="secondary" onClick={() => setEditOpen(false)}>취소</Button><Button onClick={() => void saveProfile()} disabled={saving}>{saving ? '저장 중…' : '변경사항 저장'}</Button></>}>
-        <form onSubmit={(event) => { event.preventDefault(); void saveProfile(); }} className="space-y-5"><div className="flex items-center gap-4 border border-slate-200 bg-slate-50 p-4"><Avatar name={profile.realName || profile.nickname} imageUrl={draftProfileImage || null} size="lg" tone="blue" className={level >= 10 ? 'teacher-avatar' : undefined} /><div><p className="text-sm font-black text-slate-900">{profile.realName || profile.nickname}</p><p className="text-xs text-slate-500">인증된 실명</p></div></div><Field label="프로필 이미지 주소" hint="HTTPS 이미지"><Input type="url" value={draftProfileImage} onChange={(event) => setDraftProfileImage(event.target.value)} maxLength={2048} placeholder="https://example.com/profile.jpg" /></Field><Field label="소개" hint={`${draftBio.length}/280`}><Textarea rows={4} value={draftBio} onChange={(event) => setDraftBio(event.target.value)} maxLength={280} /></Field><Field label="관심 분야" hint="쉼표로 구분, 최대 5개"><Input value={interestDraft} onChange={(event) => setInterestDraft(event.target.value)} placeholder="물리, 천문, 과학대회" /></Field><div className="border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-bold text-slate-700">인증 정보</p><p className="mt-2 text-sm text-slate-900">{identityLine}</p><p className="mt-1 text-[11px] leading-5 text-slate-500">게시글과 댓글에는 인증된 실명과 학번이 표시됩니다.</p></div><button type="submit" className="hidden">저장</button></form>
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="프로필 편집" description={bSideEnabled ? 'B-side에서는 다른 사용자에게 익명 해시로 표시됩니다.' : '학번과 학적은 재학생 인증 정보이므로 변경할 수 없습니다.'} footer={<><Button variant="secondary" onClick={() => setEditOpen(false)}>취소</Button><Button onClick={() => void saveProfile()} disabled={saving}>{saving ? '저장 중…' : '변경사항 저장'}</Button></>}>
+        <form onSubmit={(event) => { event.preventDefault(); void saveProfile(); }} className="space-y-5"><div className="flex items-center gap-4 border border-slate-200 bg-slate-50 p-4"><Avatar name={profile.realName || profile.nickname} imageUrl={draftProfileImage || null} size="lg" tone="blue" className={level >= 10 ? 'teacher-avatar' : undefined} /><div><p className="text-sm font-black text-slate-900">{profile.realName || profile.nickname}</p><p className="text-xs text-slate-500">인증된 실명</p></div></div><Field label="프로필 이미지 주소" hint="HTTPS 이미지"><Input type="url" value={draftProfileImage} onChange={(event) => setDraftProfileImage(event.target.value)} maxLength={2048} placeholder="https://example.com/profile.jpg" /></Field><Field label="소개" hint={`${draftBio.length}/280`}><Textarea rows={4} value={draftBio} onChange={(event) => setDraftBio(event.target.value)} maxLength={280} /></Field><Field label="관심 분야" hint="쉼표로 구분, 최대 5개"><Input value={interestDraft} onChange={(event) => setInterestDraft(event.target.value)} placeholder="물리, 천문, 과학대회" /></Field><div className="border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-bold text-slate-700">인증 정보</p><p className="mt-2 text-sm text-slate-900">{identityLine}</p><p className="mt-1 text-[11px] leading-5 text-slate-500">{bSideEnabled ? '본인에게만 실제 정보가 보입니다.' : '게시글과 댓글에 인증된 정보가 표시됩니다.'}</p></div><button type="submit" className="hidden">저장</button></form>
       </Modal>
       <Modal
         open={Boolean(pendingSessionAction)}

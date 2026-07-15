@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { postListSelect } from '@/lib/server/content';
 import { ApiError, json, jsonError, paginationMeta, parsePagination } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
+import { maskPublicIdentities } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,7 @@ export async function GET(
 ) {
   try {
     const { slug } = await context.params;
-    await requireUser(request);
+    const session = await requireUser(request);
     const board = await prisma.board.findUnique({
       where: { slug },
     });
@@ -44,7 +45,11 @@ export async function GET(
       prisma.post.findMany({ where, orderBy, skip, take: pageSize, select: postListSelect }),
       prisma.post.count({ where }),
     ]);
-    return json({ board, posts, pagination: paginationMeta(page, pageSize, total) });
+    return json({
+      board,
+      posts: await maskPublicIdentities(posts, session.user.id),
+      pagination: paginationMeta(page, pageSize, total),
+    });
   } catch (error) {
     return jsonError(error);
   }

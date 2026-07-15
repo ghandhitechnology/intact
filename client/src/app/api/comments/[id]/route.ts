@@ -11,6 +11,7 @@ import {
   requiredString,
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
+import { maskPublicIdentities } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 
@@ -36,7 +37,7 @@ export async function PATCH(
       data: { content, editedAt: new Date() },
       select: commentSelect,
     });
-    return json({ comment });
+    return json({ comment: await maskPublicIdentities(comment, session.user.id) });
   } catch (error) {
     return jsonError(error);
   }

@@ -73,6 +73,9 @@ export function Avatar({
     md: "h-9 w-9 text-xs",
     lg: "h-12 w-12 text-sm",
   };
+  const initials = member.initials === '#'
+    ? member.nickname.replace(/^#/, '').slice(0, 1)
+    : member.initials;
 
   return (
     <span
@@ -92,7 +95,7 @@ export function Avatar({
       {member.profileImage ? (
         <span className="sr-only">{member.nickname} 프로필 이미지</span>
       ) : (
-        member.initials
+        initials
       )}
     </span>
   );
@@ -116,12 +119,17 @@ export function MemberLine({
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-slate-500">
       {!compact && <Avatar member={member} size="sm" />}
-      <span className="truncate font-semibold text-slate-700">
+      <span className={cx(
+        "truncate font-semibold text-slate-700",
+        member.nickname.startsWith('#') && "font-mono tracking-wide",
+      )}>
         {member.nickname}
       </span>
-      <span className="shrink-0 tabular-nums text-slate-400">
-        {member.studentId}
-      </span>
+      {member.studentId !== '------' ? (
+        <span className="shrink-0 tabular-nums text-slate-400">
+          {member.studentId}
+        </span>
+      ) : null}
       {member.studentId === "ADMIN" ? (
         <span className="inline-flex h-5 items-center bg-slate-900 px-1.5 text-[10px] font-extrabold text-white">
           운영자
@@ -292,7 +300,7 @@ export function EditorialRule() {
   return (
     <span className="inline-flex items-center gap-2 text-xs text-slate-500">
       <BookOpen className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-      실명·학번 공개
+      인증 계정
     </span>
   );
 }

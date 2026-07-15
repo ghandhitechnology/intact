@@ -13,6 +13,7 @@ import {
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 import { isRetryableTransactionError } from '@/lib/server/transactions';
+import { anonymousNickname, getPlatformMode } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 
@@ -38,21 +39,36 @@ export async function POST(request: Request) {
     const amount = requiredInteger(body.amount, '선물할 IGK', 1, 500);
     const note = typeof body.note === 'string' ? body.note.trim().slice(0, 300) || null : null;
     const requestKey = request.headers.get('idempotency-key')?.trim().slice(0, 100) || randomUUID();
-    const recipient = await prisma.user.findFirst({
-      where: {
-        status: 'ACTIVE',
-        OR: [
-          { loginId: recipientIdentifier },
-          { nickname: recipientIdentifier },
-          { studentIdentity: { studentCode: recipientIdentifier } },
-        ],
-      },
-      include: { studentIdentity: { select: { studentCode: true } } },
-    });
+    const platformMode = await getPlatformMode();
+    const identityInclude = { studentIdentity: { select: { studentCode: true } } } as const;
+    const recipient = platformMode.bSideEnabled && /^#[A-F0-9]{8}$/i.test(recipientIdentifier)
+      ? (await prisma.user.findMany({
+          where: { status: 'ACTIVE' },
+          include: identityInclude,
+          take: 1_000,
+        })).find(
+          (candidate) =>
+            anonymousNickname(candidate.id, platformMode.bSideEpoch).toLowerCase() ===
+            recipientIdentifier.toLowerCase(),
+        ) ?? null
+      : await prisma.user.findFirst({
+          where: {
+            status: 'ACTIVE',
+            OR: [
+              { loginId: recipientIdentifier },
+              { nickname: recipientIdentifier },
+              { studentIdentity: { studentCode: recipientIdentifier } },
+            ],
+          },
+          include: identityInclude,
+        });
     if (!recipient) throw new ApiError(404, 'RECIPIENT_NOT_FOUND', '받는 사람을 찾을 수 없습니다.');
     if (recipient.id === session.user.id) {
       throw new ApiError(400, 'SELF_TRANSFER', '자신에게는 IGK를 선물할 수 없습니다.');
     }
+    const recipientPublicNickname = platformMode.bSideEnabled
+      ? anonymousNickname(recipient.id, platformMode.bSideEpoch)
+      : recipient.nickname;
 
     const completed = await prisma.igkLedger.findUnique({
       where: { idempotencyKey: `transfer:sent:${session.user.id}:${requestKey}` },
@@ -64,7 +80,7 @@ export async function POST(request: Request) {
       return json({
         transferId: completed.transferId ?? completed.id,
         senderBalance: completed.balanceAfter,
-        recipientNickname: recipient.nickname,
+        recipientNickname: recipientPublicNickname,
       });
     }
 
@@ -118,7 +134,7 @@ export async function POST(request: Request) {
               return {
                 transferId: existing.transferId ?? transferId,
                 senderBalance: existing.balanceAfter,
-                recipientNickname: recipient.nickname,
+                recipientNickname: recipientPublicNickname,
               };
             }
             const concurrentTotal = await tx.igkLedger.aggregate({
@@ -197,7 +213,7 @@ export async function POST(request: Request) {
                 userId: receiver.id,
                 actorId: sender.id,
                 type: 'SYSTEM',
-                title: `${sender.nickname}님이 ${amount} IGK를 선물했습니다.`,
+                title: `${amount} IGK 선물을 받았습니다.`,
                 body: note,
                 href: '/igk',
                 metadata: { transferId, amount },
@@ -206,7 +222,7 @@ export async function POST(request: Request) {
             return {
               transferId,
               senderBalance: sender.currentIgk,
-              recipientNickname: receiver.nickname,
+              recipientNickname: recipientPublicNickname,
             };
           },
           { isolationLevel: 'Serializable' },

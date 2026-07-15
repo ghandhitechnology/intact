@@ -10,6 +10,7 @@ import {
   requiredString,
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
+import { maskPublicIdentities } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
       take: 100,
       select: { id: true, createdAt: true, folder: true, post: { select: postListSelect } },
     });
-    return json({ bookmarks });
+    return json({ bookmarks: await maskPublicIdentities(bookmarks, session.user.id) });
   } catch (error) {
     return jsonError(error);
   }

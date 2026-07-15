@@ -17,6 +17,7 @@ const cookie = process.env.INTACT_TEST_COOKIE?.trim();
 
 let scenarios = [
   { name: 'health-db', path: '/api/health' },
+  { name: 'platform-mode', path: '/api/platform' },
   { name: 'login-page', path: '/login' },
   { name: 'socket-handshake', path: '/socket.io/?EIO=4&transport=polling' },
 ];

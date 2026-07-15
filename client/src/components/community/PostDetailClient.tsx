@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { usePlatformMode } from "@/components/portal/PlatformModeProvider";
 import {
   ArrowLeft,
   Bell,
@@ -77,9 +78,8 @@ function BodyContent({
       <div className="space-y-5 text-[15px] leading-8 text-slate-700">
         <p>안녕하세요. 인텍트 운영팀입니다.</p>
         <p>
-          인텍트는 학번이 표시되는 재학생 커뮤니티입니다. 자유롭게
-          질문하고 정보를 나누되, 화면 밖에도 실제 학교생활이 이어진다는 점을
-          기억해 주세요.
+          인텍트는 재학생 커뮤니티입니다. 자유롭게 질문하고 정보를 나누되,
+          화면 밖에도 실제 학교생활이 이어진다는 점을 기억해 주세요.
         </p>
         <div className="border-y border-slate-300 py-4">
           <p className="font-extrabold text-slate-900">
@@ -303,9 +303,11 @@ function CommentCard({
             <span className="text-sm font-extrabold text-slate-800">
               {comment.author.nickname}
             </span>
-            <span className="text-xs tabular-nums text-slate-400">
-              {comment.author.studentId}
-            </span>
+            {comment.author.studentId !== '------' ? (
+              <span className="text-xs tabular-nums text-slate-400">
+                {comment.author.studentId}
+              </span>
+            ) : null}
             <LevelBadge level={comment.author.level} />
             <span className="text-[11px] text-slate-400">
               {comment.createdAt}
@@ -433,6 +435,7 @@ export default function PostDetailClient({
   post: PostSummary;
   isNotice?: boolean;
 }) {
+  const { bSideEnabled } = usePlatformMode();
   const router = useRouter();
   const demoMode = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === "true";
   const initiallyLiked = Boolean(post.viewerRecommended);
@@ -1159,7 +1162,7 @@ export default function PostDetailClient({
                     setCommentText(event.target.value.slice(0, 2000))
                   }
                   rows={4}
-                  placeholder="댓글 작성 · 학번 공개"
+                  placeholder={bSideEnabled ? "댓글 작성 · 익명 해시 적용" : "댓글 작성"}
                   className="w-full resize-y border border-slate-300 bg-white p-3 text-sm leading-6 text-slate-800 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
                 />
                 <div className="mt-3 flex items-center justify-between gap-4">
@@ -1200,7 +1203,7 @@ export default function PostDetailClient({
                       <LevelBadge level={post.author.level} />
                     )}
                   </div>
-                  {!isNotice ? <p className="mt-1 text-[11px] tabular-nums text-slate-400">학번 {post.author.studentId}</p> : null}
+                  {!isNotice && post.author.studentId !== '------' ? <p className="mt-1 text-[11px] tabular-nums text-slate-400">학번 {post.author.studentId}</p> : null}
                 </div>
               </div>
               {isNotice ? (

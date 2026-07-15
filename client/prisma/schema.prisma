@@ -295,6 +295,13 @@ model Session {
   @@index([expiresAt])
 }
 
+model PlatformSetting {
+  id           String   @id @default("global") @db.VarChar(32)
+  bSideEnabled Boolean  @default(false)
+  bSideEpoch   Int      @default(0)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+}
+
 model Board {
   id               String      @id @default(uuid()) @db.Uuid
   createdAt        DateTime    @default(now()) @db.Timestamptz(6)

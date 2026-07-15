@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma';
 import { json, jsonError } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 import { materializeDueNotices } from '@/lib/server/notices';
+import { maskPublicIdentities } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
         },
       },
     });
-    return json({ notices });
+    return json({ notices: await maskPublicIdentities(notices, session.user.id) });
   } catch (error) {
     return jsonError(error);
   }

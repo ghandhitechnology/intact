@@ -517,9 +517,11 @@ export default function SearchClient({
                         </h2>
                         <LevelBadge level={member.level} />
                       </div>
-                      <p className="mt-1 text-[11px] tabular-nums text-slate-400">
-                        학번 {member.studentId}
-                      </p>
+                      {member.studentId !== '------' ? (
+                        <p className="mt-1 text-[11px] tabular-nums text-slate-400">
+                          학번 {member.studentId}
+                        </p>
+                      ) : null}
                     </div>
                   </article>
                 ))}

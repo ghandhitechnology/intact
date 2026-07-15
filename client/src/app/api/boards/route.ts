@@ -4,13 +4,14 @@ import { postListSelect } from '@/lib/server/content';
 import { ensureSystemDefaults } from '@/lib/server/defaults';
 import { ApiError, assertSameOrigin, json, jsonError, readJson, requiredInteger, requiredString } from '@/lib/server/http';
 import { requireReadyAdmin, requireUser } from '@/lib/server/session';
+import { maskPublicIdentities } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    await requireUser(request);
+    const session = await requireUser(request);
     await ensureSystemDefaults();
     const boards = await prisma.board.findMany({
       where: { status: 'ACTIVE' },
@@ -92,7 +93,7 @@ export async function GET(request: Request) {
         },
       };
     });
-    return json({ boards: boardsWithStats });
+    return json({ boards: await maskPublicIdentities(boardsWithStats, session.user.id) });
   } catch (error) {
     return jsonError(error);
   }

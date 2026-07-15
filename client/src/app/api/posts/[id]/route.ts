@@ -12,6 +12,7 @@ import {
   requiredString,
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
+import { maskPublicIdentities } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -107,7 +108,7 @@ export async function GET(
       viewerCommentRecommendations.flatMap((item) => item.commentId ? [item.commentId] : []),
     );
     return json({
-      post: {
+      post: await maskPublicIdentities({
         ...post,
         comments: post.comments.map((comment) => ({
           ...comment,
@@ -117,7 +118,7 @@ export async function GET(
           recommended: Boolean(viewerRecommendation),
           bookmarked: Boolean(viewerBookmark),
         },
-      },
+      }, viewer.user.id),
     });
   } catch (error) {
     return jsonError(error);
@@ -326,7 +327,7 @@ export async function PATCH(
       }
       return updated;
     });
-    return json({ post });
+    return json({ post: await maskPublicIdentities(post, session.user.id) });
   } catch (error) {
     return jsonError(error);
   }

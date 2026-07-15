@@ -15,13 +15,15 @@ import {
   requiredString,
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
+import { getPlatformMode, maskPublicIdentities, maskPublicIdentitiesWithMode } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    await requireUser(request);
+    const session = await requireUser(request);
+    const platformMode = await getPlatformMode();
     const url = new URL(request.url);
     const { page, pageSize, skip } = parsePagination(url);
     const board = url.searchParams.get('board');
@@ -43,8 +45,12 @@ export async function GET(request: Request) {
               { title: { contains: query, mode: 'insensitive' } },
               { contentText: { contains: query, mode: 'insensitive' } },
               { tags: { has: query } },
-              { author: { nickname: { contains: query, mode: 'insensitive' } } },
-              { author: { realName: { contains: query, mode: 'insensitive' } } },
+              ...(!platformMode.bSideEnabled
+                ? [
+                    { author: { nickname: { contains: query, mode: 'insensitive' as const } } },
+                    { author: { realName: { contains: query, mode: 'insensitive' as const } } },
+                  ]
+                : []),
             ],
           }
         : {}),
@@ -67,7 +73,10 @@ export async function GET(request: Request) {
       }),
       prisma.post.count({ where }),
     ]);
-    return json({ posts, pagination: paginationMeta(page, pageSize, total) });
+    return json({
+      posts: maskPublicIdentitiesWithMode(posts, session.user.id, platformMode),
+      pagination: paginationMeta(page, pageSize, total),
+    });
   } catch (error) {
     return jsonError(error);
   }
@@ -198,7 +207,7 @@ export async function POST(request: Request) {
       }
       return created;
     });
-    return json({ post }, 201);
+    return json({ post: await maskPublicIdentities(post, session.user.id) }, 201);
   } catch (error) {
     return jsonError(error);
   }
