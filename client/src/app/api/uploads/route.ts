@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'crypto';
+import sharp from 'sharp';
 import prisma from '@/lib/prisma';
 import { deleteObject, putObject } from '@/lib/server/object-storage';
 import {
@@ -61,6 +62,17 @@ export async function POST(request: Request) {
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '/');
     storedKey = `${date}/${session.user.id}/${randomUUID()}`;
     await putObject(storedKey, bytes, mimeType);
+    let width: number | null = null;
+    let height: number | null = null;
+    let blurDataUrl: string | null = null;
+    if (detectedMimeType) {
+      const image = sharp(bytes, { animated: false }).rotate();
+      const metadata = await image.metadata();
+      width = metadata.width ?? null;
+      height = metadata.height ?? null;
+      const blur = await image.clone().resize({ width: 24, withoutEnlargement: true }).webp({ quality: 45 }).toBuffer();
+      blurDataUrl = `data:image/webp;base64,${blur.toString('base64')}`;
+    }
     const attachment = await prisma.attachment.create({
       data: {
         uploaderId: session.user.id,
@@ -70,9 +82,23 @@ export async function POST(request: Request) {
         sizeBytes: BigInt(value.size),
         sha256,
         scanStatus: 'CLEAN',
+        width,
+        height,
+        blurDataUrl,
       },
-      select: { id: true, originalName: true, mimeType: true, sizeBytes: true },
+      select: { id: true, originalName: true, mimeType: true, sizeBytes: true, width: true, height: true, blurDataUrl: true },
     });
+    if (detectedMimeType) {
+      const derivativeBaseKey = storedKey;
+      void Promise.all([320, 640, 1280].map(async (targetWidth) => {
+        const derivative = await sharp(bytes, { animated: false })
+          .rotate()
+          .resize({ width: targetWidth, withoutEnlargement: true })
+          .webp({ quality: 78 })
+          .toBuffer();
+        await putObject(`${derivativeBaseKey}.thumb-${targetWidth}.webp`, derivative, 'image/webp');
+      })).catch(() => undefined);
+    }
     return json({
       attachment: {
         ...attachment,

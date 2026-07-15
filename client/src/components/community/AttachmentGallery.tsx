@@ -10,10 +10,17 @@ export type GalleryAttachment = {
   originalName: string;
   mimeType: string;
   sizeBytes: number;
+  width?: number | null;
+  height?: number | null;
+  blurDataUrl?: string | null;
 };
 
 function previewUrl(id: string) {
   return `/api/uploads/${encodeURIComponent(id)}`;
+}
+
+function thumbnailUrl(id: string, width: 320 | 640 | 1280 = 640) {
+  return `${previewUrl(id)}?variant=thumb&w=${width}`;
 }
 
 function previewPageUrl(attachment: GalleryAttachment) {
@@ -91,9 +98,15 @@ export default function AttachmentGallery({
             )}
           >
             <img
-              src={previewUrl(attachment.id)}
+              src={thumbnailUrl(attachment.id)}
+              srcSet={`${thumbnailUrl(attachment.id, 320)} 320w, ${thumbnailUrl(attachment.id, 640)} 640w, ${thumbnailUrl(attachment.id, 1280)} 1280w`}
+              sizes={compact ? "50vw" : "(max-width: 640px) 50vw, 640px"}
               alt={attachment.originalName}
               loading="lazy"
+              decoding="async"
+              width={attachment.width || undefined}
+              height={attachment.height || undefined}
+              style={attachment.blurDataUrl ? { backgroundImage: `url(${attachment.blurDataUrl})`, backgroundSize: "cover" } : undefined}
               className="h-full w-full object-cover"
             />
             {index === visible.length - 1 && images.length > visible.length ? (
@@ -158,6 +171,9 @@ export default function AttachmentGallery({
                 <img
                   src={previewUrl(current.id)}
                   alt={current.originalName}
+                  decoding="async"
+                  width={current.width || undefined}
+                  height={current.height || undefined}
                   className="max-h-full max-w-full object-contain"
                 />
               </div>
@@ -175,9 +191,12 @@ export default function AttachmentGallery({
                       aria-label={`${index + 1}번째 사진 보기`}
                     >
                       <img
-                        src={previewUrl(attachment.id)}
+                        src={thumbnailUrl(attachment.id, 320)}
                         alt=""
                         loading="lazy"
+                        decoding="async"
+                        width={attachment.width || undefined}
+                        height={attachment.height || undefined}
                         className="h-full w-full object-cover"
                       />
                     </button>

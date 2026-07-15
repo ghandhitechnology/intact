@@ -128,7 +128,15 @@ IGK는 `IgkLedger`가 원장이며 잔액, 선물, 활동 보상과 등급이 �
 
 내부 이름을 바꾸면 Docker가 빈 볼륨을 새로 만들거나 애플리케이션이 다른 DB를 가리킬 수 있습니다. 이름 변경은 데이터 migration으로 다룹니다.
 
-## 9. 변경 시 함께 확인할 것
+## 9. 클라이언트 성능 구조
+
+클라이언트 체감 속도는 서버 응답시간과 별도로 관리합니다. 공통 `SessionProvider`가 경로 변경마다 발생하던 session 조회를 하나로 합치고, 홈은 `/api/home`에서 게시판·공지·랭킹·계정 요약을 한 번에 받습니다. 홈과 최근 대화는 `intact_cache_scope`로 분리된 `sessionStorage`에만 보관되며 로그아웃, 401, 탭 종료 때 삭제됩니다. 서비스 워커와 공유 HTTP cache에는 사용자 데이터를 저장하지 않습니다.
+
+대화 링크에 사용자의 hover·focus·touch 의도가 감지되면 route, Socket.IO bundle과 방 목록을 미리 준비합니다. 최근 5개 방의 메시지 각 100개는 같은 탭에서 즉시 복원하고 실제 API·socket 상태로 뒤에서 갱신합니다. socket ACK가 1.5초 이상 지연될 때는 동일 idempotency key의 HTTP 요청을 병행하므로 두 경로 모두 중복 생성 방지를 유지해야 합니다.
+
+이미지는 원본을 목록에서 직접 쓰지 않습니다. 업로드 시 크기와 blur placeholder를 기록하고 320/640/1280px WebP 파생본을 MinIO에 비동기 생성합니다. 파생본이 없는 기존 이미지는 최초 `/api/uploads/:id?variant=thumb&w=...` 요청에서 생성합니다. Web Vitals는 10%의 탭만 익명 sampling하며 콘텐츠, 사용자 ID와 query string을 기록하지 않습니다.
+
+## 10. 변경 시 함께 확인할 것
 
 - 인증: login, registration, invite, reverify, reset, admin scope
 - 게시판: draft, create, edit, revision, comment, recommendation, bookmark, search

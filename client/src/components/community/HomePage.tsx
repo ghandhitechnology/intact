@@ -1,10 +1,12 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/components/portal/IntentLink';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { igkLevelLabel } from '@/lib/igk-levels';
-import { fetchWithTimeout, isAbortError } from '@/lib/client/request';
+import { fetchWithTimeout } from '@/lib/client/request';
+import { clearClientDataCache, getCachedResource, setCachedResource } from '@/components/portal/ClientDataProvider';
+import { usePortalSession } from '@/components/portal/SessionProvider';
 import {
   ArrowRight,
   Bell,
@@ -54,8 +56,11 @@ type HomeAccountUser = {
   profileImage?: string | null;
 };
 
-function HomeAccountPanel({ demoMode }: { demoMode: boolean }) {
+type HomeAccountStatus = { currentIgk: number; teacherRank: number | null; unreadCount: number };
+
+function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; accountStatus?: HomeAccountStatus }) {
   const router = useRouter();
+  const { session, loading: sessionLoading, refresh: refreshSession } = usePortalSession();
   const [user, setUser] = useState<HomeAccountUser | null>(
     demoMode
       ? { id: 'demo', nickname: '김민준', realName: '김민준', studentCode: '331101', level: 9 }
@@ -64,77 +69,26 @@ function HomeAccountPanel({ demoMode }: { demoMode: boolean }) {
   const [currentIgk, setCurrentIgk] = useState(demoMode ? 1840 : 0);
   const [teacherRank, setTeacherRank] = useState<number | null>(null);
   const [unreadCount, setUnreadCount] = useState(demoMode ? 3 : 0);
-  const [loading, setLoading] = useState(!demoMode);
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     if (demoMode) return undefined;
-    let active = true;
-    const controller = new AbortController();
-
-    fetchWithTimeout('/api/auth/session', { cache: 'no-store', signal: controller.signal })
-      .then(async (response) => ({ response, body: await response.json().catch(() => null) }))
-      .then(async ({ response, body }) => {
-        if (!active) return;
-        const data = body?.data ?? body;
-        if (!response.ok || !data?.authenticated || !data?.user) {
-          setUser(null);
-          setCurrentIgk(0);
-          setTeacherRank(null);
-          setUnreadCount(0);
-          return;
-        }
-        setUser(data.user);
-        setCurrentIgk(Number(data.currentIgk || 0));
-      })
-      .catch((error) => {
-        if (active && !isAbortError(error)) setUser(null);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [demoMode]);
+    if (!session?.authenticated || !session.user) {
+      setUser(null);
+      setCurrentIgk(0);
+      return undefined;
+    }
+    setUser(session.user);
+    setCurrentIgk(Number(session.currentIgk || 0));
+    return undefined;
+  }, [demoMode, session]);
 
   useEffect(() => {
-    if (demoMode || !user?.id) return undefined;
-    let active = true;
-    let controller: AbortController | null = null;
-    const loadAccountStatus = async () => {
-      if (document.visibilityState === 'hidden') return;
-      controller?.abort();
-      controller = new AbortController();
-      try {
-        const [notificationResponse, balanceResponse] = await Promise.all([
-          fetchWithTimeout('/api/notifications?pageSize=1', { cache: 'no-store', signal: controller.signal }),
-          fetchWithTimeout('/api/igk/balance', { cache: 'no-store', signal: controller.signal }),
-        ]);
-        const [notificationBody, balanceBody] = await Promise.all([
-          notificationResponse.ok ? notificationResponse.json().catch(() => null) : null,
-          balanceResponse.ok ? balanceResponse.json().catch(() => null) : null,
-        ]);
-        if (!active) return;
-        setUnreadCount(Number(notificationBody?.data?.unreadCount || notificationBody?.unreadCount || 0));
-        const balanceData = balanceBody?.data ?? balanceBody;
-        setTeacherRank(Number.isInteger(balanceData?.teacherRank) ? Number(balanceData.teacherRank) : null);
-      } catch (error) {
-        if (!active || isAbortError(error)) return;
-      }
-    };
-    void loadAccountStatus();
-    const timer = window.setInterval(() => void loadAccountStatus(), 60_000);
-    window.addEventListener('focus', loadAccountStatus);
-    return () => {
-      active = false;
-      controller?.abort();
-      window.clearInterval(timer);
-      window.removeEventListener('focus', loadAccountStatus);
-    };
-  }, [demoMode, user?.id]);
+    if (!accountStatus) return;
+    setCurrentIgk(accountStatus.currentIgk);
+    setTeacherRank(accountStatus.teacherRank);
+    setUnreadCount(accountStatus.unreadCount);
+  }, [accountStatus]);
 
   async function logout() {
     if (loggingOut) return;
@@ -144,11 +98,13 @@ function HomeAccountPanel({ demoMode }: { demoMode: boolean }) {
     setCurrentIgk(0);
     setTeacherRank(null);
     setUnreadCount(0);
+    clearClientDataCache();
+    await refreshSession();
     setLoggingOut(false);
     router.refresh();
   }
 
-  if (loading) {
+  if (sessionLoading && !demoMode) {
     return (
       <section className="bg-white p-3" aria-label="계정 정보를 불러오는 중">
         <div className="h-10 animate-pulse bg-slate-100" />
@@ -331,7 +287,7 @@ function BoardCard({ board, items }: { board: BoardDefinition; items: PostSummar
   return (
     <article
       className={cx(
-        'group flex flex-col border border-slate-200 bg-white p-4 transition-colors hover:border-emerald-300',
+        'render-lazy group flex flex-col border border-slate-200 bg-white p-4 transition-colors hover:border-emerald-300',
         style.line,
       )}
     >
@@ -414,7 +370,7 @@ function LatestActivity({ items }: { items: PostSummary[] }) {
         {latest.map((post) => (
           <article
             key={post.id}
-            className="grid grid-cols-[68px_minmax(0,1fr)] items-center gap-2 border-b border-slate-100 py-2 sm:grid-cols-[68px_92px_minmax(0,1fr)_150px_auto] sm:gap-3"
+            className="render-lazy grid grid-cols-[68px_minmax(0,1fr)] items-center gap-2 border-b border-slate-100 py-2 sm:grid-cols-[68px_92px_minmax(0,1fr)_150px_auto] sm:gap-3"
           >
             <div className="min-w-0">
               <BoardBadge slug={post.board} />
@@ -601,34 +557,46 @@ export default function HomePage() {
   const [rankingItems, setRankingItems] = useState<RankingMember[]>(demoMode ? demoRanking : []);
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'partial' | 'error'>(demoMode ? 'ready' : 'loading');
   const [reloadKey, setReloadKey] = useState(0);
+  const [homePayload, setHomePayload] = useState<any>(null);
+  const [homeError, setHomeError] = useState<Error | null>(null);
+  const [homeLoading, setHomeLoading] = useState(!demoMode);
 
   useEffect(() => {
     if (demoMode) return undefined;
     let active = true;
     const controller = new AbortController();
-    setLoadState('loading');
-    const loadJson = async (url: string) => {
-      const response = await fetchWithTimeout(url, {
-        cache: 'no-store',
-        signal: controller.signal,
-      });
-      if (response.status === 401) return {};
-      const body = await response.json().catch(() => null);
-      if (!response.ok || !body) throw new Error('LOAD_FAILED');
-      return body;
-    };
-    Promise.allSettled([
-      loadJson('/api/boards'),
-      loadJson('/api/notices?limit=10'),
-      loadJson('/api/igk/ranking'),
-    ])
-      .then(([boardResult, noticeResult, rankingResult]) => {
+    const cached = getCachedResource<any>('/api/home', 90_000);
+    if (cached) {
+      setHomePayload(cached);
+      setHomeLoading(false);
+    }
+    async function loadHome() {
+      setHomeError(null);
+      try {
+        const response = await fetchWithTimeout('/api/home', { cache: 'no-cache', signal: controller.signal });
+        const body = await response.json().catch(() => null);
+        if (!response.ok || !body) throw new Error('LOAD_FAILED');
+        const data = body.data ?? body;
         if (!active) return;
-        let successful = 0;
-        if (boardResult.status === 'fulfilled') {
-          successful += 1;
-          const boardPayload = boardResult.value;
-          const apiBoards = boardPayload?.data?.boards || boardPayload?.boards || [];
+        setHomePayload(data);
+        setCachedResource('/api/home', data);
+      } catch (cause) {
+        if (active) setHomeError(cause instanceof Error ? cause : new Error('LOAD_FAILED'));
+      } finally {
+        if (active) setHomeLoading(false);
+      }
+    }
+    void loadHome();
+    return () => { active = false; controller.abort(); };
+  }, [demoMode, reloadKey]);
+
+  useEffect(() => {
+    if (demoMode) return undefined;
+    if (!homePayload) {
+      setLoadState(homeError ? 'error' : 'loading');
+      return undefined;
+    }
+          const apiBoards = homePayload.boards || [];
           const nextPosts: PostSummary[] = [];
           const nextBoards = boards.map((definition) => {
             const board = apiBoards.find((item: any) => item.slug === definition.slug);
@@ -648,11 +616,7 @@ export default function HomePage() {
           });
           setBoardItems(nextBoards);
           setHomePosts(nextPosts.sort((a, b) => (b.sortAt || 0) - (a.sortAt || 0)));
-        }
-        if (noticeResult.status === 'fulfilled') {
-          successful += 1;
-          const noticePayload = noticeResult.value;
-          const apiNotices = noticePayload?.data?.notices || noticePayload?.notices || [];
+          const apiNotices = homePayload.notices || [];
           setNoticeItems(apiNotices.map((notice: any) => ({
             id: notice.id,
             title: notice.title,
@@ -660,11 +624,7 @@ export default function HomePage() {
             label: notice.priority >= 50 ? '필독' : '안내',
             important: notice.priority >= 50,
           })));
-        }
-        if (rankingResult.status === 'fulfilled') {
-          successful += 1;
-          const rankingPayload = rankingResult.value;
-          const apiLeaders = rankingPayload?.data?.leaders || rankingPayload?.leaders || [];
+          const apiLeaders = homePayload.leaders || [];
           setRankingItems(apiLeaders.slice(0, 7).map((leader: any, index: number) => ({
             rank: Number(leader.rank || index + 1),
             nickname: leader.realName || leader.nickname,
@@ -677,17 +637,9 @@ export default function HomePage() {
             igk: Number(leader.currentIgk || 0),
             change: 0,
           })));
-        }
-        setLoadState(successful === 3 ? 'ready' : successful > 0 ? 'partial' : 'error');
-      })
-      .catch((error) => {
-        if (active && !isAbortError(error)) setLoadState('error');
-      });
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [demoMode, reloadKey]);
+    setLoadState('ready');
+    return undefined;
+  }, [demoMode, homeError, homePayload, reloadKey]);
 
   return (
     <div className="min-h-screen min-w-0 overflow-x-hidden py-1 text-slate-900 sm:py-3">
@@ -703,7 +655,7 @@ export default function HomePage() {
                 <h1 className="text-sm font-black tracking-[-0.025em] text-slate-950">인텍트 게시판</h1>
                 <span className="hidden items-center gap-2 text-xs text-slate-400 sm:inline-flex">
                   <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
-                  {loadState === 'ready' ? '방금 업데이트됨' : loadState === 'loading' ? '서버 정보를 불러오는 중…' : '일부 정보를 불러오지 못함'}
+                  {loadState === 'ready' ? '방금 업데이트됨' : homeLoading || loadState === 'loading' ? '정보를 불러오는 중…' : '일부 정보를 불러오지 못함'}
                 </span>
                 {(loadState === 'partial' || loadState === 'error') ? (
                   <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="text-xs font-bold text-amber-800 underline underline-offset-2">
@@ -722,7 +674,7 @@ export default function HomePage() {
             </div>
           </div>
           <aside className="grid min-w-0 gap-3 md:grid-cols-3 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-[100px] xl:block xl:space-y-3">
-            <HomeAccountPanel demoMode={demoMode} />
+            <HomeAccountPanel demoMode={demoMode} accountStatus={homePayload?.account} />
             <NoticeRail items={noticeItems} />
             <HotTopics items={homePosts} />
             <RankingPanel items={rankingItems} />

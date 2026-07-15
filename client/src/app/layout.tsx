@@ -4,6 +4,9 @@ import Wrapper from '@/components/Wrapper';
 import PortalShell from '@/components/portal/PortalShell';
 import PwaRegistration from '@/components/portal/PwaRegistration';
 import NetworkStatus from '@/components/portal/NetworkStatus';
+import ClientDataProvider from '@/components/portal/ClientDataProvider';
+import SessionProvider from '@/components/portal/SessionProvider';
+import WebVitals from '@/components/portal/WebVitals';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
@@ -45,9 +48,14 @@ export default function RootLayout({
           본문으로 바로가기
         </a>
         <Wrapper>
-          <PortalShell>{children}</PortalShell>
-          <PwaRegistration />
-          <NetworkStatus />
+          <ClientDataProvider>
+            <SessionProvider>
+              <PortalShell>{children}</PortalShell>
+              <PwaRegistration />
+              <NetworkStatus />
+              <WebVitals />
+            </SessionProvider>
+          </ClientDataProvider>
         </Wrapper>
       </body>
     </html>

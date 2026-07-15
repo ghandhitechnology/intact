@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+.render-lazy {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 96px;
+}
+
 :root {
   --green: #176b50;
   --green-deep: #10503d;

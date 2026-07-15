@@ -384,6 +384,9 @@ model Attachment {
   sizeBytes    BigInt
   sha256       String   @db.Char(64)
   scanStatus   String   @default("PENDING") @db.VarChar(32)
+  width        Int?
+  height       Int?
+  blurDataUrl  String?  @db.VarChar(1024)
 
   uploader User     @relation("AttachmentUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
   post     Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)

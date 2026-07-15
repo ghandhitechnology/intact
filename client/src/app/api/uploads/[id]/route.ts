@@ -1,5 +1,7 @@
 import prisma from '@/lib/prisma';
 import { deleteObject, getObject } from '@/lib/server/object-storage';
+import { putObject } from '@/lib/server/object-storage';
+import sharp from 'sharp';
 import { ApiError, assertSameOrigin, json, jsonError } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 
@@ -53,20 +55,47 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       throw new ApiError(404, 'FILE_NOT_FOUND', '파일을 찾을 수 없어요.');
     }
 
-    const etag = `"${attachment.sha256}"`;
+    const url = new URL(request.url);
+    const requestedWidth = Number(url.searchParams.get('w'));
+    const thumbnail = url.searchParams.get('variant') === 'thumb' && [320, 640, 1280].includes(requestedWidth);
+    if (url.searchParams.has('variant') && !thumbnail) {
+      throw new ApiError(400, 'INVALID_IMAGE_VARIANT', '지원하지 않는 이미지 크기입니다.');
+    }
+    if (thumbnail && !attachment.mimeType.startsWith('image/')) {
+      throw new ApiError(400, 'NOT_AN_IMAGE', '이미지 파일만 썸네일을 만들 수 있습니다.');
+    }
+    const etag = `"${attachment.sha256}${thumbnail ? `-thumb-${requestedWidth}` : ''}"`;
     if (request.headers.get('if-none-match') === etag) {
       return new Response(null, { status: 304, headers: { ETag: etag } });
     }
-    const object = await getObject(attachment.storageKey);
+    let object;
+    let thumbnailBytes: Buffer | null = null;
+    if (thumbnail) {
+      const derivativeKey = `${attachment.storageKey}.thumb-${requestedWidth}.webp`;
+      try {
+        object = await getObject(derivativeKey);
+      } catch {
+        const original = await getObject(attachment.storageKey);
+        const originalBytes = Buffer.from(await original.arrayBuffer());
+        thumbnailBytes = await sharp(originalBytes, { animated: false })
+          .rotate()
+          .resize({ width: requestedWidth, withoutEnlargement: true })
+          .webp({ quality: 78 })
+          .toBuffer();
+        await putObject(derivativeKey, thumbnailBytes, 'image/webp');
+        object = null;
+      }
+    } else {
+      object = await getObject(attachment.storageKey);
+    }
     const asciiName = attachment.originalName.replace(/[^A-Za-z0-9._-]/g, '_') || 'download';
-    const url = new URL(request.url);
     const inline = url.searchParams.get('download') !== '1' && INLINE_MIME_TYPES.has(attachment.mimeType);
-    return new Response(object.body, {
+    return new Response(thumbnailBytes ? new Uint8Array(thumbnailBytes) : object?.body, {
       headers: {
-        'Content-Type': attachment.mimeType || 'application/octet-stream',
-        'Content-Length': String(attachment.sizeBytes),
+        'Content-Type': thumbnail ? 'image/webp' : attachment.mimeType || 'application/octet-stream',
+        ...(thumbnailBytes ? { 'Content-Length': String(thumbnailBytes.byteLength) } : !thumbnail ? { 'Content-Length': String(attachment.sizeBytes) } : {}),
         'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(attachment.originalName)}`,
-        'Cache-Control': 'private, max-age=300, must-revalidate',
+        'Cache-Control': thumbnail ? 'private, max-age=86400, must-revalidate' : 'private, max-age=300, must-revalidate',
         'Cross-Origin-Resource-Policy': 'same-origin',
         ETag: etag,
         'X-Content-Type-Options': 'nosniff',
@@ -89,7 +118,10 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     if (!attachment || attachment.uploaderId !== session.user.id) {
       throw new ApiError(404, 'FILE_NOT_FOUND', '파일을 찾을 수 없어요.');
     }
-    await deleteObject(attachment.storageKey);
+    await Promise.all([
+      deleteObject(attachment.storageKey),
+      ...[320, 640, 1280].map((width) => deleteObject(`${attachment.storageKey}.thumb-${width}.webp`).catch(() => undefined)),
+    ]);
     await prisma.attachment.delete({ where: { id: attachment.id } });
     return json({ deleted: true });
   } catch (error) {

@@ -17,6 +17,9 @@ export const attachmentSelect = {
   originalName: true,
   mimeType: true,
   sizeBytes: true,
+  width: true,
+  height: true,
+  blurDataUrl: true,
 } as const;
 
 export function parseAttachmentIds(value: unknown, maxFiles = 5) {

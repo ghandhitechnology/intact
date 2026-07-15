@@ -1,4 +1,4 @@
-const CACHE_NAME = 'igwak-static-v1';
+const CACHE_NAME = 'intact-static-v2';
 const STATIC_ROUTES = ['/offline'];
 
 self.addEventListener('install', (event) => {
@@ -8,9 +8,10 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+    Promise.all([
+      self.registration.navigationPreload?.enable().catch(() => undefined),
+      caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))),
+    ])
       .then(() => self.clients.claim()),
   );
 });
@@ -20,7 +21,11 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET' || request.mode !== 'navigate') return;
 
   // Student content is never cached. Only the generic offline screen is used.
-  event.respondWith(fetch(request).catch(() => caches.match('/offline')));
+  event.respondWith(
+    event.preloadResponse
+      .then((preloaded) => preloaded || fetch(request))
+      .catch(() => caches.match('/offline')),
+  );
 });
 
 self.addEventListener('push', (event) => {

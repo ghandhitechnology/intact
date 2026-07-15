@@ -60,7 +60,10 @@ export async function GET(request: Request) {
         : 0;
       return { ...room, unreadCount };
     }));
-    return json({ rooms: roomsWithUnread });
+    return json({ rooms: roomsWithUnread }, 200, {
+      'Cache-Control': 'private, max-age=15, stale-while-revalidate=30',
+      Vary: 'Cookie',
+    });
   } catch (error) {
     return jsonError(error);
   }

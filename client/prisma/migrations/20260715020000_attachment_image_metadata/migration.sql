@@ -1,0 +1,4 @@
+ALTER TABLE "Attachment"
+  ADD COLUMN "width" INTEGER,
+  ADD COLUMN "height" INTEGER,
+  ADD COLUMN "blurDataUrl" VARCHAR(1024);

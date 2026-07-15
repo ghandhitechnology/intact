@@ -6,6 +6,7 @@ import { ApiError, getClientIp } from './http';
 
 export const SESSION_COOKIE = 'igwak_session';
 export const ADMIN_SESSION_COOKIE = 'igwak_admin_session';
+export const CLIENT_CACHE_SCOPE_COOKIE = 'intact_cache_scope';
 const PORTAL_SESSION_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const SHORT_PORTAL_SESSION_AGE_MS = 12 * 60 * 60 * 1000;
 const ADMIN_SESSION_AGE_MS = 45 * 60 * 1000;
@@ -67,9 +68,16 @@ export function attachAdminSessionCookie(response: Response, token: string, expi
 }
 
 export function attachSessionCookie(response: Response, token: string, expiresAt: Date) {
+  const cacheScope = privateFingerprint(`client-cache:${token}`).slice(0, 32);
   response.headers.append(
     'Set-Cookie',
     `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Expires=${expiresAt.toUTCString()}${
+      process.env.NODE_ENV === 'production' ? '; Secure' : ''
+    }`,
+  );
+  response.headers.append(
+    'Set-Cookie',
+    `${CLIENT_CACHE_SCOPE_COOKIE}=${cacheScope}; Path=/; SameSite=Lax; Expires=${expiresAt.toUTCString()}${
       process.env.NODE_ENV === 'production' ? '; Secure' : ''
     }`,
   );
@@ -80,6 +88,12 @@ export function clearSessionCookie(response: Response) {
   response.headers.append(
     'Set-Cookie',
     `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
+      process.env.NODE_ENV === 'production' ? '; Secure' : ''
+    }`,
+  );
+  response.headers.append(
+    'Set-Cookie',
+    `${CLIENT_CACHE_SCOPE_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0${
       process.env.NODE_ENV === 'production' ? '; Secure' : ''
     }`,
   );

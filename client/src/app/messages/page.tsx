@@ -41,6 +41,7 @@ import {
 import Link from "next/link";
 import { isValidStudentCode, STUDENT_CODE_REQUIREMENTS } from "@/lib/student-code";
 import { fetchWithTimeout, isAbortError, requestErrorMessage } from "@/lib/client/request";
+import { usePortalSession } from "@/components/portal/SessionProvider";
 import { io, type Socket } from "socket.io-client";
 import {
   FormEvent,
@@ -127,6 +128,50 @@ type ServerRoom = {
   }>;
   unreadCount?: number;
 };
+
+type ChatCache = {
+  savedAt: number;
+  rooms: Room[];
+  messages: Record<string, ChatMessage[]>;
+  selectedId: string;
+  currentUserId: string | null;
+  currentStudentCode: string;
+};
+
+function chatCacheKey() {
+  if (typeof document === "undefined") return "";
+  const scope = document.cookie
+    .split(";")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith("intact_cache_scope="))
+    ?.split("=")
+    .slice(1)
+    .join("=");
+  return scope ? `intact:chat:v1:${decodeURIComponent(scope)}` : "";
+}
+
+function readChatCache(): ChatCache | null {
+  const key = chatCacheKey();
+  if (!key) return null;
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(key) || "null") as ChatCache | null;
+    if (!parsed || Date.now() - parsed.savedAt > 12 * 60 * 60_000 || !Array.isArray(parsed.rooms)) return null;
+    return parsed;
+  } catch {
+    sessionStorage.removeItem(key);
+    return null;
+  }
+}
+
+function writeChatCache(value: ChatCache) {
+  const key = chatCacheKey();
+  if (!key) return;
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Chat remains fully usable when browser storage is unavailable or full.
+  }
+}
 
 function isServerMessage(value: unknown): value is ServerMessage {
   if (!value || typeof value !== "object") return false;
@@ -218,7 +263,7 @@ function deliverRealtime(
   return new Promise<ServerMessage>((resolve, reject) => {
     const timer = window.setTimeout(
       () => reject(new Error("실시간 응답 시간이 초과되었습니다.")),
-      8_000,
+      1_500,
     );
     socket.emit(
       "chat:message",
@@ -379,6 +424,7 @@ const people = [
 ];
 
 export default function MessagesPage() {
+  const { session, loading: sessionLoading } = usePortalSession();
   const [rooms, setRooms] = useState<Room[]>(DEMO_MODE ? initialRooms : []);
   const [selectedId, setSelectedId] = useState(DEMO_MODE ? "physics" : "");
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>(
@@ -462,6 +508,38 @@ export default function MessagesPage() {
       !enteredParticipantCodes.includes(currentStudentCode)) &&
     (!createIsGroup || roomName.trim().length >= 2);
 
+  useEffect(() => {
+    if (DEMO_MODE) return;
+    const cached = readChatCache();
+    if (!cached?.rooms.length) return;
+    setRooms(cached.rooms);
+    setMessages(cached.messages || {});
+    setSelectedId(cached.selectedId || cached.rooms[0]?.id || "");
+    setCurrentUserId(cached.currentUserId);
+    setCurrentStudentCode(cached.currentStudentCode || "");
+    pendingScrollReasonRef.current = "initial";
+    setLoadState("ready");
+  }, []);
+
+  useEffect(() => {
+    if (DEMO_MODE || loadState !== "ready" || !rooms.length) return undefined;
+    const timer = window.setTimeout(() => {
+      const recentRooms = rooms.slice(0, 5);
+      const recentMessages = Object.fromEntries(
+        recentRooms.map((cachedRoom) => [cachedRoom.id, (messages[cachedRoom.id] || []).slice(-100)]),
+      );
+      writeChatCache({
+        savedAt: Date.now(),
+        rooms,
+        messages: recentMessages,
+        selectedId,
+        currentUserId,
+        currentStudentCode,
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [currentStudentCode, currentUserId, loadState, messages, rooms, selectedId]);
+
   function scrollToLatest(behavior: ScrollBehavior = "smooth") {
     const viewport = messagesViewportRef.current;
     if (viewport) viewport.scrollTo({ top: viewport.scrollHeight, behavior });
@@ -514,29 +592,27 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (DEMO_MODE) return undefined;
+    if (sessionLoading) return undefined;
+    if (!session?.authenticated || !session.user) {
+      setLoadState("auth");
+      return undefined;
+    }
+    const authenticatedUser = session.user;
     let active = true;
     const controller = new AbortController();
     async function loadRooms() {
       setLoadState((current) => (current === "ready" ? "ready" : "loading"));
       setLoadError("");
       try {
-        const [sessionResponse, roomsResponse] = await Promise.all([
-          fetchWithTimeout("/api/auth/session", { cache: "no-store", signal: controller.signal }),
-          fetchWithTimeout("/api/chat/rooms", { cache: "no-store", signal: controller.signal }),
-        ]);
-        const sessionPayload = await readApiEnvelope<{
-          authenticated: boolean;
-          user?: { id: string; studentCode?: string | null };
-        }>(sessionResponse);
+        const roomsResponse = await fetchWithTimeout("/api/chat/rooms", {
+          cache: "default",
+          signal: controller.signal,
+        });
         const roomsPayload = await readApiEnvelope<{ rooms: ServerRoom[] }>(
           roomsResponse,
         );
         if (!active) return;
-        if (
-          !sessionPayload?.ok ||
-          !sessionPayload.data.authenticated ||
-          roomsResponse.status === 401
-        ) {
+        if (roomsResponse.status === 401) {
           setLoadState("auth");
           return;
         }
@@ -544,10 +620,7 @@ export default function MessagesPage() {
           throw new Error(
             apiErrorMessage(roomsPayload, "대화방을 불러오지 못했습니다."),
           );
-        const userId =
-          sessionPayload?.ok && sessionPayload.data.authenticated
-            ? (sessionPayload.data.user?.id ?? null)
-            : null;
+        const userId = authenticatedUser.id;
         const loadedRooms: Room[] = roomsPayload.data.rooms.map(
           (serverRoom, index) => {
             const otherMembers = serverRoom.members.filter(
@@ -582,7 +655,7 @@ export default function MessagesPage() {
           },
         );
         setCurrentUserId(userId);
-        setCurrentStudentCode(sessionPayload.data.user?.studentCode ?? "");
+        setCurrentStudentCode(authenticatedUser.studentCode ?? "");
         setRooms(loadedRooms);
         setMessages((current) => {
           const next = { ...current };
@@ -637,7 +710,7 @@ export default function MessagesPage() {
       active = false;
       controller.abort();
     };
-  }, [reloadKey]);
+  }, [reloadKey, session, sessionLoading]);
 
   useEffect(() => {
     if (DEMO_MODE || !selectedId || loadState !== "ready") return undefined;

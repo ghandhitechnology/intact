@@ -17,10 +17,10 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import Link from 'next/link';
+import Link from '@/components/portal/IntentLink';
 import { usePathname, useRouter } from 'next/navigation';
 import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
-import { fetchWithTimeout, isAbortError } from '@/lib/client/request';
+import { usePortalSession } from '@/components/portal/SessionProvider';
 
 const navigation = [
   { href: '/', label: '홈', icon: Home },
@@ -46,51 +46,19 @@ export default function PortalShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [boardPickerOpen, setBoardPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [sessionCheckFailed, setSessionCheckFailed] = useState(false);
-  const [sessionRefreshKey, setSessionRefreshKey] = useState(0);
+  const { session, error: sessionError, refresh: refreshSession } = usePortalSession();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (DEMO_MODE) return;
-    let active = true;
-    const controller = new AbortController();
-    fetchWithTimeout('/api/auth/session', { cache: 'no-store', signal: controller.signal })
-      .then(async (response) => ({ response, data: await response.json().catch(() => null) }))
-      .then(({ response, data }) => {
-        if (!active) return;
-        const authState = data?.data?.authenticated ?? data?.authenticated;
-        if (!response.ok || typeof authState !== 'boolean') {
-          throw new Error('SESSION_CHECK_FAILED');
-        }
-        setSessionCheckFailed(false);
-        const reason = data?.data?.reason || data?.reason;
-        if (reason === 'PENDING_REVERIFICATION' && pathname !== '/reverify') {
-          router.replace('/reverify');
-          return;
-        }
-        if (!authState && requiresPortalSession(pathname)) {
-          router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
-          return;
-        }
-      })
-      .catch((error) => {
-        if (active && !isAbortError(error)) setSessionCheckFailed(true);
-      });
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [pathname, router, sessionRefreshKey]);
-
-  useEffect(() => {
-    const refresh = () => setSessionRefreshKey((value) => value + 1);
-    window.addEventListener('online', refresh);
-    window.addEventListener('focus', refresh);
-    return () => {
-      window.removeEventListener('online', refresh);
-      window.removeEventListener('focus', refresh);
-    };
-  }, []);
+    if (DEMO_MODE || !session) return;
+    if (session.reason === 'PENDING_REVERIFICATION' && pathname !== '/reverify') {
+      router.replace('/reverify');
+      return;
+    }
+    if (!session.authenticated && requiresPortalSession(pathname)) {
+      router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
+    }
+  }, [pathname, router, session]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -210,10 +178,10 @@ export default function PortalShell({ children }: { children: ReactNode }) {
         )}
       </header>
 
-      {sessionCheckFailed && !isAdmin ? (
+      {sessionError && !isAdmin ? (
         <div className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-xs text-amber-950" role="status">
           서버 연결이 불안정합니다.
-          <button type="button" className="ml-2 font-bold underline underline-offset-2" onClick={() => setSessionRefreshKey((value) => value + 1)}>
+          <button type="button" className="ml-2 font-bold underline underline-offset-2" onClick={() => void refreshSession()}>
             다시 연결
           </button>
         </div>
