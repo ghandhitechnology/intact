@@ -371,10 +371,14 @@ curl -fsS 'https://ishsoutside.com/socket.io/?EIO=4&transport=polling'
 기능 smoke test가 끝난 뒤 공개 읽기 부하를 실행합니다. 운영 중에는 기본값보다 높은 동시성을 임의로 사용하지 않습니다.
 
 ```bash
-node scripts/stress-readonly.mjs \
-  --base=https://ishsoutside.com \
-  --requests=120 \
-  --concurrency=12
+docker run --rm \
+  -v "$PWD/scripts:/work:ro" \
+  -w /work \
+  node:20-alpine \
+  node stress-readonly.mjs \
+    --base=https://ishsoutside.com \
+    --requests=120 \
+    --concurrency=12
 ```
 
 network error 또는 5xx가 있으면 스크립트가 실패합니다. p95가 기존 [안정성 기준](./STABILITY_REPORT.md)보다 크게 악화되면 컨테이너 log와 PostgreSQL 상태를 확인한 뒤 배포를 완료하지 않습니다.
