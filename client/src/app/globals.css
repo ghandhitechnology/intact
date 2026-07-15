@@ -147,21 +147,6 @@ input[type='number']::-webkit-outer-spin-button {
   background: #e34949;
 }
 
-.notification-count {
-  position: absolute;
-  right: 2px;
-  top: 1px;
-  display: grid;
-  min-width: 16px;
-  height: 16px;
-  place-items: center;
-  border: 1px solid white;
-  background: var(--blue);
-  color: white;
-  font-size: 9px;
-  font-weight: 800;
-}
-
 .search-field {
   display: flex;
   height: 42px;
@@ -202,80 +187,6 @@ input[type='number']::-webkit-outer-spin-button {
   font-size: 9px;
 }
 
-.account-trigger {
-  display: flex;
-  height: 45px;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid transparent;
-  padding: 3px 6px;
-  transition: 120ms ease;
-}
-
-.account-trigger:hover {
-  border-color: var(--line);
-  background: var(--surface-subtle);
-}
-
-.account-trigger strong,
-.account-trigger small {
-  display: block;
-  line-height: 1.25;
-}
-
-.account-trigger strong {
-  max-width: 90px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 12px;
-}
-
-.account-trigger small {
-  margin-top: 2px;
-  color: var(--ink-faint);
-  font-size: 10px;
-}
-
-.avatar {
-  display: grid;
-  place-items: center;
-  border: 1px solid #acd0c2;
-  background: var(--green-pale);
-  color: var(--green-deep);
-  font-weight: 900;
-}
-
-.avatar-sm {
-  width: 32px;
-  height: 32px;
-  font-size: 12px;
-}
-
-.account-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 7px);
-  width: 220px;
-  border: 1px solid var(--line-strong);
-  overflow: hidden;
-  background: white;
-}
-
-.account-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 10px 14px;
-  color: var(--ink-soft);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.account-menu-item:hover {
-  background: var(--surface-muted);
-  color: var(--green-deep);
-}
-
 @media (min-width: 1024px) {
   .header-icon-button {
     width: 36px;
@@ -286,27 +197,6 @@ input[type='number']::-webkit-outer-spin-button {
     height: 36px;
   }
 
-  .account-trigger {
-    height: 38px;
-    gap: 6px;
-    padding: 2px 5px;
-  }
-
-  .account-trigger strong {
-    max-width: 80px;
-    font-size: 11px;
-  }
-
-  .account-trigger small {
-    margin-top: 1px;
-    font-size: 9px;
-  }
-
-  .avatar-sm {
-    width: 28px;
-    height: 28px;
-    font-size: 11px;
-  }
 }
 
 .mobile-nav-link {

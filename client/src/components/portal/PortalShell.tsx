@@ -1,15 +1,12 @@
 'use client';
 
 import {
-  Bell,
   BookOpen,
-  ChevronDown,
   ChevronRight,
   Coins,
   FileText,
   HelpCircle,
   Home,
-  LogIn,
   Menu,
   MessageSquare,
   Microscope,
@@ -23,7 +20,6 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
-import { igkLevelLabel } from '@/lib/igk-levels';
 import { fetchWithTimeout, isAbortError } from '@/lib/client/request';
 
 const navigation = [
@@ -37,38 +33,22 @@ const navigation = [
 ];
 const boardNavigation = navigation.slice(1);
 
-const PUBLIC_PATHS = new Set(['/login', '/register', '/reset-password', '/privacy', '/rules', '/terms', '/offline', '/reverify']);
+const PUBLIC_PATHS = new Set(['/', '/login', '/register', '/reset-password', '/privacy', '/rules', '/terms', '/offline', '/reverify']);
 const DEMO_MODE = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === 'true';
-const DEMO_USER = { nickname: '김민준', realName: '김민준', studentCode: '331101', igkBalance: 1840, level: 12 };
 
 function requiresPortalSession(pathname: string) {
   return !PUBLIC_PATHS.has(pathname) && !pathname.startsWith('/admin');
 }
 
-type SessionUser = {
-  id?: string;
-  nickname?: string;
-  realName?: string;
-  profileImage?: string | null;
-  studentId?: string | number;
-  studentCode?: string;
-  igkBalance?: number;
-  level?: number;
-};
-
 export default function PortalShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() || '/';
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
   const [boardPickerOpen, setBoardPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [sessionUser, setSessionUser] = useState<SessionUser | null>(DEMO_MODE ? DEMO_USER : null);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [sessionCheckFailed, setSessionCheckFailed] = useState(false);
   const [sessionRefreshKey, setSessionRefreshKey] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const sessionUserKey = sessionUser?.id || sessionUser?.studentCode || '';
 
   useEffect(() => {
     if (DEMO_MODE) return;
@@ -88,13 +68,10 @@ export default function PortalShell({ children }: { children: ReactNode }) {
           router.replace('/reverify');
           return;
         }
-        const user = data?.data?.user || data?.user;
         if (!authState && requiresPortalSession(pathname)) {
-          setSessionUser(null);
           router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
           return;
         }
-        setSessionUser(user || null);
       })
       .catch((error) => {
         if (active && !isAbortError(error)) setSessionCheckFailed(true);
@@ -116,37 +93,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!sessionUserKey) return;
-    let active = true;
-    let controller: AbortController | null = null;
-    const loadUnread = () => {
-      if (document.visibilityState === 'hidden') return;
-      controller?.abort();
-      controller = new AbortController();
-      fetchWithTimeout('/api/notifications?pageSize=1', {
-        cache: 'no-store',
-        signal: controller.signal,
-      })
-        .then((response) => (response.ok ? response.json() : null))
-        .then((body) => {
-          if (active && body) setUnreadCount(Number(body?.data?.unreadCount || body?.unreadCount || 0));
-        })
-        .catch(() => undefined);
-    };
-    loadUnread();
-    const timer = window.setInterval(loadUnread, 60_000);
-    window.addEventListener('focus', loadUnread);
-    return () => {
-      active = false;
-      controller?.abort();
-      window.clearInterval(timer);
-      window.removeEventListener('focus', loadUnread);
-    };
-  }, [sessionUserKey]);
-
-  useEffect(() => {
     setMobileOpen(false);
-    setAccountOpen(false);
     setBoardPickerOpen(false);
   }, [pathname]);
 
@@ -173,14 +120,6 @@ export default function PortalShell({ children }: { children: ReactNode }) {
     event.preventDefault();
     const normalized = query.trim();
     if (normalized) router.push(`/search?q=${encodeURIComponent(normalized)}`);
-  }
-
-  async function logout() {
-    await fetchWithTimeout('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
-    setSessionUser(null);
-    setUnreadCount(0);
-    router.replace('/login');
-    router.refresh();
   }
 
   const isAdmin = pathname.startsWith('/admin');
@@ -247,47 +186,6 @@ export default function PortalShell({ children }: { children: ReactNode }) {
             </label>
           </form>
 
-          <div className="ml-auto flex items-center gap-1">
-            <Link href="/messages" className="icon-button header-icon-button hidden sm:grid" aria-label="쪽지와 채팅">
-              <MessageSquare size={18} />
-            </Link>
-            <Link href="/notifications" className="icon-button header-icon-button" aria-label="알림">
-              <Bell size={18} />
-              {unreadCount > 0 && <span className="notification-count">{Math.min(unreadCount, 99)}</span>}
-            </Link>
-            {sessionUser ? (
-              <div className="relative">
-                <button
-                  type="button"
-                  className="account-trigger"
-                  onClick={() => setAccountOpen((value) => !value)}
-                  aria-expanded={accountOpen}
-                >
-                  <span className="avatar avatar-sm bg-cover bg-center" style={sessionUser.profileImage ? { backgroundImage: `url(${sessionUser.profileImage})` } : undefined}>{sessionUser.profileImage ? <span className="sr-only">프로필 이미지</span> : (sessionUser.realName || sessionUser.nickname || '사용자').slice(0, 1)}</span>
-                  <span className="hidden text-left lg:block">
-                    <strong>{sessionUser.realName || sessionUser.nickname || '사용자'}</strong>
-                    <small>{sessionUser.studentCode || sessionUser.studentId || '------'} · {igkLevelLabel(sessionUser.level || 1)}</small>
-                  </span>
-                  <ChevronDown size={14} className="hidden text-[var(--ink-faint)] lg:block" />
-                </button>
-                {accountOpen && (
-                  <div className="account-menu">
-                    <div className="border-b border-[var(--line)] px-4 py-3">
-                      <p className="text-sm font-bold">{sessionUser.realName || sessionUser.nickname || '사용자'}</p>
-                      <p className="mt-0.5 text-xs text-[var(--ink-soft)]">{sessionUser.studentCode || sessionUser.studentId || '------'} · 인천과학고</p>
-                    </div>
-                    <Link href="/profile" className="account-menu-item"><User size={16} />내 프로필</Link>
-                    <Link href="/igk" className="account-menu-item"><Coins size={16} />IGK 지갑</Link>
-                    <Link href="/igk?tab=ranking" className="account-menu-item"><Trophy size={16} />IGK 랭킹</Link>
-                    <Link href="/igk/roadmap" className="account-menu-item"><Trophy size={16} />등급 로드맵</Link>
-                    <button type="button" onClick={logout} className="account-menu-item w-full text-left"><LogIn size={16} />로그아웃</button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link href="/login" className="primary-button h-9 px-4 text-xs">로그인</Link>
-            )}
-          </div>
         </div>
 
         {mobileOpen && (

@@ -1,14 +1,19 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { igkLevelLabel } from '@/lib/igk-levels';
 import { fetchWithTimeout, isAbortError } from '@/lib/client/request';
 import {
   ArrowRight,
+  Bell,
   ChevronRight,
   Clock3,
+  Coins,
   Flame,
+  LogIn,
+  LogOut,
   Megaphone,
   MessageCircle,
   PenSquare,
@@ -38,6 +43,156 @@ import {
   type BoardDefinition,
   type PostSummary,
 } from './demo-data';
+
+type HomeAccountUser = {
+  id?: string;
+  nickname?: string;
+  realName?: string;
+  studentCode?: string | null;
+  level?: number;
+  profileImage?: string | null;
+};
+
+function HomeAccountPanel({ demoMode }: { demoMode: boolean }) {
+  const router = useRouter();
+  const [user, setUser] = useState<HomeAccountUser | null>(
+    demoMode
+      ? { id: 'demo', nickname: '김민준', realName: '김민준', studentCode: '331101', level: 9 }
+      : null,
+  );
+  const [currentIgk, setCurrentIgk] = useState(demoMode ? 1840 : 0);
+  const [unreadCount, setUnreadCount] = useState(demoMode ? 3 : 0);
+  const [loading, setLoading] = useState(!demoMode);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    if (demoMode) return undefined;
+    let active = true;
+    const controller = new AbortController();
+
+    fetchWithTimeout('/api/auth/session', { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => ({ response, body: await response.json().catch(() => null) }))
+      .then(async ({ response, body }) => {
+        if (!active) return;
+        const data = body?.data ?? body;
+        if (!response.ok || !data?.authenticated || !data?.user) {
+          setUser(null);
+          setCurrentIgk(0);
+          setUnreadCount(0);
+          return;
+        }
+        setUser(data.user);
+        setCurrentIgk(Number(data.currentIgk || 0));
+        const notificationResponse = await fetchWithTimeout('/api/notifications?pageSize=1', {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        const notificationBody = notificationResponse.ok
+          ? await notificationResponse.json().catch(() => null)
+          : null;
+        if (active) {
+          setUnreadCount(Number(notificationBody?.data?.unreadCount || notificationBody?.unreadCount || 0));
+        }
+      })
+      .catch((error) => {
+        if (active && !isAbortError(error)) setUser(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [demoMode]);
+
+  async function logout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    await fetchWithTimeout('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+    setUser(null);
+    setCurrentIgk(0);
+    setUnreadCount(0);
+    setLoggingOut(false);
+    router.refresh();
+  }
+
+  if (loading) {
+    return (
+      <section className="bg-white p-3" aria-label="계정 정보를 불러오는 중">
+        <div className="h-10 animate-pulse bg-slate-100" />
+        <div className="mt-2 h-8 animate-pulse bg-slate-100" />
+      </section>
+    );
+  }
+
+  if (!user) {
+    return (
+      <section className="bg-white p-3" aria-labelledby="home-login-title">
+        <h2 id="home-login-title" className="text-xs font-black text-slate-800">인텍트 계정</h2>
+        <Link
+          href="/login?returnTo=%2F"
+          className="mt-3 flex h-10 w-full items-center justify-center gap-2 bg-emerald-700 text-xs font-black text-white hover:bg-emerald-800"
+        >
+          <LogIn className="h-4 w-4" aria-hidden="true" />
+          로그인
+        </Link>
+        <div className="mt-3 flex items-center justify-between text-[10px] font-bold text-slate-500">
+          <Link href="/reset-password" className="hover:text-emerald-700">비밀번호 재설정</Link>
+          <Link href="/register" className="text-emerald-700 hover:text-emerald-900">회원가입</Link>
+        </div>
+      </section>
+    );
+  }
+
+  const displayName = user.realName || user.nickname || '사용자';
+  const studentCode = user.studentCode || '------';
+  const level = Number(user.level || 1);
+  const avatarMember = {
+    nickname: displayName,
+    studentId: studentCode,
+    level,
+    initials: displayName.slice(0, 1),
+    profileImage: user.profileImage || null,
+    accent: 'emerald' as const,
+  };
+
+  return (
+    <section className="bg-white p-3" aria-labelledby="home-account-title">
+      <p className="text-[10px] font-bold text-emerald-700">로그인 중</p>
+      <Link href="/profile" className="mt-2 flex items-center gap-2.5 hover:bg-slate-50">
+        <Avatar member={avatarMember} />
+        <span className="min-w-0 flex-1">
+          <strong id="home-account-title" className="block truncate text-xs font-black text-slate-900">{displayName}</strong>
+          <span className="mt-0.5 block truncate text-[10px] text-slate-500">{studentCode} · {igkLevelLabel(level)}</span>
+        </span>
+        <ChevronRight className="h-3.5 w-3.5 text-slate-300" aria-hidden="true" />
+      </Link>
+      <div className="mt-3 grid grid-cols-3 gap-1 bg-slate-50 p-1">
+        <Link href="/messages" className="flex min-h-12 flex-col items-center justify-center gap-1 bg-white text-[10px] font-bold text-slate-600 hover:text-emerald-700">
+          <MessageCircle className="h-4 w-4" aria-hidden="true" />대화
+        </Link>
+        <Link href="/notifications" className="relative flex min-h-12 flex-col items-center justify-center gap-1 bg-white text-[10px] font-bold text-slate-600 hover:text-emerald-700">
+          <Bell className="h-4 w-4" aria-hidden="true" />알림
+          {unreadCount > 0 ? <span className="absolute right-1.5 top-1 bg-emerald-700 px-1 text-[9px] text-white">{Math.min(unreadCount, 99)}</span> : null}
+        </Link>
+        <Link href="/igk" className="flex min-h-12 flex-col items-center justify-center gap-1 bg-white text-[10px] font-bold text-slate-600 hover:text-emerald-700">
+          <Coins className="h-4 w-4" aria-hidden="true" />{currentIgk.toLocaleString()}
+        </Link>
+      </div>
+      <button
+        type="button"
+        onClick={() => void logout()}
+        disabled={loggingOut}
+        className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-slate-700 disabled:opacity-50"
+      >
+        <LogOut className="h-3 w-3" aria-hidden="true" />
+        {loggingOut ? '로그아웃 중…' : '로그아웃'}
+      </button>
+    </section>
+  );
+}
 
 function HomeActions() {
   return (
@@ -424,6 +579,7 @@ export default function HomePage() {
         cache: 'no-store',
         signal: controller.signal,
       });
+      if (response.status === 401) return {};
       const body = await response.json().catch(() => null);
       if (!response.ok || !body) throw new Error('LOAD_FAILED');
       return body;
@@ -504,6 +660,7 @@ export default function HomePage() {
       <div className="mx-auto min-w-0 max-w-[1540px]">
         <div className="grid min-w-0 items-start gap-3 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_280px]">
           <aside className="hidden min-w-0 space-y-3 lg:sticky lg:top-[100px] lg:block">
+            <HomeAccountPanel demoMode={demoMode} />
             <HomeActions />
             <PortalMenu items={boardItems} />
           </aside>
