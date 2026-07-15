@@ -660,7 +660,6 @@ export default function HomePage() {
       <div className="mx-auto min-w-0 max-w-[1540px]">
         <div className="grid min-w-0 items-start gap-3 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_280px]">
           <aside className="hidden min-w-0 space-y-3 lg:sticky lg:top-[100px] lg:block">
-            <HomeAccountPanel demoMode={demoMode} />
             <HomeActions />
             <PortalMenu items={boardItems} />
           </aside>
@@ -689,6 +688,7 @@ export default function HomePage() {
             </div>
           </div>
           <aside className="grid min-w-0 gap-3 md:grid-cols-3 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-[100px] xl:block xl:space-y-3">
+            <HomeAccountPanel demoMode={demoMode} />
             <NoticeRail items={noticeItems} />
             <HotTopics items={homePosts} />
             <RankingPanel items={rankingItems} />
