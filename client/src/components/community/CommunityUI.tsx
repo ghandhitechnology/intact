@@ -78,7 +78,7 @@ export function Avatar({
     <span
       aria-hidden="true"
       className={cx(
-        "inline-flex shrink-0 items-center justify-center  border bg-cover bg-center font-bold",
+        "inline-flex shrink-0 items-center justify-center rounded-full border bg-cover bg-center font-bold",
         sizes[size],
         avatarStyles[member.accent],
       )}

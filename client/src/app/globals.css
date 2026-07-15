@@ -12,8 +12,8 @@
   --ink: #202a33;
   --ink-soft: #596572;
   --ink-faint: #8a96a3;
-  --line: #dfe5ec;
-  --line-strong: #c8d2dd;
+  --line: transparent;
+  --line-strong: transparent;
   --surface: #ffffff;
   --surface-muted: #f4f6f8;
   --surface-subtle: #f0f3f6;
@@ -22,9 +22,16 @@
   color-scheme: light;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
-  border-radius: 0 !important;
+  border-color: transparent !important;
+  border-radius: 4px !important;
+}
+
+.rounded-full {
+  border-radius: 9999px !important;
 }
 
 html {
@@ -50,6 +57,12 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']),
+select,
+textarea {
+  background-color: var(--surface-subtle) !important;
 }
 
 button,

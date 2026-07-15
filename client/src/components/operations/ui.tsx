@@ -126,8 +126,8 @@ export function Avatar({ name, imageUrl, size = 'md', status, tone = 'blue' }: {
   const tones = { blue: 'bg-blue-100 text-blue-800', green: 'bg-emerald-100 text-emerald-800', violet: 'bg-violet-100 text-violet-800', amber: 'bg-amber-100 text-amber-800', slate: 'bg-slate-200 text-slate-700' };
   return (
     <span className="relative inline-flex shrink-0">
-      <span className={cn('inline-flex items-center justify-center  border border-white bg-cover bg-center font-black tracking-[-0.04em]', sizes[size], tones[tone])} style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}>{imageUrl ? <span className="sr-only">{name} 프로필 이미지</span> : name.slice(0, 2)}</span>
-      {status ? <span className={cn('absolute bottom-0 right-0 h-3 w-3  border-2 border-white', status === 'online' ? 'bg-emerald-500' : 'bg-slate-300')} /> : null}
+      <span className={cn('inline-flex items-center justify-center rounded-full border border-white bg-cover bg-center font-black tracking-[-0.04em]', sizes[size], tones[tone])} style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}>{imageUrl ? <span className="sr-only">{name} 프로필 이미지</span> : name.slice(0, 2)}</span>
+      {status ? <span className={cn('absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white', status === 'online' ? 'bg-emerald-500' : 'bg-slate-300')} /> : null}
     </span>
   );
 }
