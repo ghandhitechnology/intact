@@ -25,6 +25,17 @@ export async function levelForLifetime(tx: Tx, lifetimeIgk: number) {
   return rule?.level ?? 1;
 }
 
+export async function syncLevelForLifetime(
+  tx: Tx,
+  user: { id: string; lifetimeIgk: number; level: number },
+) {
+  const level = await levelForLifetime(tx, user.lifetimeIgk);
+  if (level !== user.level) {
+    await tx.user.update({ where: { id: user.id }, data: { level } });
+  }
+  return level;
+}
+
 export async function awardIgk(
   tx: Tx,
   input: {
@@ -76,10 +87,7 @@ export async function awardIgk(
     },
     select: { currentIgk: true, lifetimeIgk: true, level: true, igkDebt: true },
   });
-  const level = await levelForLifetime(tx, updated.lifetimeIgk);
-  if (level !== updated.level) {
-    await tx.user.update({ where: { id: input.userId }, data: { level } });
-  }
+  await syncLevelForLifetime(tx, { id: input.userId, ...updated });
 
   return tx.igkLedger.create({
     data: {
@@ -143,10 +151,7 @@ export async function reverseReward(
     },
     select: { currentIgk: true, lifetimeIgk: true, level: true, igkDebt: true },
   });
-  const level = await levelForLifetime(tx, updated.lifetimeIgk);
-  if (level !== updated.level) {
-    await tx.user.update({ where: { id: input.userId }, data: { level } });
-  }
+  await syncLevelForLifetime(tx, { id: input.userId, ...updated });
 
   return tx.igkLedger.create({
     data: {

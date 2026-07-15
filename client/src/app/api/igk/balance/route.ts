@@ -31,6 +31,7 @@ export async function GET(request: Request) {
       : 0;
     return json({
       ...user,
+      level: currentLevel?.level ?? 1,
       rank: higherRanked + 1,
       currentLevel,
       nextLevel,

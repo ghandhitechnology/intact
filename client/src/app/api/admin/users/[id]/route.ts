@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import prisma from '@/lib/prisma';
 import { writeAdminAudit } from '@/lib/server/audit';
-import { lockIgkAccounts } from '@/lib/server/igk';
+import { lockIgkAccounts, syncLevelForLifetime } from '@/lib/server/igk';
 import {
   ApiError,
   assertSameOrigin,
@@ -181,19 +181,25 @@ export async function PATCH(
         if (requestedAmount === 0) throw new ApiError(400, 'ZERO_ADJUSTMENT', 'IGK 조정량은 0일 수 없습니다.');
         const freshTarget = await tx.user.findUniqueOrThrow({
           where: { id: target.id },
-          select: { currentIgk: true },
+          select: { currentIgk: true, lifetimeIgk: true, level: true },
         });
         const actualAmount = Math.max(-freshTarget.currentIgk, requestedAmount);
         if (actualAmount === 0) {
           throw new ApiError(409, 'NO_IGK_TO_REMOVE', '회수할 수 있는 IGK 잔액이 없습니다.');
         }
-        const updated = await tx.user.update({
+        const lifetimeAdjustment = actualAmount > 0
+          ? actualAmount
+          : -Math.min(freshTarget.lifetimeIgk, Math.abs(actualAmount));
+        let updated = await tx.user.update({
           where: { id: target.id },
           data: {
             currentIgk: { increment: actualAmount },
+            lifetimeIgk: { increment: lifetimeAdjustment },
           },
           select: safeUserSelect,
         });
+        const level = await syncLevelForLifetime(tx, updated);
+        if (level !== updated.level) updated = { ...updated, level };
         await tx.igkLedger.create({
           data: {
             userId: target.id,
@@ -206,7 +212,7 @@ export async function PATCH(
             sourceId: admin.user.id,
             idempotencyKey: `admin-adjust:${randomUUID()}`,
             note: reason,
-            metadata: { requestedAmount, actualAmount },
+            metadata: { requestedAmount, actualAmount, lifetimeAdjustment },
           },
         });
         await tx.notification.create({
@@ -217,7 +223,13 @@ export async function PATCH(
             title: `관리자가 IGK를 ${actualAmount > 0 ? '지급' : '회수'}했습니다.`,
             body: `${actualAmount > 0 ? '+' : ''}${actualAmount.toLocaleString('ko-KR')} IGK · ${reason}`,
             href: '/igk',
-            metadata: { requestedAmount, actualAmount, balanceAfter: updated.currentIgk },
+            metadata: {
+              requestedAmount,
+              actualAmount,
+              balanceAfter: updated.currentIgk,
+              lifetimeAfter: updated.lifetimeIgk,
+              level: updated.level,
+            },
           },
         });
         after = updated;

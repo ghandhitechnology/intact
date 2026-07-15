@@ -2888,7 +2888,7 @@ export default function AdminPage() {
             <Field
               label="조정량"
               required
-              hint="지급은 양수, 회수는 음수 · 1회 최대 100,000 IGK"
+              hint="지급·회수는 누적 IGK와 등급에도 반영 · 1회 최대 100,000 IGK"
             >
               <Input
                 type="number"
