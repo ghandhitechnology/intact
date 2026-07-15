@@ -84,16 +84,16 @@ export default function ResetPasswordPage() {
     >
       {step === 'verify' && (
         <form onSubmit={verifyIdentity} className="space-y-5">
-          <div className="border-l-4 border-emerald-600 bg-emerald-50 p-4 text-xs leading-5 text-emerald-900">
-            <ShieldCheck className="mr-2 inline h-4 w-4" />운영자에게 비밀번호 재설정 코드를 요청하세요. 코드는 한 번만 사용할 수 있습니다.
-          </div>
+          <p className="text-xs leading-5 text-slate-600">
+            <ShieldCheck className="mr-2 inline h-4 w-4" />운영자에게 받은 재설정 코드를 입력하세요.
+          </p>
           <Field label="비밀번호 재설정 코드" required error={error || undefined}><Input autoComplete="one-time-code" value={inviteCode} onChange={(event) => setInviteCode(event.target.value)} placeholder="운영자가 발급한 코드" /></Field>
           <Button type="submit" variant="green" disabled={loading || !inviteCode.trim()} className="h-12 w-full">{loading ? <LoadingLabel>본인 확인 중</LoadingLabel> : <>본인 확인 <ArrowRight className="h-4 w-4" /></>}</Button>
         </form>
       )}
       {step === 'password' && (
         <form onSubmit={resetPassword} className="space-y-5">
-          <p className="border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-900">학번 {studentCode} 계정의 새 비밀번호를 설정합니다.</p>
+          <p className="text-sm font-bold text-slate-700">학번 {studentCode}</p>
           <Field label="새 비밀번호" required hint="영문+숫자 10자 이상">
             <div className="relative"><Input type={showPassword ? 'text' : 'password'} autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="pr-11" /><button type="button" aria-label="비밀번호 표시 전환" onClick={() => setShowPassword((value) => !value)} className="absolute right-0 top-0 grid h-11 w-11 place-items-center text-slate-400">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
           </Field>

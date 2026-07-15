@@ -81,7 +81,7 @@ function BodyContent({
           질문하고 정보를 나누되, 화면 밖에도 실제 학교생활이 이어진다는 점을
           기억해 주세요.
         </p>
-        <div className="border-l-4 border-emerald-600 bg-emerald-50 px-5 py-4">
+        <div className="border-y border-slate-300 py-4">
           <p className="font-extrabold text-slate-900">
             함께 지킬 네 가지 원칙
           </p>
@@ -170,13 +170,6 @@ function BodyContent({
           관계를 먼저 정리했습니다. 시험 직전에는 아래 오답 체크리스트만 빠르게
           훑어도 좋습니다.
         </p>
-        <div className="border border-blue-200 bg-blue-50 p-5">
-          <p className="font-extrabold text-slate-900">첨부 자료 사용 안내</p>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            개인 학습과 교내 스터디에서 자유롭게 사용할 수 있습니다. 외부
-            재배포나 수정본 공유 전에는 작성자에게 먼저 물어봐 주세요.
-          </p>
-        </div>
         <p>
           오류나 보완할 부분을 발견하면 댓글로 알려 주세요. 다음 버전에
           반영하겠습니다.
@@ -800,7 +793,7 @@ export default function PostDetailClient({
 
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_290px]">
           <div className="min-w-0">
-            <article className="border border-slate-200 bg-white shadow-[0_3px_12px_rgba(15,23,42,0.03)]">
+            <article className="border border-slate-200 bg-white ">
               <header className="border-b border-slate-200 px-5 py-6 sm:px-8 sm:py-8">
                 <div className="flex flex-wrap items-center gap-2">
                   {post.notice && (
@@ -947,7 +940,10 @@ export default function PostDetailClient({
                               </span>
                             </span>
                             <a
-                              href={`/api/uploads/${encodeURIComponent(attachment.id)}`}
+                              href={`/preview/${encodeURIComponent(attachment.id)}?${new URLSearchParams({
+                                name: attachment.originalName,
+                                type: attachment.mimeType,
+                              }).toString()}`}
                               target="_blank"
                               rel="noreferrer"
                               className="text-xs font-bold text-blue-700 hover:underline"
@@ -1062,7 +1058,7 @@ export default function PostDetailClient({
             </article>
 
             <section
-              className="mt-6 border border-slate-200 bg-white shadow-[0_3px_12px_rgba(15,23,42,0.03)]"
+              className="mt-6 border border-slate-200 bg-white "
               aria-labelledby="comments-heading"
             >
               <div className="flex items-center justify-between border-b border-slate-200 px-5 py-5 sm:px-7">
@@ -1186,7 +1182,7 @@ export default function PostDetailClient({
 
           <aside className="grid gap-4 sm:grid-cols-2 xl:sticky xl:top-6 xl:grid-cols-1">
             <section className="border border-slate-200 bg-white p-5">
-              <p className="mb-4 text-xs font-extrabold uppercase tracking-[0.12em] text-slate-400">
+              <p className="mb-4 text-xs font-bold text-slate-500">
                 작성자
               </p>
               <div className="flex items-center gap-3">
@@ -1289,7 +1285,7 @@ export default function PostDetailClient({
             )}
 
             {demoMode && (
-              <section className="border border-emerald-200 bg-emerald-50 p-5 sm:col-span-2 xl:col-span-1">
+              <section className="border border-slate-200 bg-white p-5 sm:col-span-2 xl:col-span-1">
                 <div className="flex items-start gap-3">
                   <Bell
                     className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"

@@ -41,12 +41,12 @@ export default function AdminLoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10 text-slate-950">
-      <div className="w-full max-w-md border border-slate-700 bg-white shadow-2xl">
+      <div className="w-full max-w-md border border-slate-700 bg-white ">
         <div className="border-b border-slate-200 px-6 py-6">
           <div className="flex items-center gap-3">
             <span className="grid h-11 w-11 place-items-center bg-blue-700 text-white"><ShieldCheck size={22} /></span>
             <div>
-              <p className="text-[10px] font-black tracking-[0.18em] text-blue-700">RESTRICTED ACCESS</p>
+              <p className="text-[10px] font-black text-blue-700">관리자 전용</p>
               <h1 className="mt-1 text-xl font-black">인텍트 Admin Console</h1>
             </div>
           </div>
@@ -68,7 +68,7 @@ export default function AdminLoginPage() {
               <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'} className="text-slate-400 hover:text-slate-700">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
             </span>
           </label>
-          {error && <p role="alert" className="border-l-2 border-red-600 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">{error}</p>}
+          {error && <p role="alert" className="border border-red-300 bg-white px-3 py-2 text-xs font-bold text-red-700">{error}</p>}
           <button type="submit" disabled={loading} className="flex h-11 w-full items-center justify-center gap-2 bg-blue-700 text-sm font-black text-white hover:bg-blue-800 disabled:bg-slate-400">
             {loading ? <Loader2 size={17} className="animate-spin" /> : <Lock size={16} />}
             {loading ? '확인 중…' : '보안 로그인'}

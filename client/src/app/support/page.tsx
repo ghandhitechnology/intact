@@ -163,7 +163,7 @@ export default function SupportPage() {
           {error && (
             <p
               role="alert"
-              className="border-l-2 border-red-600 bg-red-50 px-3 py-2 text-xs font-bold text-red-700"
+              className="border border-red-300 bg-white px-3 py-2 text-xs font-bold text-red-700"
             >
               {error}
             </p>

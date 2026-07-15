@@ -1422,7 +1422,7 @@ export default function AdminPage() {
             <span className="hidden items-center gap-2 text-xs text-slate-400 sm:flex">
               <i
                 className={cn(
-                  "h-2 w-2 rounded-full",
+                  "h-2 w-2 ",
                   dashboardError ? "bg-red-400" : "bg-emerald-400",
                 )}
               />
@@ -1452,10 +1452,7 @@ export default function AdminPage() {
       <div className="mx-auto max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">
-              Operations overview
-            </p>
-            <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
+            <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
               운영 현황
             </h2>
             <p className="mt-2 text-sm text-slate-600">
@@ -1551,7 +1548,7 @@ export default function AdminPage() {
           />
         </div>
 
-        <Card className="mt-5 overflow-hidden shadow-none">
+        <Card className="mt-5 overflow-hidden ">
           <CardHeader
             title={
               <span className="flex items-center gap-2">
@@ -1741,7 +1738,7 @@ export default function AdminPage() {
         <div className="mt-5 grid gap-5 lg:grid-cols-[0.95fr_1.12fr_0.93fr]">
           <Card
             className={cn(
-              "min-h-[720px] overflow-hidden shadow-none",
+              "min-h-[720px] overflow-hidden ",
               mobileTab === "users" ? "block" : "hidden",
               "lg:block",
             )}
@@ -1842,7 +1839,7 @@ export default function AdminPage() {
 
           <Card
             className={cn(
-              "min-h-[720px] overflow-hidden shadow-none",
+              "min-h-[720px] overflow-hidden ",
               mobileTab === "content" ? "block" : "hidden",
               "lg:block",
             )}
@@ -1961,7 +1958,7 @@ export default function AdminPage() {
 
           <Card
             className={cn(
-              "min-h-[720px] overflow-hidden shadow-none",
+              "min-h-[720px] overflow-hidden ",
               mobileTab === "notices" ? "block" : "hidden",
               "lg:block",
             )}
@@ -2115,7 +2112,7 @@ export default function AdminPage() {
         }
       >
         <form id="invite-form" onSubmit={createInvite} className="space-y-5">
-          <div className="flex gap-3 border border-blue-200 bg-blue-50 p-4">
+          <div className="flex gap-3 border border-blue-300 bg-white p-4">
             <ShieldCheck className="h-5 w-5 shrink-0 text-blue-700" />
             <p className="text-xs leading-5 text-blue-900">
               실명과 학번이 다른 학생에게 발급되지 않도록 학적 명부와
@@ -2193,7 +2190,7 @@ export default function AdminPage() {
       >
         {createdInvite ? (
           <div className="space-y-5">
-            <div className="border border-amber-300 bg-amber-50 p-4">
+            <div className="border border-amber-300 bg-white p-4">
               <div className="flex gap-3">
                 <AlertTriangle className="h-5 w-5 shrink-0 text-amber-700" />
                 <p className="text-xs leading-5 text-amber-900">
@@ -2225,9 +2222,7 @@ export default function AdminPage() {
               </div>
             </dl>
             <div>
-              <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">
-                One-time invite code
-              </p>
+              <p className="mb-2 text-xs font-extrabold text-slate-500">일회용 초대 코드</p>
               <div
                 className="border-2 border-blue-700 bg-blue-50 px-4 py-5 text-center font-mono text-xl font-black tracking-[0.12em] text-blue-950 selection:bg-blue-700 selection:text-white"
                 aria-live="polite"
@@ -2353,7 +2348,7 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>
-            <div className="border border-emerald-200 bg-emerald-50 p-4">
+            <div className="border border-emerald-300 bg-white p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="inline-flex items-center gap-2 text-sm font-black text-slate-900">
@@ -2587,7 +2582,7 @@ export default function AdminPage() {
       >
         <div className="space-y-3">
           {summary.openReportCount > reports.length ? (
-            <div className="border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+            <div className="border border-amber-300 bg-white px-4 py-3 text-xs leading-5 text-amber-900">
               전체 {summary.openReportCount.toLocaleString()}건 중 오래된 순서로
               최대 100건을 표시합니다. 처리 후 새로고침하면 다음 신고가 이어서
               표시됩니다.
@@ -2805,7 +2800,7 @@ export default function AdminPage() {
               }
             />
           </Field>
-          <label className="flex cursor-pointer items-start gap-3 border border-blue-200 bg-blue-50 p-4">
+          <label className="flex cursor-pointer items-start gap-3 border border-blue-300 bg-white p-4">
             <input
               type="checkbox"
               className="mt-0.5 h-4 w-4 accent-blue-700"
@@ -2867,7 +2862,7 @@ export default function AdminPage() {
         }
       >
         <div className="space-y-5">
-          <div className="flex gap-3 border border-amber-200 bg-amber-50 p-4">
+          <div className="flex gap-3 border border-amber-300 bg-white p-4">
             <AlertTriangle className="h-5 w-5 shrink-0 text-amber-700" />
             <p className="text-xs leading-5 text-amber-900">
               대상 작업: <strong>{pendingAction?.label}</strong>

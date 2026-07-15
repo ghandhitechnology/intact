@@ -39,7 +39,7 @@ export default function AdminChangePasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10">
-      <div className="w-full max-w-lg border border-amber-400 bg-white p-7 shadow-2xl">
+      <div className="w-full max-w-lg border border-amber-400 bg-white p-7 ">
         <ShieldAlert className="text-amber-600" size={30} />
         <h1 className="mt-4 text-2xl font-black text-slate-950">초기 비밀번호를 변경해 주세요</h1>
         <p className="mt-2 text-sm leading-6 text-slate-500">제시된 초기 비밀번호는 이 단계 후 다시 사용할 수 없습니다.</p>

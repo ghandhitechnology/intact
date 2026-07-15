@@ -17,7 +17,6 @@ import {
   Quote,
   Save,
   Send,
-  Sparkles,
   X,
 } from "lucide-react";
 import {
@@ -552,7 +551,7 @@ export default function PostComposer({
   if (published) {
     return (
       <div className="min-h-screen bg-[#f6f8f8] px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl border border-slate-200 bg-white px-6 py-12 text-center shadow-[0_18px_50px_rgba(15,23,42,0.07)] sm:px-12">
+        <div className="mx-auto max-w-2xl border border-slate-200 bg-white px-6 py-12 text-center  sm:px-12">
           <span className="mx-auto flex h-14 w-14 items-center justify-center border border-emerald-200 bg-emerald-50 text-emerald-700">
             <CheckCircle2 className="h-7 w-7" aria-hidden="true" />
           </span>
@@ -597,7 +596,7 @@ export default function PostComposer({
         </div>
 
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_290px]">
-          <section className="border border-slate-200 bg-white shadow-[0_3px_12px_rgba(15,23,42,0.03)]">
+          <section className="border border-slate-200 bg-white ">
             <header className="border-b border-slate-200 px-5 py-6 sm:px-7">
               <div className="flex items-start gap-4">
                 <BoardMark board={board} />
@@ -675,7 +674,7 @@ export default function PostComposer({
                         className={cx(
                           "px-3 py-1.5 text-[11px] font-bold",
                           mode === item
-                            ? "bg-white text-slate-800 shadow-sm"
+                            ? "bg-white text-slate-800 "
                             : "text-slate-400",
                         )}
                       >
@@ -877,7 +876,7 @@ export default function PostComposer({
                               type="button"
                               onClick={() => void removeAttachment(item)}
                               aria-label={`${item.name} 제거`}
-                              className={photoMode ? "absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-slate-950/70 text-white hover:bg-rose-600" : "text-slate-400 hover:text-rose-600"}
+                              className={photoMode ? "absolute right-2 top-2 grid h-7 w-7 place-items-center  bg-slate-950/70 text-white hover:bg-rose-600" : "text-slate-400 hover:text-rose-600"}
                             >
                               <X className="h-3.5 w-3.5" />
                             </button>
@@ -925,7 +924,7 @@ export default function PostComposer({
 
           <aside className="grid gap-4 sm:grid-cols-2 xl:sticky xl:top-6 xl:grid-cols-1">
             <section className="border border-slate-200 bg-white p-5">
-              <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-slate-400">
+              <p className="text-xs font-bold text-slate-500">
                 작성 계정
               </p>
               {author ? (
@@ -956,20 +955,6 @@ export default function PostComposer({
                 <p className="text-[11px] leading-5 text-slate-500">
                   학번 공개
                 </p>
-              </div>
-            </section>
-
-            <section className="border border-blue-200 bg-blue-50 p-5 sm:col-span-2 xl:col-span-1">
-              <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-blue-200 bg-white text-blue-700">
-                  <Sparkles className="h-4 w-4" aria-hidden="true" />
-                </span>
-                <div>
-                  <h2 className="text-sm font-black text-slate-900">
-                    게시글 보상 +10 IGK
-                  </h2>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">삭제 시 10 IGK 회수</p>
-                </div>
               </div>
             </section>
 

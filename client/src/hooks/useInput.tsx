@@ -23,7 +23,7 @@ export default function useInput(
       value={value}
       onChange={onChange}
       placeholder={placeHolder || ''}
-      className="h-8 w-52 pl-2 rounded-sm bg-white shadow text-sm"
+      className="h-8 w-52 pl-2  bg-white  text-sm"
       {...option}
     ></input>
   );

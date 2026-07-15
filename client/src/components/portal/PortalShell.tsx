@@ -120,6 +120,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
   }
 
   const isAdmin = pathname.startsWith('/admin');
+  const isFilePreview = pathname.startsWith('/preview/');
   const isFocusedAuth = ['/login', '/register', '/reset-password', '/reverify'].includes(pathname);
   const currentBoardSlug = pathname.match(/^\/boards\/([^/]+)/)?.[1];
   const currentBoard = boardNavigation.find((item) => item.href === `/boards/${currentBoardSlug}`);
@@ -129,9 +130,13 @@ export default function PortalShell({ children }: { children: ReactNode }) {
     return <div className="min-h-screen bg-[#f7f7f3]">{children}</div>;
   }
 
+  if (isFilePreview) {
+    return <div className="min-h-dvh bg-black text-white">{children}</div>;
+  }
+
   return (
     <div className="min-h-screen bg-[var(--surface-muted)] text-[var(--ink)]">
-      <header className={`${isAdmin ? 'hidden' : 'sticky'} top-0 z-50 border-b border-[var(--line-strong)] bg-[#fffdf9] lg:bg-white/95 lg:backdrop-blur-sm`}>
+      <header className={`${isAdmin ? 'hidden' : 'sticky'} top-0 z-50 border-b border-[var(--line-strong)] bg-white`}>
         <div className="utility-bar hidden border-b border-[var(--line)] lg:block">
           <div className="portal-container flex h-8 items-center justify-between text-[11px] text-[var(--ink-soft)]">
             <span />
@@ -285,12 +290,12 @@ export default function PortalShell({ children }: { children: ReactNode }) {
 
       {!isAdmin && (
         <div className={`fixed inset-0 z-[70] lg:hidden ${boardPickerOpen ? '' : 'pointer-events-none'}`} aria-hidden={!boardPickerOpen}>
-          <button type="button" aria-label="게시판 선택 닫기" onClick={() => setBoardPickerOpen(false)} className={`absolute inset-0 bg-slate-950/35 backdrop-blur-[2px] transition-opacity ${boardPickerOpen ? 'opacity-100' : 'opacity-0'}`} />
-          <section className={`absolute inset-x-0 bottom-0 rounded-t-[28px] bg-[#fffdf9] px-4 pb-[calc(82px+env(safe-area-inset-bottom))] pt-3 shadow-2xl transition-transform duration-300 ${boardPickerOpen ? 'translate-y-0' : 'translate-y-full'}`} aria-label="게시판 선택">
-            <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-slate-200" />
-            <div className="mb-4 flex items-center justify-between px-1"><h2 className="text-lg font-black tracking-[-0.03em] text-slate-950">게시판 선택</h2><button type="button" onClick={() => setBoardPickerOpen(false)} className="grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-600" aria-label="닫기"><X size={18} /></button></div>
+          <button type="button" aria-label="게시판 선택 닫기" onClick={() => setBoardPickerOpen(false)} className={`absolute inset-0 bg-slate-950/45 transition-opacity ${boardPickerOpen ? 'opacity-100' : 'opacity-0'}`} />
+          <section className={`absolute inset-x-0 bottom-0 border-t border-slate-300 bg-white px-4 pb-[calc(82px+env(safe-area-inset-bottom))] pt-3 transition-transform duration-200 ${boardPickerOpen ? 'translate-y-0' : 'translate-y-full'}`} aria-label="게시판 선택">
+            <div className="mx-auto mb-4 h-1.5 w-10  bg-slate-200" />
+            <div className="mb-4 flex items-center justify-between px-1"><h2 className="text-lg font-black tracking-[-0.03em] text-slate-950">게시판 선택</h2><button type="button" onClick={() => setBoardPickerOpen(false)} className="grid h-10 w-10 place-items-center  bg-slate-100 text-slate-600" aria-label="닫기"><X size={18} /></button></div>
             <div className="grid grid-cols-2 gap-2.5">
-              {boardNavigation.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-[72px] items-center gap-3 rounded-lg border p-3.5 ${pathname.startsWith(item.href) ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700'}`}><span className="grid h-10 w-10 place-items-center rounded-md bg-white"><item.icon size={19} /></span><span className="min-w-0 flex-1 text-sm font-extrabold">{item.label}</span><ChevronRight size={15} className="text-slate-300" /></Link>)}
+              {boardNavigation.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-[72px] items-center gap-3  border p-3.5 ${pathname.startsWith(item.href) ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700'}`}><span className="grid h-10 w-10 place-items-center  bg-white"><item.icon size={19} /></span><span className="min-w-0 flex-1 text-sm font-extrabold">{item.label}</span><ChevronRight size={15} className="text-slate-300" /></Link>)}
             </div>
           </section>
         </div>

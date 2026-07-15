@@ -71,7 +71,7 @@ export default function SafeMarkdown({ content, compact = false }: { content: st
     }
     if (line.startsWith('> ')) {
       blocks.push(
-        <blockquote key={`quote-${index}`} className="border-l-4 border-emerald-500 bg-emerald-50 px-4 py-2 text-slate-600">
+        <blockquote key={`quote-${index}`} className="border-y border-slate-300 py-3 text-slate-600">
           {inlineMarkdown(line.slice(2))}
         </blockquote>,
       );

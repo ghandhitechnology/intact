@@ -329,7 +329,7 @@ export default function BoardListClient({
           모든 게시판
         </Link>
 
-        <header className="rounded-lg border border-stone-200 bg-white p-5 shadow-[0_3px_12px_rgba(51,56,50,0.03)] sm:p-6">
+        <header className=" border border-stone-200 bg-white p-5  sm:p-6">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex min-w-0 items-start gap-4">
               <BoardMark board={board} size="lg" />
@@ -366,7 +366,7 @@ export default function BoardListClient({
         </header>
 
         <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-          <section className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-[0_3px_12px_rgba(51,56,50,0.03)]">
+          <section className="overflow-hidden  border border-stone-200 bg-white ">
             <div className="border-b border-slate-200 px-4 pt-4 sm:px-5 sm:pt-5">
               <div
                 className="flex gap-1 overflow-x-auto"
@@ -518,7 +518,7 @@ export default function BoardListClient({
           </section>
 
           <aside className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-            <section className="rounded-lg border border-stone-200 bg-white p-5">
+            <section className=" border border-stone-200 bg-white p-5">
               <div className="mb-4 flex items-center gap-2">
                 <FileText
                   className="h-4 w-4 text-blue-600"
@@ -547,7 +547,7 @@ export default function BoardListClient({
             </section>
 
             {weeklyPosts !== null && weeklyComments !== null && (
-              <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 sm:col-span-2 xl:col-span-1">
+              <section className="border border-slate-200 bg-white p-5 sm:col-span-2 xl:col-span-1">
                 <div className="flex items-start gap-3">
                   <BarChart3
                     className="mt-0.5 h-5 w-5 shrink-0 text-blue-700"

@@ -26,7 +26,6 @@ import {
   Coins,
   FileText,
   Gift,
-  Info,
   Loader2,
   LogIn,
   MessageCircle,
@@ -488,10 +487,9 @@ export default function IgkPage() {
     return (
       <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
         <PageHeading
-          eyebrow="Reward & level"
           title="IGK 지갑"
         />
-        <Card className="mt-6 p-10 text-center shadow-none">
+        <Card className="mt-6 p-10 text-center ">
           {loadState === "loading" ? (
             <>
               <Loader2 className="mx-auto h-7 w-7 animate-spin text-blue-700" />
@@ -547,15 +545,14 @@ export default function IgkPage() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <PageHeading
-        eyebrow="Reward & level"
         title="IGK 지갑"
       />
       <section className="relative mt-6 overflow-hidden bg-slate-950 px-6 py-7 text-white sm:px-8 sm:py-9">
         <div className="relative grid gap-7 md:grid-cols-[1fr_auto] md:items-end">
           <div>
-            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-emerald-400">
+            <p className="flex items-center gap-2 text-xs font-bold text-emerald-400">
               <Coins className="h-4 w-4" />
-              Available IGK
+              보유 IGK
             </p>
             <div className="mt-3 flex items-baseline gap-2">
               <strong className="text-4xl font-black sm:text-5xl">
@@ -568,7 +565,7 @@ export default function IgkPage() {
               {wallet.rank}위
             </p>
             {wallet.igkDebt ? (
-              <p className="mt-2 border-l-2 border-amber-400 pl-2 text-xs text-amber-200">
+              <p className="mt-2 text-xs text-amber-200">
                 회수 대기 {wallet.igkDebt.toLocaleString()} IGK · 앞으로 받는
                 IGK에서 먼저 정산됩니다.
               </p>
@@ -599,7 +596,7 @@ export default function IgkPage() {
       </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <Card className="min-w-0 overflow-hidden shadow-none">
+        <Card className="min-w-0 overflow-hidden ">
           <Tabs
             items={[
               {
@@ -674,12 +671,8 @@ export default function IgkPage() {
           ) : null}
           {tab === "levels" ? (
             <div className="p-6">
-              <div className="border-l-4 border-blue-700 bg-blue-50 p-4 text-xs leading-5 text-blue-900">
-                등급은 활동 보상과 <strong>받은 선물을 합친 누적 IGK</strong>로 올라갑니다.
-                다른 학생에게 선물해도 이미 쌓은 등급 누적은 줄지 않습니다.
-              </div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <div className="border border-emerald-300 bg-emerald-50 p-5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="border border-emerald-300 bg-white p-5">
                   <Badge tone="green">현재</Badge>
                   <p className="mt-3 text-lg font-black">
                     {igkLevelLabel(wallet.level)}
@@ -767,7 +760,7 @@ export default function IgkPage() {
         </Card>
 
         <aside className="space-y-5">
-          <Card className="shadow-none">
+          <Card className="">
             <CardHeader
               title="IGK 선물하기"
               action={<Gift className="h-5 w-5 text-emerald-700" />}
@@ -830,7 +823,7 @@ export default function IgkPage() {
               </p>
             </form>
           </Card>
-          <Card className="shadow-none">
+          <Card className="">
             <CardHeader title="IGK 받는 방법" />
             <div className="divide-y divide-slate-100">
               {[
@@ -853,10 +846,6 @@ export default function IgkPage() {
                   </div>
                 );
               })}
-            </div>
-            <div className="bg-slate-50 p-3 text-[11px] text-slate-500">
-              <Info className="mr-1 inline h-3.5 w-3.5" />
-              작성 보상은 하루 최대 100, 추천 보상은 50 IGK입니다.
             </div>
           </Card>
         </aside>
@@ -886,7 +875,7 @@ export default function IgkPage() {
         }
       >
         <div className="space-y-5">
-          <div className="border border-emerald-200 bg-emerald-50 p-5 text-center">
+          <div className="border border-slate-300 bg-white p-5 text-center">
             <Avatar name={recipient || "학생"} size="lg" tone="green" />
             <p className="mt-3 text-sm font-bold">{recipient} 학생에게</p>
             <p className="mt-2 text-3xl font-black text-emerald-700">

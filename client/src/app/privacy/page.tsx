@@ -5,7 +5,6 @@ export const metadata = { title: '개인정보 처리방침' };
 export default function PrivacyPage() {
   return (
     <PolicyLayout
-      eyebrow="PRIVACY"
       title="개인정보 처리방침"
       description="인텍트는 재학생 확인과 서비스 운영에 필요한 정보만 처리합니다."
     >

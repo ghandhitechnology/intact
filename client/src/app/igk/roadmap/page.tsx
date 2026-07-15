@@ -42,9 +42,8 @@ export default function IgkRoadmapPage() {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <PageHeading
-        eyebrow="IGK grade roadmap"
         title="등급 로드맵"
-        description="9등급에서 시작해 최종 등급 선생님까지 올라갑니다."
+        description="활동과 받은 선물의 누적 IGK로 9등급에서 선생님까지 올라갑니다."
         actions={
           <Link href="/igk" className="inline-flex h-10 items-center gap-2 border border-slate-300 bg-white px-4 text-xs font-extrabold text-slate-700 hover:bg-slate-50">
             <ArrowLeft className="h-4 w-4" /> IGK 지갑
@@ -53,7 +52,7 @@ export default function IgkRoadmapPage() {
       />
 
       {!wallet && !failed ? (
-        <Card className="mt-6 grid min-h-48 place-items-center shadow-none">
+        <Card className="mt-6 grid min-h-48 place-items-center ">
           <div className="text-center text-sm font-bold text-slate-600">
             <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-emerald-700" />
             등급을 확인하는 중
@@ -62,7 +61,7 @@ export default function IgkRoadmapPage() {
       ) : null}
 
       {failed ? (
-        <Card className="mt-6 p-8 text-center shadow-none">
+        <Card className="mt-6 p-8 text-center ">
           <p className="text-sm font-bold text-slate-700">등급 정보를 불러오지 못했습니다.</p>
           <Button className="mt-4" onClick={() => window.location.reload()}>다시 시도</Button>
         </Card>
@@ -89,7 +88,7 @@ export default function IgkRoadmapPage() {
             </div>
           </section>
 
-          <Card className="mt-5 p-5 shadow-none">
+          <Card className="mt-5 p-5 ">
             <div className="flex items-center justify-between gap-4 text-xs font-bold text-slate-600">
               <span>{currentRule.label}</span>
               <span>{nextRule?.label ?? '선생님'}</span>
@@ -130,9 +129,6 @@ export default function IgkRoadmapPage() {
             })}
           </div>
 
-          <div className="mt-6 border-l-4 border-slate-900 bg-white p-5 text-sm leading-6 text-slate-700">
-            받은 선물도 등급 누적에 포함됩니다. 다른 학생에게 IGK를 보내면 보유 잔액과 랭킹은 내려가지만, 이미 달성한 등급 누적은 줄지 않습니다.
-          </div>
         </>
       ) : null}
     </div>

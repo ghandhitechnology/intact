@@ -1225,7 +1225,7 @@ export default function MessagesPage() {
     return (
       <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
         <PageHeading title="메시지" />
-        <Card className="mt-6 p-10 text-center shadow-none">
+        <Card className="mt-6 p-10 text-center ">
           <MessageSquare className="mx-auto h-8 w-8 text-blue-700" />
           {loadState === "loading" ? (
             <p className="mt-4 text-sm font-bold">
@@ -1277,7 +1277,7 @@ export default function MessagesPage() {
         />
       </div>
 
-      <Card className="h-[calc(100dvh-130px-env(safe-area-inset-bottom))] min-h-0 overflow-hidden rounded-none border-x-0 shadow-none sm:mt-6 sm:h-[min(760px,calc(100vh-210px))] sm:min-h-[620px] sm:rounded-lg sm:border-x">
+      <Card className="h-[calc(100dvh-130px-env(safe-area-inset-bottom))] min-h-0 overflow-hidden  border-x-0  sm:mt-6 sm:h-[min(760px,calc(100vh-210px))] sm:min-h-[620px]  sm:border-x">
         <div
           className={cn(
             "h-full min-h-0 border-r border-slate-200 md:grid md:grid-cols-[300px_minmax(0,1fr)]",
@@ -1358,7 +1358,7 @@ export default function MessagesPage() {
                         {item.preview}
                       </span>
                       {item.unread > 0 ? (
-                        <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-blue-700 px-1 text-[10px] font-bold text-white">
+                        <span className="grid h-5 min-w-[20px] place-items-center  bg-blue-700 px-1 text-[10px] font-bold text-white">
                           {item.unread}
                         </span>
                       ) : null}
@@ -1508,7 +1508,7 @@ export default function MessagesPage() {
                     type="button"
                     onClick={() => void loadOlderMessages()}
                     disabled={olderMessagesLoading}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 hover:border-emerald-300 hover:text-emerald-700 disabled:opacity-60"
+                    className="inline-flex min-h-10 items-center gap-2  border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 hover:border-emerald-300 hover:text-emerald-700 disabled:opacity-60"
                   >
                     {olderMessagesLoading ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1519,7 +1519,7 @@ export default function MessagesPage() {
                   </button>
                 </div>
               ) : room.id && roomMessages.length ? (
-                <div className="mx-auto mb-5 w-fit rounded-full bg-slate-200/70 px-3 py-1 text-[10px] font-bold text-slate-500">
+                <div className="mx-auto mb-5 w-fit  bg-slate-200/70 px-3 py-1 text-[10px] font-bold text-slate-500">
                   대화의 시작
                 </div>
               ) : null}
@@ -1575,12 +1575,12 @@ export default function MessagesPage() {
                         <div className="flex items-end gap-2">
                           <div
                             className={cn(
-                            "rounded-lg border px-3.5 py-2.5 text-sm leading-6",
+                            " border px-3.5 py-2.5 text-sm leading-6",
                               message.failed
                                 ? "border-red-400 bg-red-50 text-red-800"
                                 : message.mine
-                                  ? "order-2 rounded-br-md border-emerald-700 bg-emerald-700 text-white"
-                                  : "rounded-bl-md border-slate-200 bg-white text-slate-800",
+                                  ? "order-2  border-emerald-700 bg-emerald-700 text-white"
+                                  : " border-slate-200 bg-white text-slate-800",
                             )}
                           >
                             <p className="whitespace-pre-wrap break-words">
@@ -1593,17 +1593,20 @@ export default function MessagesPage() {
                             ) : null}
                             {message.file ? (
                               <a
-                                href={message.file.id ? `/api/uploads/${encodeURIComponent(message.file.id)}` : undefined}
+                                href={message.file.id ? `/preview/${encodeURIComponent(message.file.id)}?${new URLSearchParams({
+                                  name: message.file.name,
+                                  type: message.file.mimeType || "application/octet-stream",
+                                }).toString()}` : undefined}
                                 target={message.file.id ? "_blank" : undefined}
                                 rel={message.file.id ? "noreferrer" : undefined}
                                 className={cn(
-                                  "mt-3 flex w-full items-center gap-3 rounded-md border p-3 text-left",
+                                  "mt-3 flex w-full items-center gap-3  border p-3 text-left",
                                   message.mine && !message.failed
                                     ? "border-white/30 bg-white/10"
                                     : "border-slate-200 bg-slate-50",
                                 )}
                               >
-                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-700">
+                                <span className="grid h-9 w-9 shrink-0 place-items-center  bg-blue-100 text-blue-700">
                                   <FileText className="h-4 w-4" />
                                 </span>
                                 <span className="min-w-0">
@@ -1648,9 +1651,9 @@ export default function MessagesPage() {
               {(typingByRoom[room.id] ?? []).length > 0 && !messageQuery ? (
                 <div className="mt-5 flex items-center gap-2 pl-11 text-[11px] font-medium text-slate-400">
                   <span className="flex gap-1">
-                    <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" />
-                    <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:120ms]" />
-                    <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:240ms]" />
+                    <i className="h-1.5 w-1.5 animate-bounce  bg-slate-400" />
+                    <i className="h-1.5 w-1.5 animate-bounce  bg-slate-400 [animation-delay:120ms]" />
+                    <i className="h-1.5 w-1.5 animate-bounce  bg-slate-400 [animation-delay:240ms]" />
                   </span>
                   {typingByRoom[room.id].join(", ")}님이 입력 중
                 </div>
@@ -1662,7 +1665,7 @@ export default function MessagesPage() {
               <button
                 type="button"
                 onClick={() => scrollToLatest("smooth")}
-                className="absolute bottom-[86px] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-lg"
+                className="absolute bottom-[86px] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-2  bg-slate-900 px-4 py-2 text-xs font-bold text-white "
               >
                 <ArrowDown className="h-3.5 w-3.5" />새 메시지
               </button>
@@ -1672,7 +1675,7 @@ export default function MessagesPage() {
               className="shrink-0 border-t border-slate-200 bg-white px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-3"
             >
               {messageFile ? (
-                <div className="mb-2 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                <div className="mb-2 flex items-center gap-2 border border-blue-200 bg-white px-3 py-2 text-xs text-blue-800">
                   <Paperclip className="h-3.5 w-3.5" />
                   <span className="min-w-0 flex-1 truncate font-bold">
                     {messageFile.name}
@@ -1689,7 +1692,7 @@ export default function MessagesPage() {
                   </button>
                 </div>
               ) : null}
-              <div className="flex items-end gap-2 rounded-md border border-slate-300 bg-slate-50 p-1.5 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-100">
+              <div className="flex items-end gap-2  border border-slate-300 bg-slate-50 p-1.5 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-100">
                 <div className="flex">
                   <input
                     ref={fileInputRef}
@@ -1756,7 +1759,7 @@ export default function MessagesPage() {
                     sendingMessage ||
                     (!draft.trim() && !messageFile)
                   }
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-emerald-700 text-white transition hover:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400"
+                  className="grid h-10 w-10 shrink-0 place-items-center  bg-emerald-700 text-white transition hover:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400"
                 >
                   <Send className="h-4 w-4" />
                 </button>

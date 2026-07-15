@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Clock3,
   Flame,
-  Gift,
   Megaphone,
   MessageCircle,
   PenSquare,
@@ -45,14 +44,14 @@ function HomeActions() {
     <nav className="grid min-w-0 grid-cols-2 gap-2" aria-label="홈 바로가기">
       <Link
         href="/search"
-        className="inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-2 text-xs font-bold text-slate-700 transition-colors hover:border-slate-500 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        className="inline-flex h-10 min-w-0 items-center justify-center gap-2  border border-stone-300 bg-white px-2 text-xs font-bold text-slate-700 transition-colors hover:border-slate-500 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500"
       >
         <Search className="h-3.5 w-3.5" aria-hidden="true" />
         통합검색
       </Link>
       <Link
         href="/boards/question/write"
-        className="inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-md bg-emerald-700 px-2 text-xs font-bold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+        className="inline-flex h-10 min-w-0 items-center justify-center gap-2  bg-emerald-700 px-2 text-xs font-bold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
       >
         <PenSquare className="h-3.5 w-3.5" aria-hidden="true" />
         질문하기
@@ -63,7 +62,7 @@ function HomeActions() {
 
 function NoticeRail({ items }: { items: Notice[] }) {
   return (
-    <aside className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-[0_3px_12px_rgba(51,56,50,0.035)]">
+    <aside className="overflow-hidden  border border-stone-200 bg-white ">
       <div className="flex items-center justify-between border-b border-slate-200 bg-slate-950 px-5 py-4 text-white">
         <div className="flex items-center gap-2">
           <Megaphone className="h-4 w-4 text-emerald-300" aria-hidden="true" />
@@ -113,7 +112,7 @@ function BoardCard({ board, items }: { board: BoardDefinition; items: PostSummar
   return (
     <article
       className={cx(
-        'group flex flex-col rounded-lg border border-stone-200 bg-white p-5 shadow-[0_3px_12px_rgba(51,56,50,0.03)] transition-colors hover:border-emerald-300 sm:p-5',
+        'group flex flex-col  border border-stone-200 bg-white p-5  transition-colors hover:border-emerald-300 sm:p-5',
         style.line,
       )}
     >
@@ -179,7 +178,7 @@ function LatestActivity({ items }: { items: PostSummary[] }) {
   const latest = items.slice(0, 8);
 
   return (
-    <section className="rounded-lg border border-stone-200 bg-white px-5 py-4 shadow-[0_3px_12px_rgba(51,56,50,0.03)] sm:px-6">
+    <section className=" border border-stone-200 bg-white px-5 py-4  sm:px-6">
       <SectionTitle
         title="지금 올라오는 이야기"
         href="/search"
@@ -232,7 +231,7 @@ function HotTopics({ items }: { items: PostSummary[] }) {
     .slice(0, 5);
 
   return (
-    <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-[0_3px_12px_rgba(51,56,50,0.03)]">
+    <section className=" border border-stone-200 bg-white p-5 ">
       <div className="mb-4 flex items-center gap-2">
         <Flame className="h-4 w-4 text-rose-500" aria-hidden="true" />
         <h2 className="text-sm font-black text-slate-900">인기 게시글</h2>
@@ -284,31 +283,9 @@ function getBoardLabel(post: PostSummary) {
   return boards.find((board) => board.slug === post.board)?.shortTitle ?? '';
 }
 
-function IgkPanel() {
-  return (
-    <section className="rounded-lg border border-blue-200 bg-blue-50 p-5">
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-blue-200 bg-white text-blue-700">
-          <Gift className="h-4 w-4" aria-hidden="true" />
-        </span>
-        <div>
-          <p className="text-sm font-black text-slate-900">함께 쌓는 IGK</p>
-          <Link
-            href="/igk"
-            className="mt-3 inline-flex items-center gap-1 text-xs font-extrabold text-blue-700 hover:underline"
-          >
-            보상 제도 알아보기
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function RankingPanel({ items }: { items: RankingMember[] }) {
   return (
-    <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-[0_3px_12px_rgba(51,56,50,0.03)]">
+    <section className=" border border-stone-200 bg-white p-5 ">
       <div className="mb-4 flex items-center gap-2">
         <Trophy className="h-4 w-4 text-amber-500" aria-hidden="true" />
         <h2 className="text-sm font-black text-slate-900">보유 IGK 랭킹</h2>
@@ -456,10 +433,9 @@ export default function HomePage() {
             <NoticeRail items={noticeItems} />
             <HotTopics items={homePosts} />
             <RankingPanel items={rankingItems} />
-            <IgkPanel />
             <Link
               href="/boards/free/write"
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-emerald-700 bg-white px-4 text-xs font-extrabold text-emerald-800 hover:bg-emerald-700 hover:text-white"
+              className="flex h-11 w-full items-center justify-center gap-2  border border-emerald-700 bg-white px-4 text-xs font-extrabold text-emerald-800 hover:bg-emerald-700 hover:text-white"
             >
               <PenSquare className="h-3.5 w-3.5" aria-hidden="true" />
               새 글 쓰기

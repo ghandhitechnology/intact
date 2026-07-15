@@ -5,7 +5,6 @@ export const metadata = { title: '서비스 이용약관' };
 export default function TermsPage() {
   return (
     <PolicyLayout
-      eyebrow="TERMS"
       title="서비스 이용약관"
       description="인텍트를 안전하고 지속 가능한 학교 커뮤니티로 운영하기 위한 기본 약속입니다."
     >

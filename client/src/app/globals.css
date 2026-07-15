@@ -3,20 +3,20 @@
 @tailwind utilities;
 
 :root {
-  --green: #238466;
-  --green-deep: #17634e;
-  --green-pale: #e9f5ef;
-  --blue: #3974a8;
-  --blue-deep: #295b87;
-  --blue-pale: #edf4fa;
-  --ink: #252925;
-  --ink-soft: #5e645f;
-  --ink-faint: #8b918c;
-  --line: #e6e2da;
-  --line-strong: #d2cdc4;
-  --surface: #fffdf9;
-  --surface-muted: #f5f3ee;
-  --surface-subtle: #faf8f4;
+  --green: #176b50;
+  --green-deep: #10503d;
+  --green-pale: #edf5f1;
+  --blue: #315f84;
+  --blue-deep: #244966;
+  --blue-pale: #f0f4f7;
+  --ink: #20231f;
+  --ink-soft: #5c615c;
+  --ink-faint: #858a85;
+  --line: #e2e2dd;
+  --line-strong: #c9cbc5;
+  --surface: #ffffff;
+  --surface-muted: #f7f7f4;
+  --surface-subtle: #f3f3ef;
   --danger: #c43d3d;
   --warning: #a46309;
   color-scheme: light;
@@ -24,6 +24,7 @@
 
 * {
   box-sizing: border-box;
+  border-radius: 0 !important;
 }
 
 html {
@@ -54,8 +55,8 @@ textarea {
 button,
 a {
   -webkit-tap-highlight-color: transparent;
-  transition-duration: 220ms;
-  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  transition-duration: 120ms;
+  transition-timing-function: ease-out;
 }
 
 button:focus-visible,
@@ -79,12 +80,12 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 .portal-container {
-  width: min(100% - 32px, 1440px);
+  width: min(100% - 40px, 1360px);
   margin-inline: auto;
 }
 
 .portal-header-container {
-  width: min(100% - 32px, 1680px);
+  width: min(100% - 40px, 1520px);
 }
 
 .skip-link {
@@ -113,7 +114,6 @@ input[type='number']::-webkit-outer-spin-button {
   height: 42px;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 6px;
   color: var(--ink-soft);
   transition: 120ms ease;
 }
@@ -131,7 +131,6 @@ input[type='number']::-webkit-outer-spin-button {
   width: 6px;
   height: 6px;
   border: 1px solid white;
-  border-radius: 999px;
   background: #e34949;
 }
 
@@ -144,7 +143,6 @@ input[type='number']::-webkit-outer-spin-button {
   height: 16px;
   place-items: center;
   border: 1px solid white;
-  border-radius: 999px;
   background: var(--blue);
   color: white;
   font-size: 9px;
@@ -157,7 +155,6 @@ input[type='number']::-webkit-outer-spin-button {
   align-items: center;
   gap: 10px;
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
   background: var(--surface-subtle);
   padding: 0 13px;
   color: var(--ink-faint);
@@ -166,7 +163,6 @@ input[type='number']::-webkit-outer-spin-button {
 
 .search-field:focus-within {
   border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(23, 105, 194, 0.09);
   background: white;
 }
 
@@ -187,7 +183,6 @@ input[type='number']::-webkit-outer-spin-button {
 .search-field kbd {
   border: 1px solid var(--line);
   border-bottom-color: var(--line-strong);
-  border-radius: 2px;
   background: white;
   padding: 2px 5px;
   font-family: inherit;
@@ -200,7 +195,6 @@ input[type='number']::-webkit-outer-spin-button {
   align-items: center;
   gap: 8px;
   border: 1px solid transparent;
-  border-radius: 6px;
   padding: 3px 6px;
   transition: 120ms ease;
 }
@@ -233,7 +227,6 @@ input[type='number']::-webkit-outer-spin-button {
   display: grid;
   place-items: center;
   border: 1px solid #acd0c2;
-  border-radius: 999px;
   background: var(--green-pale);
   color: var(--green-deep);
   font-weight: 900;
@@ -251,10 +244,8 @@ input[type='number']::-webkit-outer-spin-button {
   top: calc(100% + 7px);
   width: 220px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
   overflow: hidden;
   background: white;
-  box-shadow: 0 8px 20px rgba(28, 50, 42, 0.08);
 }
 
 .account-menu-item {
@@ -282,7 +273,7 @@ input[type='number']::-webkit-outer-spin-button {
   color: var(--ink-soft);
   font-size: 12px;
   font-weight: 750;
-  transition: color 220ms cubic-bezier(0.22, 1, 0.36, 1), background-color 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: color 120ms ease-out, background-color 120ms ease-out;
 }
 
 .nav-link:last-of-type {
@@ -319,7 +310,7 @@ input[type='number']::-webkit-outer-spin-button {
   color: var(--ink-soft);
   font-size: 12px;
   font-weight: 750;
-  transition: color 220ms cubic-bezier(0.22, 1, 0.36, 1), background-color 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: color 120ms ease-out, background-color 120ms ease-out;
 }
 
 .mobile-bottom-nav {
@@ -334,7 +325,6 @@ input[type='number']::-webkit-outer-spin-button {
   border-top: 1px solid var(--line-strong);
   background: #fffdf9;
   padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 0 -3px 12px rgba(27, 50, 41, 0.04);
 }
 
 .mobile-bottom-nav a,
@@ -360,7 +350,6 @@ input[type='number']::-webkit-outer-spin-button {
   width: 31px;
   height: 25px;
   place-items: center;
-  border-radius: 6px;
   background: var(--green);
   color: white;
   font-size: 20px;
@@ -377,7 +366,6 @@ input[type='number']::-webkit-outer-spin-button {
   justify-content: center;
   gap: 7px;
   border: 1px solid transparent;
-  border-radius: 6px;
   padding: 0 14px;
   font-weight: 800;
   transition: 120ms ease;
@@ -412,9 +400,7 @@ input[type='number']::-webkit-outer-spin-button {
 
 .surface-card {
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
   background: var(--surface);
-  box-shadow: 0 3px 12px rgba(51, 56, 50, 0.035);
 }
 
 .section-kicker {
@@ -424,15 +410,7 @@ input[type='number']::-webkit-outer-spin-button {
   color: var(--green-deep);
   font-size: 11px;
   font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.section-kicker::before {
-  width: 18px;
-  height: 3px;
-  background: var(--green);
-  content: '';
+  letter-spacing: -0.01em;
 }
 
 .footer-links {
@@ -457,8 +435,8 @@ input[type='number']::-webkit-outer-spin-button {
 
 .policy-content h2 {
   margin-top: 30px;
-  border-left: 3px solid var(--green);
-  padding-left: 11px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
   color: var(--ink);
   font-size: 15px;
   font-weight: 900;

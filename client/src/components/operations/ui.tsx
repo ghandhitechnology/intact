@@ -33,14 +33,13 @@ export function apiErrorMessage<T>(payload: ApiEnvelope<T> | null, fallback: str
   return payload && !payload.ok ? payload.error.message : fallback;
 }
 
-export function PageHeading({ eyebrow, title, description, actions }: {
-  eyebrow?: string; title: string; description?: string; actions?: ReactNode;
+export function PageHeading({ title, description, actions }: {
+  title: string; description?: string; actions?: ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        {eyebrow ? <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</p> : null}
-        <h1 className="text-2xl font-black tracking-[-0.035em] text-slate-950 sm:text-[2rem]">{title}</h1>
+        <h1 className="text-2xl font-extrabold tracking-[-0.03em] text-slate-950 sm:text-[2rem]">{title}</h1>
         {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{description}</p> : null}
       </div>
       {actions ? <div className="shrink-0">{actions}</div> : null}
@@ -49,7 +48,7 @@ export function PageHeading({ eyebrow, title, description, actions }: {
 }
 
 export function Card({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <section className={cn('rounded-lg border border-stone-200 bg-[#fffdf9] shadow-[0_3px_12px_rgba(51,56,50,0.035)]', className)} {...props}>{children}</section>;
+  return <section className={cn('border border-stone-200 bg-white', className)} {...props}>{children}</section>;
 }
 
 export function CardHeader({ title, description, action, className }: {
@@ -75,23 +74,23 @@ const buttonStyles = {
 };
 
 export function Button({ variant = 'primary', className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof buttonStyles }) {
-  return <button className={cn('inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed', buttonStyles[variant], className)} {...props}>{children}</button>;
+  return <button className={cn('inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap  px-4 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed', buttonStyles[variant], className)} {...props}>{children}</button>;
 }
 
 export function IconButton({ label, className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
-  return <button aria-label={label} title={label} className={cn('inline-flex h-10 w-10 items-center justify-center rounded-md border border-transparent text-slate-500 transition hover:border-slate-200 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100', className)} {...props}>{children}</button>;
+  return <button aria-label={label} title={label} className={cn('inline-flex h-10 w-10 items-center justify-center  border border-transparent text-slate-500 transition hover:border-slate-200 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100', className)} {...props}>{children}</button>;
 }
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn('h-11 w-full rounded-md border border-stone-300 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-100 disabled:text-slate-500', className)} {...props} />;
+  return <input className={cn('h-11 w-full  border border-stone-300 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-100 disabled:text-slate-500', className)} {...props} />;
 }
 
 export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn('h-11 w-full rounded-md border border-stone-300 bg-white px-3 text-sm font-medium text-slate-800 transition focus:border-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-100', className)} {...props}>{children}</select>;
+  return <select className={cn('h-11 w-full  border border-stone-300 bg-white px-3 text-sm font-medium text-slate-800 transition focus:border-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-100', className)} {...props}>{children}</select>;
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn('w-full resize-none rounded-md border border-stone-300 bg-white px-3 py-3 text-sm leading-6 text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-100', className)} {...props} />;
+  return <textarea className={cn('w-full resize-none  border border-stone-300 bg-white px-3 py-3 text-sm leading-6 text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-100', className)} {...props} />;
 }
 
 export function Field({ label, hint, error, required, children }: {
@@ -113,11 +112,11 @@ export function Badge({ tone = 'slate', children, className }: {
   tone?: 'slate' | 'blue' | 'green' | 'amber' | 'red' | 'violet'; children: ReactNode; className?: string;
 }) {
   const tones = {
-    slate: 'border-slate-200 bg-slate-50 text-slate-600', blue: 'border-blue-200 bg-blue-50 text-blue-700',
-    green: 'border-emerald-200 bg-emerald-50 text-emerald-700', amber: 'border-amber-200 bg-amber-50 text-amber-700',
-    red: 'border-red-200 bg-red-50 text-red-700', violet: 'border-violet-200 bg-violet-50 text-violet-700',
+    slate: 'border-slate-300 bg-white text-slate-600', blue: 'border-blue-300 bg-white text-blue-700',
+    green: 'border-emerald-300 bg-white text-emerald-700', amber: 'border-amber-300 bg-white text-amber-700',
+    red: 'border-red-300 bg-white text-red-700', violet: 'border-violet-300 bg-white text-violet-700',
   };
-  return <span className={cn('inline-flex min-h-[24px] items-center rounded-full border px-2 text-[11px] font-bold leading-5', tones[tone], className)}>{children}</span>;
+  return <span className={cn('inline-flex min-h-[24px] items-center  border px-2 text-[11px] font-bold leading-5', tones[tone], className)}>{children}</span>;
 }
 
 export function Avatar({ name, imageUrl, size = 'md', status, tone = 'blue' }: {
@@ -127,8 +126,8 @@ export function Avatar({ name, imageUrl, size = 'md', status, tone = 'blue' }: {
   const tones = { blue: 'bg-blue-100 text-blue-800', green: 'bg-emerald-100 text-emerald-800', violet: 'bg-violet-100 text-violet-800', amber: 'bg-amber-100 text-amber-800', slate: 'bg-slate-200 text-slate-700' };
   return (
     <span className="relative inline-flex shrink-0">
-      <span className={cn('inline-flex items-center justify-center rounded-full border border-white bg-cover bg-center font-black tracking-[-0.04em]', sizes[size], tones[tone])} style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}>{imageUrl ? <span className="sr-only">{name} 프로필 이미지</span> : name.slice(0, 2)}</span>
-      {status ? <span className={cn('absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white', status === 'online' ? 'bg-emerald-500' : 'bg-slate-300')} /> : null}
+      <span className={cn('inline-flex items-center justify-center  border border-white bg-cover bg-center font-black tracking-[-0.04em]', sizes[size], tones[tone])} style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}>{imageUrl ? <span className="sr-only">{name} 프로필 이미지</span> : name.slice(0, 2)}</span>
+      {status ? <span className={cn('absolute bottom-0 right-0 h-3 w-3  border-2 border-white', status === 'online' ? 'bg-emerald-500' : 'bg-slate-300')} /> : null}
     </span>
   );
 }
@@ -150,7 +149,7 @@ export function Tabs<T extends string>({ items, value, onChange, className }: {
 export function Stat({ label, value, detail, icon, tone = 'blue' }: {
   label: string; value: string; detail?: string; icon?: ReactNode; tone?: 'blue' | 'green' | 'amber' | 'slate';
 }) {
-  const tones = { blue: 'bg-blue-50 text-blue-700', green: 'bg-emerald-50 text-emerald-700', amber: 'bg-amber-50 text-amber-700', slate: 'bg-slate-100 text-slate-700' };
+  const tones = { blue: 'text-blue-700', green: 'text-emerald-700', amber: 'text-amber-700', slate: 'text-slate-700' };
   return <div className="border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><p className="text-xs font-bold text-slate-500">{label}</p>{icon ? <span className={cn('grid h-8 w-8 place-items-center', tones[tone])}>{icon}</span> : null}</div><p className="mt-3 text-2xl font-black tracking-[-0.04em] text-slate-950">{value}</p>{detail ? <p className="mt-1 text-xs text-slate-500">{detail}</p> : null}</div>;
 }
 
@@ -204,8 +203,8 @@ export function Modal({ open, title, description, children, footer, onClose, wid
   }, [open]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={cn('max-h-[92vh] w-full overflow-hidden rounded-t-[10px] border border-stone-300 bg-[#fffdf9] shadow-[0_8px_24px_rgba(15,23,42,0.12)] sm:rounded-lg', wide ? 'sm:max-w-3xl' : 'sm:max-w-lg')}>
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/55 p-0 sm:items-center sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={cn('max-h-[92vh] w-full overflow-hidden border border-stone-300 bg-white', wide ? 'sm:max-w-3xl' : 'sm:max-w-lg')}>
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6"><div><h2 id={titleId} className="text-lg font-black tracking-[-0.02em] text-slate-950">{title}</h2>{description ? <p className="mt-1 text-sm leading-5 text-slate-500">{description}</p> : null}</div><IconButton label="닫기" onClick={onClose} className="-mr-2 -mt-1"><X className="h-5 w-5" /></IconButton></div>
         <div className="max-h-[65vh] overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
         {footer ? <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">{footer}</div> : null}
@@ -217,7 +216,7 @@ export function Modal({ open, title, description, children, footer, onClose, wid
 export function Toast({ message, tone = 'success', onClose }: { message: string | null; tone?: 'success' | 'error'; onClose: () => void }) {
   useEffect(() => { if (!message) return undefined; const timer = window.setTimeout(onClose, 3200); return () => window.clearTimeout(timer); }, [message, onClose]);
   if (!message) return null;
-  return <div role="status" className={cn('fixed bottom-5 left-1/2 z-[120] flex min-w-[280px] -translate-x-1/2 items-center gap-3 border px-4 py-3 text-sm font-bold shadow-xl', tone === 'success' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-red-700 bg-red-700 text-white')}>{tone === 'success' ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}<span className="flex-1">{message}</span><button type="button" aria-label="알림 닫기" onClick={onClose}><X className="h-4 w-4" /></button></div>;
+  return <div role="status" className={cn('fixed bottom-5 left-1/2 z-[120] flex min-w-[280px] -translate-x-1/2 items-center gap-3 border px-4 py-3 text-sm font-bold ', tone === 'success' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-red-700 bg-red-700 text-white')}>{tone === 'success' ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}<span className="flex-1">{message}</span><button type="button" aria-label="알림 닫기" onClick={onClose}><X className="h-4 w-4" /></button></div>;
 }
 
 export function LoadingLabel({ children }: { children: ReactNode }) { return <><Loader2 className="h-4 w-4 animate-spin" />{children}</>; }

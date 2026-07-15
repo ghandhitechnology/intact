@@ -5,7 +5,6 @@ export const metadata = { title: '커뮤니티 규칙' };
 export default function RulesPage() {
   return (
     <PolicyLayout
-      eyebrow="COMMUNITY STANDARD"
       title="인텍트 커뮤니티 규칙"
       description="어렵게 쓴 규칙 아닙니다. 사람답게 말하고, 이상한 짓만 안 하면 됩니다."
     >

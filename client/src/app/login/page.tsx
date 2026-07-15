@@ -83,7 +83,7 @@ export default function LoginPage() {
             inputMode="numeric"
             autoComplete="username"
             placeholder="예: 331101"
-            className="h-12 rounded-md border-[#c9ccc6] bg-white px-4 text-[15px] focus:border-[#28745c] focus:ring-2 focus:ring-[#dcebe5]"
+            className="h-12  border-[#c9ccc6] bg-white px-4 text-[15px] focus:border-[#28745c] focus:ring-2 focus:ring-[#dcebe5]"
             maxLength={6}
             value={studentId}
             onChange={(event) => setStudentId(normalizeStudentCode(event.target.value))}
@@ -96,7 +96,7 @@ export default function LoginPage() {
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               placeholder="비밀번호 입력"
-              className="h-12 rounded-md border-[#c9ccc6] bg-white px-4 pr-16 text-[15px] focus:border-[#28745c] focus:ring-2 focus:ring-[#dcebe5]"
+              className="h-12  border-[#c9ccc6] bg-white px-4 pr-16 text-[15px] focus:border-[#28745c] focus:ring-2 focus:ring-[#dcebe5]"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
@@ -108,13 +108,13 @@ export default function LoginPage() {
 
         <div className="flex items-center justify-between gap-4 text-[13px]">
           <label className="flex cursor-pointer items-center gap-2.5 text-[#555b55]">
-            <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="h-4 w-4 rounded accent-[#28745c]" />
+            <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="h-4 w-4  accent-[#28745c]" />
             로그인 상태 유지
           </label>
           <Link href="/reset-password" className="font-semibold text-[#315f50] underline decoration-[#aabdb5] underline-offset-4 hover:text-[#183f33]">비밀번호 재설정</Link>
         </div>
 
-        <Button type="submit" variant="green" disabled={loading} className="h-12 w-full rounded-md border-[#255f4d] bg-[#255f4d] text-[15px] font-semibold hover:border-[#1d4d3e] hover:bg-[#1d4d3e]">
+        <Button type="submit" variant="green" disabled={loading} className="h-12 w-full  border-[#255f4d] bg-[#255f4d] text-[15px] font-semibold hover:border-[#1d4d3e] hover:bg-[#1d4d3e]">
           {loading ? <LoadingLabel>확인하는 중</LoadingLabel> : '로그인'}
         </Button>
       </form>

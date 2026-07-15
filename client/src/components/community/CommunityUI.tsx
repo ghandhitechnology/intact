@@ -78,7 +78,7 @@ export function Avatar({
     <span
       aria-hidden="true"
       className={cx(
-        "inline-flex shrink-0 items-center justify-center rounded-full border bg-cover bg-center font-bold",
+        "inline-flex shrink-0 items-center justify-center  border bg-cover bg-center font-bold",
         sizes[size],
         avatarStyles[member.accent],
       )}
@@ -99,7 +99,7 @@ export function Avatar({
 
 export function LevelBadge({ level }: { level: number }) {
   return (
-    <span className="inline-flex h-5 items-center rounded-full border border-emerald-200 bg-emerald-50 px-1.5 text-[10px] font-extrabold tracking-tight text-emerald-700">
+    <span className="inline-flex h-5 items-center  border border-emerald-200 bg-emerald-50 px-1.5 text-[10px] font-extrabold tracking-tight text-emerald-700">
       {igkLevelLabel(level)}
     </span>
   );
@@ -168,7 +168,7 @@ export function BoardMark({
   return (
     <span
       className={cx(
-        "inline-flex shrink-0 items-center justify-center rounded-md border",
+        "inline-flex shrink-0 items-center justify-center  border",
         sizes[size],
         boardStyles[board.accent].icon,
       )}
@@ -189,7 +189,7 @@ export function BoardBadge({ slug }: { slug: BoardSlug }) {
     <Link
       href={`/boards/${board.slug}`}
       className={cx(
-        "inline-flex h-6 items-center rounded-full px-2 text-[11px] font-bold transition-opacity hover:opacity-70",
+        "inline-flex h-6 items-center  px-2 text-[11px] font-bold transition-opacity hover:opacity-70",
         boardStyles[board.accent].soft,
       )}
     >
@@ -214,12 +214,10 @@ export function PostMetrics({ post }: { post: PostSummary }) {
 }
 
 export function PageHeading({
-  eyebrow,
   title,
   description,
   action,
 }: {
-  eyebrow?: string;
   title: string;
   description?: string;
   action?: React.ReactNode;
@@ -227,11 +225,6 @@ export function PageHeading({
   return (
     <div className="flex flex-col gap-5 border-b border-slate-200 pb-7 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        {eyebrow && (
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">
-            {eyebrow}
-          </p>
-        )}
         <h1 className="text-2xl font-black tracking-[-0.035em] text-slate-950 sm:text-3xl">
           {title}
         </h1>

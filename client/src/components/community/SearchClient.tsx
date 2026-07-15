@@ -351,7 +351,7 @@ export default function SearchClient({
           홈으로
         </Link>
 
-        <header className="border border-slate-200 border-l-4 border-l-blue-600 bg-white px-5 py-6 shadow-[0_3px_12px_rgba(15,23,42,0.03)] sm:px-8 sm:py-8">
+        <header className="border-b-2 border-slate-900 bg-white px-5 py-6 sm:px-8 sm:py-8">
           <h1 className="text-2xl font-black tracking-[-0.04em] text-slate-950 sm:text-3xl">
             인텍트 통합검색
           </h1>
@@ -394,7 +394,7 @@ export default function SearchClient({
         </header>
 
         <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
-          <section className="border border-slate-200 bg-white shadow-[0_3px_12px_rgba(15,23,42,0.03)]">
+          <section className="border border-slate-200 bg-white ">
             <div className="border-b border-slate-200 px-4 pt-4 sm:px-6 sm:pt-5">
               <div
                 className="flex gap-1 overflow-x-auto"

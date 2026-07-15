@@ -55,7 +55,7 @@ export default function ReverifyPage() {
         </div>
       ) : (
         <form onSubmit={submit} className="space-y-5">
-          <div className="border-l-2 border-amber-500 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900"><ShieldCheck className="mr-2 inline h-4 w-4" />운영자가 실명과 새 학년 학번을 확인한 뒤 발급한 재인증 코드를 입력하세요.</div>
+          <p className="text-xs leading-5 text-slate-600"><ShieldCheck className="mr-2 inline h-4 w-4" />운영자에게 받은 재인증 코드를 입력하세요.</p>
           <Field label="재학생 재인증 코드" required error={error || undefined}><Input value={code} onChange={(event) => setCode(event.target.value)} autoComplete="one-time-code" placeholder="운영자가 발급한 코드" required /></Field>
           <Button type="submit" disabled={loading || !code.trim()} className="h-12 w-full">{loading ? <LoadingLabel>확인 중</LoadingLabel> : <><RefreshCw size={16} />재인증 완료하기</>}</Button>
         </form>
