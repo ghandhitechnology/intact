@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Microscope,
   Image as PhotoIcon,
+  PenLine,
   Search,
   Trophy,
   User,
@@ -22,7 +23,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { FormEvent, ReactNode, useEffect, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import { igkLevelLabel } from '@/lib/igk-levels';
 import { fetchWithTimeout, isAbortError } from '@/lib/client/request';
 
@@ -67,6 +68,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [sessionCheckFailed, setSessionCheckFailed] = useState(false);
   const [sessionRefreshKey, setSessionRefreshKey] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const sessionUserKey = sessionUser?.id || sessionUser?.studentCode || '';
 
   useEffect(() => {
@@ -149,6 +151,25 @@ export default function PortalShell({ children }: { children: ReactNode }) {
     setBoardPickerOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      const commandShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
+      const slashShortcut = event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey;
+      if (!commandShortcut && !slashShortcut) return;
+      if (!window.matchMedia('(min-width: 768px)').matches) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        slashShortcut &&
+        (target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName || ''))
+      ) return;
+      event.preventDefault();
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    };
+    window.addEventListener('keydown', focusSearch);
+    return () => window.removeEventListener('keydown', focusSearch);
+  }, []);
+
   function submitSearch(event: FormEvent) {
     event.preventDefault();
     const normalized = query.trim();
@@ -182,7 +203,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-[var(--surface-muted)] text-[var(--ink)]">
       <header className={`${isAdmin ? 'hidden' : 'sticky'} top-0 z-50 border-b border-[var(--line-strong)] bg-white`}>
         <div className="utility-bar hidden border-b border-[var(--line)] lg:block">
-          <div className="portal-container flex h-8 items-center justify-between text-[11px] text-[var(--ink-soft)]">
+          <div className="portal-container flex h-7 items-center justify-between text-[10px] text-[var(--ink-soft)]">
             <span />
             <div className="flex items-center gap-5">
               <Link href="/notifications" className="hover:text-[var(--blue)]">알림 설정</Link>
@@ -192,10 +213,10 @@ export default function PortalShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className="portal-container portal-header-container flex h-[68px] items-center gap-4 lg:h-[76px]">
+        <div className="portal-container portal-header-container flex h-14 items-center gap-3 lg:h-[60px]">
           <button
             type="button"
-            className="icon-button lg:hidden"
+            className="icon-button header-icon-button lg:hidden"
             aria-label={mobileOpen ? '메뉴 닫기' : '메뉴 열기'}
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((value) => !value)}
@@ -205,31 +226,34 @@ export default function PortalShell({ children }: { children: ReactNode }) {
 
           <Link href="/" className="group flex shrink-0 items-center" aria-label="인텍트 홈">
             <span>
-              <span className="block text-[19px] font-black leading-none tracking-[-0.06em] text-[var(--ink)] lg:text-[22px]">
+              <span className="block text-[19px] font-black leading-none tracking-[-0.06em] text-[var(--ink)] lg:text-[20px]">
                 인텍트
               </span>
             </span>
           </Link>
 
-          <form onSubmit={submitSearch} className="ml-auto hidden max-w-[520px] flex-1 md:block lg:ml-8">
-            <label className="search-field">
-              <Search size={17} aria-hidden="true" />
+          <form onSubmit={submitSearch} className="ml-auto hidden max-w-[480px] flex-1 md:block lg:ml-6">
+            <label className="search-field header-search-field">
+              <Search size={16} aria-hidden="true" />
               <span className="sr-only">통합검색</span>
               <input
+                ref={searchInputRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="게시글, 자료, 학번 검색"
                 autoComplete="off"
+                aria-keyshortcuts="/ Control+K Meta+K"
               />
+              <kbd className="hidden lg:inline" aria-hidden="true">/</kbd>
             </label>
           </form>
 
           <div className="ml-auto flex items-center gap-1">
-            <Link href="/messages" className="icon-button hidden sm:grid" aria-label="쪽지와 채팅">
-              <MessageSquare size={19} />
+            <Link href="/messages" className="icon-button header-icon-button hidden sm:grid" aria-label="쪽지와 채팅">
+              <MessageSquare size={18} />
             </Link>
-            <Link href="/notifications" className="icon-button" aria-label="알림">
-              <Bell size={19} />
+            <Link href="/notifications" className="icon-button header-icon-button" aria-label="알림">
+              <Bell size={18} />
               {unreadCount > 0 && <span className="notification-count">{Math.min(unreadCount, 99)}</span>}
             </Link>
             {sessionUser ? (
@@ -266,20 +290,25 @@ export default function PortalShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <nav className="hidden border-t border-[var(--line)] lg:block" aria-label="주요 게시판">
-          <div className="portal-container flex h-11 items-stretch">
+        <nav className="desktop-primary-nav hidden border-t border-[var(--line)] lg:block" aria-label="주요 게시판">
+          <div className="portal-container flex h-9 items-stretch">
             {navigation.map((item) => {
               const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
               return (
-                <Link key={item.href} href={item.href} className={`nav-link ${active ? 'is-active' : ''}`}>
-                  <item.icon size={15} />
+                <Link key={item.href} href={item.href} className={`nav-link ${active ? 'is-active' : ''}`} aria-current={active ? 'page' : undefined}>
+                  <item.icon size={14} />
                   {item.label}
                 </Link>
               );
             })}
-            <Link href="/igk?tab=ranking" className="ml-auto flex items-center gap-1.5 border-l border-[var(--line)] px-4 text-xs font-bold text-[var(--green-deep)] hover:bg-[var(--green-pale)]">
-              <Trophy size={14} /> 보유 IGK 랭킹
-            </Link>
+            <div className="ml-auto flex shrink-0 items-stretch">
+              <Link href={writeHref} className="nav-quick-action" title={currentBoard ? `${currentBoard.label}에 글쓰기` : '자유게시판에 글쓰기'}>
+                <PenLine size={13} /> 글쓰기
+              </Link>
+              <Link href="/igk?tab=ranking" className={`ranking-nav-link ${pathname.startsWith('/igk') ? 'is-active' : ''}`} aria-current={pathname.startsWith('/igk') ? 'page' : undefined} title="보유 IGK 기준 랭킹">
+                <Trophy size={13} /> IGK 랭킹
+              </Link>
+            </div>
           </div>
         </nav>
 
