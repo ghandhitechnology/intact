@@ -50,11 +50,11 @@ function HomeActions() {
         통합검색
       </Link>
       <Link
-        href="/boards/question/write"
+        href="/boards/free/write"
         className="inline-flex h-9 min-w-0 items-center justify-center gap-2 bg-emerald-700 px-2 text-[11px] font-bold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
       >
         <PenSquare className="h-3.5 w-3.5" aria-hidden="true" />
-        질문하기
+        글쓰기
       </Link>
     </nav>
   );
@@ -502,8 +502,8 @@ export default function HomePage() {
   return (
     <div className="min-h-screen min-w-0 overflow-x-hidden py-1 text-slate-900 sm:py-3">
       <div className="mx-auto min-w-0 max-w-[1540px]">
-        <div className="grid min-w-0 items-start gap-3 xl:grid-cols-[220px_minmax(0,1fr)_280px]">
-          <aside className="hidden min-w-0 space-y-3 xl:block xl:sticky xl:top-[136px]">
+        <div className="grid min-w-0 items-start gap-3 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_280px]">
+          <aside className="hidden min-w-0 space-y-3 lg:sticky lg:top-[100px] lg:block">
             <HomeActions />
             <PortalMenu items={boardItems} />
           </aside>
@@ -531,7 +531,7 @@ export default function HomePage() {
               <LatestActivity items={homePosts} />
             </div>
           </div>
-          <aside className="grid min-w-0 gap-3 md:grid-cols-3 xl:sticky xl:top-[136px] xl:block xl:space-y-3">
+          <aside className="grid min-w-0 gap-3 md:grid-cols-3 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-[100px] xl:block xl:space-y-3">
             <NoticeRail items={noticeItems} />
             <HotTopics items={homePosts} />
             <RankingPanel items={rankingItems} />

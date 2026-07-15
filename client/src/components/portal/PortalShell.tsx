@@ -14,7 +14,6 @@ import {
   MessageSquare,
   Microscope,
   Image as PhotoIcon,
-  PenLine,
   Search,
   Trophy,
   User,
@@ -279,6 +278,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
                     </div>
                     <Link href="/profile" className="account-menu-item"><User size={16} />내 프로필</Link>
                     <Link href="/igk" className="account-menu-item"><Coins size={16} />IGK 지갑</Link>
+                    <Link href="/igk?tab=ranking" className="account-menu-item"><Trophy size={16} />IGK 랭킹</Link>
                     <Link href="/igk/roadmap" className="account-menu-item"><Trophy size={16} />등급 로드맵</Link>
                     <button type="button" onClick={logout} className="account-menu-item w-full text-left"><LogIn size={16} />로그아웃</button>
                   </div>
@@ -289,28 +289,6 @@ export default function PortalShell({ children }: { children: ReactNode }) {
             )}
           </div>
         </div>
-
-        <nav className="desktop-primary-nav hidden border-t border-[var(--line)] lg:block" aria-label="주요 게시판">
-          <div className="portal-container flex h-9 items-stretch">
-            {navigation.map((item) => {
-              const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
-              return (
-                <Link key={item.href} href={item.href} className={`nav-link ${active ? 'is-active' : ''}`} aria-current={active ? 'page' : undefined}>
-                  <item.icon size={14} />
-                  {item.label}
-                </Link>
-              );
-            })}
-            <div className="ml-auto flex shrink-0 items-stretch">
-              <Link href={writeHref} className="nav-quick-action" title={currentBoard ? `${currentBoard.label}에 글쓰기` : '자유게시판에 글쓰기'}>
-                <PenLine size={13} /> 글쓰기
-              </Link>
-              <Link href="/igk?tab=ranking" className={`ranking-nav-link ${pathname.startsWith('/igk') ? 'is-active' : ''}`} aria-current={pathname.startsWith('/igk') ? 'page' : undefined} title="보유 IGK 기준 랭킹">
-                <Trophy size={13} /> IGK 랭킹
-              </Link>
-            </div>
-          </div>
-        </nav>
 
         {mobileOpen && (
           <div className="mobile-menu border-t border-[var(--line-strong)] bg-white lg:hidden">
@@ -327,6 +305,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
                 </Link>
               ))}
               <Link href="/igk" className="mobile-nav-link"><Coins size={18} />IGK 지갑</Link>
+              <Link href="/igk?tab=ranking" className="mobile-nav-link"><Trophy size={18} />IGK 랭킹</Link>
               <Link href="/igk/roadmap" className="mobile-nav-link"><Trophy size={18} />등급 로드맵</Link>
             </div>
           </div>
