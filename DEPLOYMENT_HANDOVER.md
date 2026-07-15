@@ -4,7 +4,7 @@
 
 이 문서는 새 개발자나 자동화 에이전트가 별도 대화 기록 없이 인텍트를 로컬에서 실행하고, 운영 VPS에 안전하게 배포하고, 장애 복구까지 수행할 수 있도록 현재 구성을 정리한 기준 문서입니다. 비밀번호, 세션 키, 암호화 키 같은 실제 비밀값은 절대 이 문서나 Git에 기록하지 않습니다.
 
-프로젝트 기능과 빠른 시작은 [README.md](./README.md), 런타임 경계와 데이터 흐름은 [ARCHITECTURE.md](./ARCHITECTURE.md)를 먼저 확인합니다. 안정성 회귀와 부하 기준은 [STABILITY_REPORT.md](./STABILITY_REPORT.md)에 기록합니다.
+반복 배포나 현재 장애의 최단 복구 명령이 필요하면 [빠른 배포·오류 해결 런북](./FAST_DEPLOY.md)을 먼저 사용합니다. 프로젝트 기능과 빠른 시작은 [README.md](./README.md), 런타임 경계와 데이터 흐름은 [ARCHITECTURE.md](./ARCHITECTURE.md)를 확인합니다. 안정성 회귀와 부하 기준은 [STABILITY_REPORT.md](./STABILITY_REPORT.md)에 기록합니다.
 
 ## 1. 현재 운영 환경
 
@@ -58,6 +58,7 @@ intact/
 ├── Caddyfile                HTTPS와 /socket.io 프록시
 ├── docker-compose.yml       운영 서비스 정의
 ├── .env.example             운영 환경변수 템플릿
+├── FAST_DEPLOY.md           반복 배포와 증상별 최단 복구
 └── DEPLOYMENT_HANDOVER.md   이 문서
 ```
 
@@ -288,8 +289,13 @@ corepack yarn build
 ### 8.2 배포 전 운영 백업
 
 ```bash
-ssh -i ~/.ssh/ishsoutside_deploy root@187.127.206.150 \
-  'systemctl start ishsoutside-backup.service && systemctl status ishsoutside-backup.service --no-pager'
+ssh -i ~/.ssh/ishsoutside_deploy root@187.127.206.150 <<'REMOTE'
+set -eu
+systemctl start ishsoutside-backup.service
+test "$(systemctl show ishsoutside-backup.service -p Result --value)" = success
+test "$(systemctl show ishsoutside-backup.service -p ExecMainStatus --value)" = 0
+systemctl status ishsoutside-backup.service --no-pager || true
+REMOTE
 ```
 
 ### 8.3 서버로 소스 동기화
@@ -303,6 +309,7 @@ rsync -az --delete \
   --exclude='.git' \
   --exclude='.env' \
   --exclude='.env.production.backup' \
+  --exclude='.deployed-commit' \
   --exclude='.DS_Store' \
   --exclude='node_modules' \
   --exclude='.next' \
@@ -565,4 +572,4 @@ docker system df
 - [ ] backup timer와 off-site backup 확인
 - [ ] 롤백 이미지/tag와 DB 복구 지점 기록
 
-운영 구성이 바뀌면 배포 작업과 같은 변경 세트에서 이 문서도 함께 갱신합니다.
+운영 구성이 바뀌면 배포 작업과 같은 변경 세트에서 이 문서와 `FAST_DEPLOY.md`도 함께 갱신합니다.

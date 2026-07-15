@@ -4,6 +4,7 @@
 
 - 운영 주소: [https://ishsoutside.com](https://ishsoutside.com)
 - 소스 저장소: [ghandhitechnology/intact](https://github.com/ghandhitechnology/intact)
+- 빠른 배포·오류 해결: [FAST_DEPLOY.md](./FAST_DEPLOY.md)
 - 운영·배포 인수인계: [DEPLOYMENT_HANDOVER.md](./DEPLOYMENT_HANDOVER.md)
 - 시스템 구조와 데이터 흐름: [ARCHITECTURE.md](./ARCHITECTURE.md)
 - 안정성 점검과 읽기 전용 부하 테스트: [STABILITY_REPORT.md](./STABILITY_REPORT.md)
@@ -50,6 +51,7 @@
 ├── Caddyfile                HTTPS and /socket.io reverse proxy
 ├── docker-compose.yml       Complete production stack
 ├── ARCHITECTURE.md          Runtime boundaries and data flows
+├── FAST_DEPLOY.md           Fast production deployment and error lookup
 └── DEPLOYMENT_HANDOVER.md   VPS operations, backup, restore and rollback
 ```
 
@@ -143,7 +145,7 @@ docker compose config --quiet
 node scripts/stress-readonly.mjs --base=https://ishsoutside.com --requests=120 --concurrency=12
 ```
 
-운영 배포는 반드시 백업 후 진행하고, `/api/health`, Socket.IO handshake, 로그인, 글·첨부·메시지·알림 경로를 실제 환경에서 확인합니다. 전체 절차는 [DEPLOYMENT_HANDOVER.md](./DEPLOYMENT_HANDOVER.md)를 따릅니다.
+운영 배포는 반드시 백업 후 진행하고, `/api/health`, Socket.IO handshake, 로그인, 글·첨부·메시지·알림 경로를 실제 환경에서 확인합니다. 반복 배포와 증상별 최단 복구는 [FAST_DEPLOY.md](./FAST_DEPLOY.md), 최초 구축·복구를 포함한 전체 절차는 [DEPLOYMENT_HANDOVER.md](./DEPLOYMENT_HANDOVER.md)를 따릅니다.
 
 ## 보안 원칙
 
@@ -155,4 +157,4 @@ node scripts/stress-readonly.mjs --base=https://ishsoutside.com --requests=120 -
 
 ## 문서 갱신 규칙
 
-API 경계나 서비스 구성이 바뀌면 `ARCHITECTURE.md`를, 도메인·서버·볼륨·배포·백업 절차가 바뀌면 `DEPLOYMENT_HANDOVER.md`를 같은 변경 세트에서 갱신합니다.
+API 경계나 서비스 구성이 바뀌면 `ARCHITECTURE.md`를, 도메인·서버·볼륨·배포·백업 절차가 바뀌면 `FAST_DEPLOY.md`와 `DEPLOYMENT_HANDOVER.md`를 같은 변경 세트에서 갱신합니다.
