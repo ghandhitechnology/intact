@@ -60,7 +60,7 @@ type Wallet = {
   lifetimeIgk: number;
   igkDebt?: number;
   level: number;
-  teacherRank?: number | null;
+  jojinRank?: number | null;
   rank: number;
   progress: number;
   nextLevel: {
@@ -93,7 +93,7 @@ type Ranking = {
   realName: string | null;
   profileImage: string | null;
   level: number;
-  teacherRank?: number | null;
+  jojinRank?: number | null;
   currentIgk: number;
   lifetimeIgk: number;
   studentIdentity: { studentCode: string } | null;
@@ -577,7 +577,7 @@ export default function IgkPage() {
           <div className="w-full border border-slate-200 bg-slate-50 p-4 md:w-80">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-slate-600">
-                {igkLevelLabel(wallet.level, wallet.teacherRank)}
+                {igkLevelLabel(wallet.level, wallet.jojinRank)}
               </span>
               {nextThreshold ? (
                 <span className="font-extrabold text-slate-800">
@@ -592,7 +592,7 @@ export default function IgkPage() {
             <p className="mt-2 text-[11px] text-slate-500">
               {nextThreshold
                 ? `다음 등급까지 ${Math.max(0, nextThreshold - wallet.lifetimeIgk).toLocaleString()} IGK`
-                : "최고 등급 조진"}
+                : "최고 등급 조졸"}
             </p>
           </div>
         </div>
@@ -678,7 +678,7 @@ export default function IgkPage() {
                 <div className="border border-emerald-300 bg-white p-5">
                   <Badge tone="green">현재</Badge>
                   <p className="mt-3 text-lg font-black">
-                    {igkLevelLabel(wallet.level, wallet.teacherRank)}
+                    {igkLevelLabel(wallet.level, wallet.jojinRank)}
                   </p>
                   <p className="mt-1 text-xs text-slate-600">
                     누적 {wallet.lifetimeIgk.toLocaleString()} IGK
@@ -733,7 +733,7 @@ export default function IgkPage() {
                       name={displayName}
                       imageUrl={person.profileImage}
                       size="sm"
-                      className={person.level >= 10 ? "teacher-avatar" : undefined}
+                      className={person.level >= 10 ? "top-level-avatar" : undefined}
                       tone={
                         (
                           ["blue", "green", "violet", "amber", "slate"] as const
@@ -748,7 +748,7 @@ export default function IgkPage() {
                         {person.studentIdentity?.studentCode && person.studentIdentity.studentCode !== '------'
                           ? `${person.studentIdentity.studentCode} · `
                           : ''}
-                        {igkLevelLabel(person.level, person.teacherRank)}
+                        {igkLevelLabel(person.level, person.jojinRank)}
                       </p>
                     </div>
                     <strong>{person.currentIgk.toLocaleString()} IGK</strong>

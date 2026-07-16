@@ -84,7 +84,7 @@ export function Avatar({
         "inline-flex shrink-0 items-center justify-center rounded-full border bg-cover bg-center font-bold",
         sizes[size],
         avatarStyles[member.accent],
-        member.level >= 10 && "teacher-avatar",
+        member.level >= 10 && "top-level-avatar",
       )}
       style={
         member.profileImage
@@ -101,10 +101,10 @@ export function Avatar({
   );
 }
 
-export function LevelBadge({ level, teacherRank }: { level: number; teacherRank?: number | null }) {
+export function LevelBadge({ level, jojinRank }: { level: number; jojinRank?: number | null }) {
   return (
     <span className="inline-flex h-5 items-center  border border-emerald-200 bg-emerald-50 px-1.5 text-[10px] font-extrabold tracking-tight text-emerald-700">
-      {igkLevelLabel(level, teacherRank)}
+      {igkLevelLabel(level, jojinRank)}
     </span>
   );
 }
@@ -135,7 +135,7 @@ export function MemberLine({
           운영자
         </span>
       ) : (
-        <LevelBadge level={member.level} teacherRank={member.teacherRank} />
+        <LevelBadge level={member.level} jojinRank={member.jojinRank} />
       )}
     </span>
   );

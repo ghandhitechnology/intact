@@ -56,7 +56,7 @@ type HomeAccountUser = {
   profileImage?: string | null;
 };
 
-type HomeAccountStatus = { currentIgk: number; teacherRank: number | null; unreadCount: number };
+type HomeAccountStatus = { currentIgk: number; jojinRank: number | null; unreadCount: number };
 
 function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; accountStatus?: HomeAccountStatus }) {
   const router = useRouter();
@@ -67,7 +67,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
       : null,
   );
   const [currentIgk, setCurrentIgk] = useState(demoMode ? 1840 : 0);
-  const [teacherRank, setTeacherRank] = useState<number | null>(null);
+  const [jojinRank, setJojinRank] = useState<number | null>(null);
   const [unreadCount, setUnreadCount] = useState(demoMode ? 3 : 0);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -86,7 +86,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
   useEffect(() => {
     if (!accountStatus) return;
     setCurrentIgk(accountStatus.currentIgk);
-    setTeacherRank(accountStatus.teacherRank);
+    setJojinRank(accountStatus.jojinRank);
     setUnreadCount(accountStatus.unreadCount);
   }, [accountStatus]);
 
@@ -96,7 +96,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
     await fetchWithTimeout('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
     setUser(null);
     setCurrentIgk(0);
-    setTeacherRank(null);
+    setJojinRank(null);
     setUnreadCount(0);
     clearClientDataCache();
     await refreshSession();
@@ -139,7 +139,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
     nickname: displayName,
     studentId: studentCode,
     level,
-    teacherRank,
+    jojinRank,
     initials: displayName.slice(0, 1),
     profileImage: user.profileImage || null,
     accent: 'emerald' as const,
@@ -152,7 +152,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
         <Avatar member={avatarMember} />
         <span className="min-w-0 flex-1">
           <strong id="home-account-title" className="block truncate text-xs font-black text-slate-900">{displayName}</strong>
-          <span className="mt-0.5 block truncate text-[10px] text-slate-500">{studentCode} · {igkLevelLabel(level, teacherRank)}</span>
+          <span className="mt-0.5 block truncate text-[10px] text-slate-500">{studentCode} · {igkLevelLabel(level, jojinRank)}</span>
         </span>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" aria-hidden="true" />
       </Link>
@@ -501,7 +501,7 @@ function RankingPanel({ items }: { items: RankingMember[] }) {
                 {member.nickname}
               </span>
               <span className="block text-[10px] text-slate-400">
-                {member.studentId !== '------' ? `${member.studentId} · ` : ''}{igkLevelLabel(member.level, member.teacherRank)}
+                {member.studentId !== '------' ? `${member.studentId} · ` : ''}{igkLevelLabel(member.level, member.jojinRank)}
               </span>
             </span>
             <span className="text-xs font-black tabular-nums text-slate-700">
@@ -630,7 +630,7 @@ export default function HomePage() {
             nickname: leader.realName || leader.nickname,
             studentId: leader?.studentIdentity?.studentCode || '------',
             level: Number(leader.level || 1),
-            teacherRank: Number.isInteger(leader.teacherRank) ? Number(leader.teacherRank) : null,
+            jojinRank: Number.isInteger(leader.jojinRank) ? Number(leader.jojinRank) : null,
             initials: String(leader.realName || leader.nickname || '?').slice(0, 1),
             profileImage: leader.profileImage || null,
             accent: 'emerald',

@@ -1,5 +1,5 @@
 import prisma from '@/lib/prisma';
-import { JOJOL_RANK_LIMIT } from '@/lib/igk-levels';
+import { JOJIN_RANK_LIMIT } from '@/lib/igk-levels';
 import { json, jsonError } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 import { maskPublicIdentities } from '@/lib/server/platform-mode';
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   try {
     const session = await requireUser(request);
     const eligible = { status: 'ACTIVE' as const, studentIdentity: { isNot: null } };
-    const [leaders, higherRanked, totalParticipants, teacherLeaders] = await prisma.$transaction([
+    const [leaders, higherRanked, totalParticipants, jojinLeaders] = await prisma.$transaction([
       prisma.user.findMany({
         where: eligible,
         orderBy: [{ currentIgk: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       prisma.user.findMany({
         where: { ...eligible, level: 10 },
         orderBy: [{ currentIgk: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
-        take: JOJOL_RANK_LIMIT,
+        take: JOJIN_RANK_LIMIT,
         select: {
           id: true,
           nickname: true, realName: true,
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
         },
       }),
     ]);
-    const teacherRankById = new Map(teacherLeaders.map((user, index) => [user.id, index + 1]));
+    const jojinRankById = new Map(jojinLeaders.map((user, index) => [user.id, index + 1]));
     let previousScore: number | null = null;
     let previousRank = 0;
     return json(await maskPublicIdentities({
@@ -54,10 +54,10 @@ export async function GET(request: Request) {
           previousScore = user.currentIgk;
           previousRank = index + 1;
         }
-        return { ...user, rank: previousRank, teacherRank: teacherRankById.get(user.id) ?? null };
+        return { ...user, rank: previousRank, jojinRank: jojinRankById.get(user.id) ?? null };
       }),
-      teacherLeaders: teacherLeaders.map((user, index) => ({ ...user, teacherRank: index + 1 })),
-      currentUserTeacherRank: teacherRankById.get(session.user.id) ?? null,
+      jojinLeaders: jojinLeaders.map((user, index) => ({ ...user, jojinRank: index + 1 })),
+      currentUserJojinRank: jojinRankById.get(session.user.id) ?? null,
       currentUserRank: session.user.studentIdentity ? higherRanked + 1 : null,
       totalParticipants,
     }, session.user.id));

@@ -10,7 +10,7 @@ type Wallet = {
   currentIgk: number;
   lifetimeIgk: number;
   level: number;
-  teacherRank?: number | null;
+  jojinRank?: number | null;
 };
 
 export default function IgkRoadmapPage() {
@@ -44,7 +44,7 @@ export default function IgkRoadmapPage() {
     <div className="mx-auto w-full max-w-[1200px] px-4 py-4 sm:px-6 lg:px-8">
       <PageHeading
         title="등급 로드맵"
-        description="누적 IGK로 조진까지 올라가고, 조진 중 보유 IGK 상위 8명은 조졸 · N짱 호칭을 받습니다."
+        description="누적 IGK로 조졸까지 올라가고, 조졸 중 보유 IGK 상위 8명은 조진 · N짱 호칭을 받습니다."
         actions={
           <Link href="/igk" className="inline-flex h-9 items-center gap-2 border border-slate-300 bg-white px-4 text-xs font-extrabold text-slate-700 hover:bg-slate-50">
             <ArrowLeft className="h-4 w-4" /> IGK 지갑
@@ -73,7 +73,7 @@ export default function IgkRoadmapPage() {
           <section className="mt-4 grid gap-px overflow-hidden border border-slate-200 bg-slate-200 md:grid-cols-[1.1fr_1fr_1fr]">
             <div className="bg-emerald-800 p-4 text-white">
               <p className="text-xs font-bold text-emerald-100">현재 등급</p>
-              <p className="mt-2 text-2xl font-black">{igkLevelLabel(wallet.level, wallet.teacherRank)}</p>
+              <p className="mt-2 text-2xl font-black">{igkLevelLabel(wallet.level, wallet.jojinRank)}</p>
             </div>
             <div className="bg-white p-4">
               <p className="text-xs font-bold text-slate-500">등급 누적 IGK</p>
@@ -82,7 +82,7 @@ export default function IgkRoadmapPage() {
             </div>
             <div className="bg-white p-4">
               <p className="text-xs font-bold text-slate-500">다음 목표</p>
-              <p className="mt-2 text-xl font-black text-slate-950">{nextRule?.label ?? (wallet.teacherRank ? `조졸 · ${wallet.teacherRank}짱` : '조진 랭킹')}</p>
+              <p className="mt-2 text-xl font-black text-slate-950">{nextRule?.label ?? (wallet.jojinRank ? `조진 · ${wallet.jojinRank}짱` : '조진 랭킹')}</p>
               <p className="mt-1 text-xs text-slate-500">
                 {nextRule ? `${Math.max(0, nextRule.minimumLifetimeIgk - wallet.lifetimeIgk).toLocaleString()} IGK 남음` : '최종 등급 도달'}
               </p>
@@ -91,17 +91,17 @@ export default function IgkRoadmapPage() {
 
           <Card className="mt-5 p-5 ">
             <div className="flex items-center justify-between gap-4 text-xs font-bold text-slate-600">
-              <span>{igkLevelLabel(wallet.level, wallet.teacherRank)}</span>
-              <span>{nextRule?.label ?? '조진'}</span>
+              <span>{igkLevelLabel(wallet.level, wallet.jojinRank)}</span>
+              <span>{nextRule?.label ?? '조졸'}</span>
             </div>
             <div className="mt-3"><Progress value={segmentProgress} /></div>
           </Card>
 
           {wallet.level >= 10 ? (
             <section className="mt-4 bg-blue-50 p-4">
-              <p className="text-xs font-extrabold text-blue-800">조진 · 조졸 랭킹</p>
-              <p className="mt-1 text-sm font-black text-slate-950">{igkLevelLabel(wallet.level, wallet.teacherRank)}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">보유 IGK가 많은 조진부터 조졸 · 1짱–8짱을 표시하며, 9위부터는 조진으로 표시합니다.</p>
+              <p className="text-xs font-extrabold text-blue-800">조졸 · 조진 랭킹</p>
+              <p className="mt-1 text-sm font-black text-slate-950">{igkLevelLabel(wallet.level, wallet.jojinRank)}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">보유 IGK가 많은 조졸 상위 8명을 조진 · 1짱–8짱으로 표시하며, 9위부터는 조졸로 표시합니다.</p>
             </section>
           ) : null}
 
@@ -109,7 +109,7 @@ export default function IgkRoadmapPage() {
             {IGK_LEVELS.map((rule, index) => {
               const complete = wallet.level >= rule.level;
               const current = wallet.level === rule.level;
-              const teacher = rule.label === '조진';
+              const topTier = rule.label === '조졸';
               return (
                 <article
                   key={rule.level}
@@ -121,14 +121,14 @@ export default function IgkRoadmapPage() {
                         : 'border-slate-200 bg-slate-50'
                   }`}
                 >
-                  <span className={`grid h-10 w-10 place-items-center ${teacher ? 'bg-slate-950 text-white' : complete ? 'bg-emerald-700 text-white' : 'bg-white text-slate-400'}`}>
-                    {teacher ? <GraduationCap className="h-5 w-5" /> : complete ? <Check className="h-5 w-5" /> : <span className="text-sm font-black">{index + 1}</span>}
+                  <span className={`grid h-10 w-10 place-items-center ${topTier ? 'bg-slate-950 text-white' : complete ? 'bg-emerald-700 text-white' : 'bg-white text-slate-400'}`}>
+                    {topTier ? <GraduationCap className="h-5 w-5" /> : complete ? <Check className="h-5 w-5" /> : <span className="text-sm font-black">{index + 1}</span>}
                   </span>
                   <span className="min-w-0">
                     <span className="flex flex-wrap items-center gap-2">
                       <strong className="text-base font-black text-slate-950">{rule.label}</strong>
                       {current ? <Badge tone="green">현재</Badge> : null}
-                      {teacher ? <Trophy className="h-4 w-4 text-amber-600" /> : null}
+                      {topTier ? <Trophy className="h-4 w-4 text-amber-600" /> : null}
                     </span>
                     <span className="mt-1 block text-xs text-slate-500">누적 {rule.minimumLifetimeIgk.toLocaleString()} IGK부터</span>
                   </span>
