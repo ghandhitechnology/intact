@@ -8,7 +8,7 @@ import {
   expectString,
   parseApiFailure,
 } from '../src/lib/contracts/runtime';
-import { ApiError, readJson } from '../src/lib/server/http';
+import { ApiError, readJson, requiredInteger } from '../src/lib/server/http';
 
 test('JSON body parsing enforces content type, syntax, and actual byte limits', async () => {
   const valid = new Request('https://portal.example/api', {
@@ -64,6 +64,19 @@ test('contract primitives reject coercion, non-finite values, and wrong containe
     () => expectFiniteNumber(Number.POSITIVE_INFINITY, 'value'),
   ];
   for (const parse of cases) assert.throws(parse, ContractParseError);
+});
+
+test('integer validation accepts only numbers and canonical decimal strings', () => {
+  assert.equal(requiredInteger(4, 'value', -10, 10), 4);
+  assert.equal(requiredInteger(' 4 ', 'value', -10, 10), 4);
+  assert.equal(requiredInteger('-4', 'value', -10, 10), -4);
+
+  for (const value of [true, false, null, undefined, '', '1.5', '1e1', [], [1], {}]) {
+    assert.throws(() => requiredInteger(value, 'value', -10, 10), (error: unknown) => {
+      assert.ok(error instanceof ApiError);
+      return error.status === 400 && error.code === 'VALIDATION_ERROR';
+    });
+  }
 });
 
 test('failure envelope parsing requires canonical string code and message fields', () => {

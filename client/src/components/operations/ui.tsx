@@ -48,7 +48,7 @@ export function PageHeading({ title, description, actions }: {
 }
 
 export function Card({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <section className={cn('rounded-sm border border-slate-300 bg-white', className)} {...props}>{children}</section>;
+  return <section className={cn('border border-slate-300 bg-white', className)} {...props}>{children}</section>;
 }
 
 export function CardHeader({ title, description, action, className }: {
@@ -74,23 +74,23 @@ const buttonStyles = {
 };
 
 export function Button({ variant = 'primary', className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof buttonStyles }) {
-  return <button className={cn('inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed', buttonStyles[variant], className)} {...props}>{children}</button>;
+  return <button className={cn('inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap px-3.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed', buttonStyles[variant], className)} {...props}>{children}</button>;
 }
 
 export function IconButton({ label, className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
-  return <button aria-label={label} title={label} className={cn('inline-flex h-10 w-10 items-center justify-center rounded-md border border-transparent text-slate-500 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100', className)} {...props}>{children}</button>;
+  return <button aria-label={label} title={label} className={cn('inline-flex h-10 w-10 items-center justify-center border border-transparent text-slate-500 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100', className)} {...props}>{children}</button>;
 }
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn('h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100 disabled:text-slate-500', className)} {...props} />;
+  return <input className={cn('h-10 w-full border border-slate-300 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100 disabled:text-slate-500', className)} {...props} />;
 }
 
 export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn('h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props}>{children}</select>;
+  return <select className={cn('h-10 w-full border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props}>{children}</select>;
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn('w-full resize-none rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props} />;
+  return <textarea className={cn('w-full resize-none border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props} />;
 }
 
 export function Field({ label, hint, error, required, children }: {

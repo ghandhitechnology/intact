@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  allowedDevOrigins: ['127.0.0.1'],
   output: 'standalone',
   outputFileTracingRoot: __dirname,
   serverExternalPackages: ['@prisma/client'],

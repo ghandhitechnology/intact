@@ -121,7 +121,7 @@ export default function RegisterPage() {
         <div className="border-l-4 border-emerald-700 bg-white py-2 pl-5">
           <h2 className="text-xl font-bold text-slate-950">{verification?.profile.name}님, 가입을 마쳤습니다.</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">로그인할 때 사용할 학번은 <strong className="text-blue-800">{studentCode}</strong>입니다.</p>
-          <Link href="/" className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-blue-800 bg-blue-800 text-sm font-semibold text-white hover:bg-blue-900">인텍트 시작하기 <ArrowRight className="h-4 w-4" /></Link>
+          <Link href="/" className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 border border-blue-800 bg-blue-800 text-sm font-semibold text-white hover:bg-blue-900">인텍트 시작하기 <ArrowRight className="h-4 w-4" /></Link>
         </div>
       ) : !verification ? (
         <form onSubmit={verifyRiro} className="space-y-5" aria-busy={loading}>

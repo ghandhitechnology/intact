@@ -33,6 +33,45 @@ test('message read acknowledgements update sequence monotonically', () => {
   assert.match(route, /messageId[^}]*roomId|roomId[^}]*messageId/, 'the acknowledged message must belong to the requested room');
 });
 
+test('chat unread aggregation casts request identifiers to PostgreSQL uuid', () => {
+  const route = compact(source('src/app/api/chat/rooms/route.ts'));
+  assert.match(route, /membership\."userId"\s*=\s*\$\{session\.user\.id\}::uuid/);
+  assert.match(route, /message\."senderId"\s*<>\s*\$\{session\.user\.id\}::uuid/);
+});
+
+test('signed-out home never loads or retains authenticated home data', () => {
+  const home = compact(source('src/components/community/HomePage.tsx'));
+  const shell = compact(source('src/components/portal/PortalShell.tsx'));
+  assert.match(home, /sessionLoading \|\| !authenticated\) return undefined/);
+  assert.match(home, /homeCacheKey = `\/api\/home:\$\{session\?\.user\?\.id/);
+  assert.match(home, /setHomePayload\(null\)/);
+  assert.match(home, /if \(!authenticated\) return <SignedOutHome/);
+  assert.match(shell, /portalNavigationAvailable = DEMO_MODE \|\| session\?\.authenticated === true/);
+  assert.match(shell, /!isAdmin && portalNavigationAvailable/);
+});
+
+test('platform mode is recoverable and demo mode is database independent', () => {
+  const route = compact(source('src/app/api/platform/route.ts'));
+  const provider = compact(source('src/components/portal/PlatformModeProvider.tsx'));
+  assert.match(route, /process\.env\.PORTAL_DEMO_MODE === 'true'/);
+  assert.match(route, /version: 'demo'/);
+  assert.match(provider, /보안 설정을 확인할 수 없어요/);
+  assert.match(provider, /onClick=\{\(\) => void refresh\(\)\}/);
+  assert.match(provider, /다시 시도/);
+  assert.match(provider, /window\.sessionStorage\.getItem/);
+  assert.match(provider, /window\.sessionStorage\.setItem/);
+  assert.match(provider, /catch \{ return null/);
+});
+
+test('health reports every required runtime dependency', () => {
+  const route = compact(source('src/app/api/health/route.ts'));
+  assert.match(route, /prisma\.\$queryRaw`SELECT 1`/);
+  assert.match(route, /getRedisClient\(\)/);
+  assert.match(route, /client\.ping\(\)/);
+  assert.match(route, /health\.redis_unavailable/);
+  assert.match(route, /status: healthy \? 200 : 503/);
+});
+
 test('report creation authorizes message targets and maps duplicate races consistently', () => {
   const route = compact(source('src/app/api/reports/route.ts'));
   assert.match(route, /reportLockKey\s*\(/);
@@ -77,6 +116,13 @@ test('attachment deletion cannot remove a file already bound to content', () => 
   assert.match(route, /select:\s*\{[^}]*postId:\s*true[^}]*messageId:\s*true|select:\s*\{[^}]*messageId:\s*true[^}]*postId:\s*true/);
   assert.match(route, /assertDeleteEligibleAttachment\s*\(/);
   assert.match(route, /attachmentObjectKeys\s*\(/);
+});
+
+test('object download timeout stops after response headers so streams can finish', () => {
+  const storage = compact(source('src/lib/server/object-storage.ts'));
+  assert.match(storage, /const responseTimeout = setTimeout\(\(\) => controller\.abort\(\), 30_000\)/);
+  assert.match(storage, /return await fetch[\s\S]*finally \{ clearTimeout\(responseTimeout\)/);
+  assert.doesNotMatch(storage, /AbortSignal\.timeout\(30_000\)/);
 });
 
 test('post updates adopt the public version precondition and atomic increment helpers', () => {

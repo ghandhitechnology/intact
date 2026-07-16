@@ -338,7 +338,7 @@ REMOTE
 
 | 증상 | 원인/확인 | 가장 빠른 해결 |
 | --- | --- | --- |
-| `corepack: command not found` | Node가 없거나 구버전 | Node 20 설치 후 `corepack enable` |
+| `corepack: command not found` | Node가 없거나 구버전 | Node 22 설치 후 `corepack enable` |
 | Yarn lockfile 오류 | `package.json`과 `yarn.lock` 불일치 | 로컬에서 dependency를 정상 설치해 lockfile을 함께 commit; production에서 `--no-lockfile` 금지 |
 | Prisma client type이 예전 상태 | schema 변경 후 generate 누락 | `cd client && corepack yarn prisma generate` 후 typecheck/build 재실행 |
 | `.next/types/* 2.ts` duplicate identifier | 충돌 복사본인 생성 파일 | `find client/.next/types -maxdepth 1 -type f -name '* 2.ts' -delete`; 계속되면 `rm -rf client/.next` 후 build |

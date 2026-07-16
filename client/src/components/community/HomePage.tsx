@@ -418,8 +418,95 @@ function LatestActivity({ items }: { items: PostSummary[] }) {
             </div>
           </article>
         ))}
+        {latest.length === 0 ? (
+          <div className="flex min-h-24 flex-col items-center justify-center gap-2 border-t border-slate-100 px-4 py-6 text-center">
+            <p className="text-sm font-semibold text-slate-600">아직 올라온 이야기가 없어요.</p>
+            <Link href="/boards/free/write" className="text-xs font-bold text-emerald-700 underline underline-offset-4">
+              첫 이야기 남기기
+            </Link>
+          </div>
+        ) : null}
       </div>
     </section>
+  );
+}
+
+function SignedOutHome() {
+  const features = [
+    {
+      title: '질문과 자료',
+      description: '수업·연구에서 막힌 지점을 묻고 검증된 자료를 나눠요.',
+      icon: Search,
+    },
+    {
+      title: '팀과 대화',
+      description: '대회 팀원을 찾고 필요한 이야기를 실시간으로 이어가요.',
+      icon: MessageCircle,
+    },
+    {
+      title: '학교생활 기록',
+      description: '공지, 활동 보상, 알림을 한곳에서 놓치지 않고 확인해요.',
+      icon: Trophy,
+    },
+  ];
+
+  return (
+    <div className="py-4 text-slate-900 sm:py-8">
+      <section className="border-t-2 border-slate-900 bg-white px-5 py-8 sm:px-8 sm:py-12" aria-labelledby="signed-out-title">
+        <p className="text-sm font-bold text-emerald-700">인천과학고 재학생 전용</p>
+        <h1 id="signed-out-title" className="mt-2 max-w-3xl text-3xl font-bold tracking-[-0.045em] text-slate-950 sm:text-4xl">
+          학교 안의 질문, 자료, 팀을 한곳에서
+        </h1>
+        <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+          학생 인증을 마친 인텍트 계정으로 로그인하면 모든 게시판과 메시지, 알림을 이용할 수 있어요.
+        </p>
+        <div className="mt-7 flex flex-col gap-2 sm:flex-row">
+          <Link
+            href="/login?returnTo=%2F"
+            className="inline-flex min-h-11 items-center justify-center gap-2 bg-emerald-700 px-6 text-sm font-bold text-white hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+          >
+            <LogIn className="h-4 w-4" aria-hidden="true" />
+            로그인
+          </Link>
+          <Link
+            href="/register"
+            className="inline-flex min-h-11 items-center justify-center border border-slate-300 bg-white px-6 text-sm font-bold text-slate-800 hover:border-slate-500"
+          >
+            학생 인증 후 가입
+          </Link>
+        </div>
+      </section>
+
+      <section className="grid border-y border-slate-200 bg-white md:grid-cols-3" aria-label="인텍트 주요 기능">
+        {features.map((feature) => (
+          <div key={feature.title} className="border-b border-slate-200 px-5 py-6 last:border-b-0 sm:px-8 md:border-b-0 md:border-r md:last:border-r-0">
+            <feature.icon className="h-5 w-5 text-emerald-700" aria-hidden="true" />
+            <h2 className="mt-3 text-base font-bold text-slate-900">{feature.title}</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{feature.description}</p>
+          </div>
+        ))}
+      </section>
+
+      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 px-1 text-xs font-semibold text-slate-500">
+        <Link href="/reset-password" className="hover:text-emerald-700">비밀번호 재설정</Link>
+        <Link href="/rules" className="hover:text-emerald-700">커뮤니티 규칙</Link>
+        <Link href="/privacy" className="hover:text-emerald-700">개인정보 처리방침</Link>
+      </div>
+    </div>
+  );
+}
+
+function HomePageLoading() {
+  return (
+    <div className="py-4" aria-label="홈 화면을 불러오는 중" aria-busy="true">
+      <div className="h-5 w-40 animate-pulse bg-slate-200" />
+      <div className="mt-3 h-9 w-72 max-w-full animate-pulse bg-slate-200" />
+      <div className="mt-8 grid gap-4 md:grid-cols-2">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div key={index} className="h-28 animate-pulse border-t-2 border-slate-300 bg-white" />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -493,7 +580,7 @@ function RankingPanel({ items }: { items: RankingMember[] }) {
       <ol className="border-t border-slate-900">
         {items.slice(0, 5).map((member) => (
           <li
-            key={member.studentId}
+            key={`${member.nickname}:${member.studentId}`}
             className="grid grid-cols-[24px_32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-100 py-3"
           >
             <span
@@ -574,6 +661,9 @@ function mergeHomeData(previous: HomeData | null, next: HomeData): HomeData {
 
 export default function HomePage() {
   const demoMode = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === 'true';
+  const { session, loading: sessionLoading } = usePortalSession();
+  const authenticated = demoMode || session?.authenticated === true;
+  const homeCacheKey = `/api/home:${session?.user?.id ?? 'signed-out'}`;
   const [boardItems, setBoardItems] = useState<BoardDefinition[]>(
     demoMode ? boards : boards.map((board) => ({ ...board, postCount: 0, todayCount: 0 })),
   );
@@ -585,19 +675,34 @@ export default function HomePage() {
   const [homePayload, setHomePayload] = useState<HomeData | null>(null);
   const [homeError, setHomeError] = useState<Error | null>(null);
   const [homeLoading, setHomeLoading] = useState(!demoMode);
+  const [homeScope, setHomeScope] = useState<string | null>(demoMode ? 'demo' : null);
 
   useEffect(() => onResourceInvalidated('/api/home', () => {
     setReloadKey((value) => value + 1);
   }), []);
 
   useEffect(() => {
-    if (demoMode) return undefined;
+    if (demoMode) return;
+    setHomePayload(null);
+    setHomeError(null);
+    setBoardItems(boards.map((board) => ({ ...board, postCount: 0, todayCount: 0 })));
+    setHomePosts([]);
+    setNoticeItems([]);
+    setRankingItems([]);
+    setHomeScope(null);
+    setHomeLoading(Boolean(session?.authenticated));
+    setLoadState(session?.authenticated ? 'loading' : 'ready');
+  }, [demoMode, session?.authenticated, session?.user?.id]);
+
+  useEffect(() => {
+    if (demoMode || sessionLoading || !authenticated) return undefined;
     let active = true;
     const controller = new AbortController();
-    const cachedValue = getCachedResource<unknown>('/api/home', 90_000);
+    const cachedValue = getCachedResource<unknown>(homeCacheKey, 90_000);
     if (cachedValue) {
       try {
         setHomePayload(parseHomeData(cachedValue));
+        setHomeScope(session?.user?.id ?? null);
         setHomeLoading(false);
       } catch {
         // Ignore stale cache entries written before the home contract was introduced.
@@ -613,7 +718,7 @@ export default function HomePage() {
         if (!active) return;
         setHomePayload((previous) => {
           const merged = mergeHomeData(previous, data);
-          setCachedResource('/api/home', merged);
+          setCachedResource(homeCacheKey, merged);
           return merged;
         });
       } catch (cause) {
@@ -621,15 +726,18 @@ export default function HomePage() {
           setHomeError(cause instanceof Error ? cause : new Error('LOAD_FAILED'));
         }
       } finally {
-        if (active) setHomeLoading(false);
+        if (active) {
+          setHomeScope(session?.user?.id ?? null);
+          setHomeLoading(false);
+        }
       }
     }
     void loadHome();
     return () => { active = false; controller.abort(); };
-  }, [demoMode, reloadKey]);
+  }, [authenticated, demoMode, homeCacheKey, reloadKey, session?.user?.id, sessionLoading]);
 
   useEffect(() => {
-    if (demoMode) return undefined;
+    if (demoMode || !authenticated) return undefined;
     if (!homePayload) {
       setLoadState(homeError ? 'error' : 'loading');
       return undefined;
@@ -678,7 +786,11 @@ export default function HomePage() {
     const hasSectionErrors = Object.keys(homePayload.sectionErrors).length > 0;
     setLoadState(homeError || hasSectionErrors ? 'partial' : 'ready');
     return undefined;
-  }, [demoMode, homeError, homePayload, reloadKey]);
+  }, [authenticated, demoMode, homeError, homePayload, reloadKey]);
+
+  if (!demoMode && sessionLoading) return <HomePageLoading />;
+  if (!authenticated) return <SignedOutHome />;
+  if (!demoMode && homeScope !== session?.user?.id) return <HomePageLoading />;
 
   return (
     <div className="min-w-0 overflow-x-hidden py-2 text-slate-900 sm:py-4">

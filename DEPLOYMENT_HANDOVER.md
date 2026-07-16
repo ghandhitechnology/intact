@@ -91,8 +91,9 @@ Caddy는 `/socket.io/*`만 `realtime:3001`로 보내고 나머지는 `web:3000`�
 
 로컬 개발:
 
-- Node.js 20
+- Node.js 22
 - Corepack 및 Yarn 1.22.22
+- Python 3.11 또는 3.12 (리로스쿨 브리지 검증, 필요하면 `PYTHON_BIN` 지정)
 - Docker Engine/Compose 또는 별도 PostgreSQL 16, Redis, MinIO
 - Prisma CLI는 `client`의 dev dependency 사용
 
@@ -383,7 +384,7 @@ curl -fsS 'https://ishsoutside.com/socket.io/?EIO=4&transport=polling'
 docker run --rm \
   -v "$PWD/scripts:/work:ro" \
   -w /work \
-  node:20-alpine \
+  node:22-alpine \
   node stress-readonly.mjs \
     --base=https://ishsoutside.com \
     --requests=120 \
@@ -394,10 +395,10 @@ network error 또는 5xx가 있으면 스크립트가 실패합니다. p95가 �
 
 기대 결과:
 
-- `/api/health`: HTTP 200, `status=ok`, `database=connected`
+- `/api/health`: HTTP 200, `status=ok`, `database=connected`, `redis=connected`
 - manifest: `name`과 `short_name`이 `인텍트`
 - Socket.IO: HTTP 200과 `sid`, `upgrades:["websocket"]`
-- 비로그인 `/`: `/login?returnTo=%2F`로 307 리디렉션
+- 비로그인 `/`: HTTP 200, 학생 전용 안내와 로그인·회원가입 동선 표시, 인증 API 오류 미표시
 - `/login` 브라우저 제목: `인텍트 · 인천과학고 생활 포털`
 
 ### 인증 회귀 검사

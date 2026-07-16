@@ -47,7 +47,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [boardPickerOpen, setBoardPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const { session, error: sessionError, refresh: refreshSession } = usePortalSession();
+  const { session, loading: sessionLoading, error: sessionError, refresh: refreshSession } = usePortalSession();
   const { bSideEnabled } = usePlatformMode();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,6 +98,8 @@ export default function PortalShell({ children }: { children: ReactNode }) {
   const currentBoardSlug = pathname.match(/^\/boards\/([^/]+)/)?.[1];
   const currentBoard = boardNavigation.find((item) => item.href === `/boards/${currentBoardSlug}`);
   const writeHref = `${currentBoard?.href ?? '/boards/free'}/write`;
+  const portalNavigationAvailable = DEMO_MODE || session?.authenticated === true;
+  const signedOut = !DEMO_MODE && !sessionLoading && session?.authenticated === false;
 
   if (isFocusedAuth) {
     return <div className="min-h-screen bg-[var(--surface-muted)]">{children}</div>;
@@ -113,16 +115,23 @@ export default function PortalShell({ children }: { children: ReactNode }) {
         <div className="utility-bar hidden border-b border-[var(--line)] lg:block">
           <div className="portal-container flex h-7 items-center justify-between text-xs text-[var(--ink-soft)]">
             <span />
-            <div className="flex items-center gap-5">
-              <Link href="/notifications" className="hover:text-[var(--blue)]">알림 설정</Link>
-              <Link href="/admin" className="hover:text-[var(--blue)]">관리자</Link>
-              <Link href="/notices" className="hover:text-[var(--blue)]">운영 공지</Link>
-            </div>
+            {portalNavigationAvailable ? (
+              <div className="flex items-center gap-5">
+                <Link href="/notifications" className="hover:text-[var(--blue)]">알림 설정</Link>
+                <Link href="/admin" className="hover:text-[var(--blue)]">관리자</Link>
+                <Link href="/notices" className="hover:text-[var(--blue)]">운영 공지</Link>
+              </div>
+            ) : signedOut ? (
+              <div className="flex items-center gap-5">
+                <Link href="/register" className="hover:text-[var(--blue)]">회원가입</Link>
+                <Link href="/admin" className="hover:text-[var(--blue)]">관리자</Link>
+              </div>
+            ) : <span />}
           </div>
         </div>
 
         <div className="portal-container portal-header-container flex h-14 items-center gap-3 lg:h-[60px]">
-          <button
+          {(portalNavigationAvailable || signedOut) ? <button
             type="button"
             className="icon-button header-icon-button lg:hidden"
             aria-label={mobileOpen ? '메뉴 닫기' : '메뉴 열기'}
@@ -130,7 +139,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
             onClick={() => setMobileOpen((value) => !value)}
           >
             {mobileOpen ? <X size={21} /> : <Menu size={21} />}
-          </button>
+          </button> : null}
 
           <Link href="/" className="group flex shrink-0 items-center gap-3" aria-label="인텍트 홈">
             <span className="block text-[20px] font-bold leading-none tracking-[-0.045em] text-[var(--ink)] lg:text-[22px]">
@@ -146,7 +155,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
             </span>
           ) : null}
 
-          <form onSubmit={submitSearch} className="ml-auto hidden max-w-[480px] flex-1 md:block lg:ml-6">
+          {portalNavigationAvailable ? <form onSubmit={submitSearch} className="ml-auto hidden max-w-[480px] flex-1 md:block lg:ml-6">
             <label className="search-field header-search-field">
               <Search size={16} aria-hidden="true" />
               <span className="sr-only">통합검색</span>
@@ -160,11 +169,15 @@ export default function PortalShell({ children }: { children: ReactNode }) {
               />
               <kbd className="hidden lg:inline" aria-hidden="true">/</kbd>
             </label>
-          </form>
+          </form> : signedOut ? (
+            <Link href="/login?returnTo=%2F" className="ml-auto hidden min-h-9 items-center bg-[var(--green)] px-5 text-xs font-bold text-white sm:inline-flex">
+              로그인
+            </Link>
+          ) : null}
 
         </div>
 
-        <nav className="hidden border-t border-[var(--line)] lg:block" aria-label="주요 게시판">
+        {portalNavigationAvailable ? <nav className="hidden border-t border-[var(--line)] lg:block" aria-label="주요 게시판">
           <div className="portal-container flex h-10 items-center gap-7 overflow-x-auto">
             {navigation.map((item) => {
               const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
@@ -179,17 +192,17 @@ export default function PortalShell({ children }: { children: ReactNode }) {
               );
             })}
           </div>
-        </nav>
+        </nav> : null}
 
         {mobileOpen && (
           <div className="mobile-menu border-t border-[var(--line-strong)] bg-white lg:hidden">
-            <form onSubmit={submitSearch} className="p-4 md:hidden">
+            {portalNavigationAvailable ? <form onSubmit={submitSearch} className="p-4 md:hidden">
               <label className="search-field">
                 <Search size={17} />
                 <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={bSideEnabled ? '게시글, 익명 해시 검색' : '인텍트 통합검색'} />
               </label>
-            </form>
-            <div className="grid grid-cols-2 border-t border-[var(--line)] sm:grid-cols-3">
+            </form> : null}
+            {portalNavigationAvailable ? <div className="grid grid-cols-2 border-t border-[var(--line)] sm:grid-cols-3">
               {navigation.map((item) => (
                 <Link key={item.href} href={item.href} className="mobile-nav-link">
                   <item.icon size={18} /> {item.label}
@@ -198,7 +211,14 @@ export default function PortalShell({ children }: { children: ReactNode }) {
               <Link href="/igk" className="mobile-nav-link"><Coins size={18} />IGK 지갑</Link>
               <Link href="/igk?tab=ranking" className="mobile-nav-link"><Trophy size={18} />IGK 랭킹</Link>
               <Link href="/igk/roadmap" className="mobile-nav-link"><Trophy size={18} />등급 로드맵</Link>
-            </div>
+            </div> : (
+              <div className="grid grid-cols-2 border-t border-[var(--line)]">
+                <Link href="/login?returnTo=%2F" className="mobile-nav-link"><User size={18} />로그인</Link>
+                <Link href="/register" className="mobile-nav-link"><Users size={18} />회원가입</Link>
+                <Link href="/rules" className="mobile-nav-link"><BookOpen size={18} />커뮤니티 규칙</Link>
+                <Link href="/privacy" className="mobile-nav-link"><FileText size={18} />개인정보 처리방침</Link>
+              </div>
+            )}
           </div>
         )}
       </header>
@@ -224,13 +244,13 @@ export default function PortalShell({ children }: { children: ReactNode }) {
             </div>
             <div className="footer-links">
               <strong>이용 안내</strong>
-              <Link href="/notices">공지사항</Link>
+              {portalNavigationAvailable ? <Link href="/notices">공지사항</Link> : null}
               <Link href="/rules">커뮤니티 규칙</Link>
               <Link href="/privacy">개인정보 처리방침</Link>
             </div>
             <div className="footer-links">
               <strong>도움</strong>
-              <Link href="/support">문의·신고</Link>
+              {portalNavigationAvailable ? <Link href="/support">문의·신고</Link> : null}
               <span>운영: 하태욱</span>
               <a href="tel:01085121201">010-8512-1201</a>
               <a href="mailto:tataboxprotein@gmail.com">tataboxprotein@gmail.com</a>
@@ -240,7 +260,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
         </footer>
       )}
 
-      {!isAdmin && (
+      {!isAdmin && portalNavigationAvailable && (
         <div className={`fixed inset-0 z-[70] lg:hidden ${boardPickerOpen ? '' : 'pointer-events-none'}`} aria-hidden={!boardPickerOpen}>
           <button type="button" aria-label="게시판 선택 닫기" onClick={() => setBoardPickerOpen(false)} className={`absolute inset-0 bg-slate-950/45 transition-opacity ${boardPickerOpen ? 'opacity-100' : 'opacity-0'}`} />
           <section className={`absolute inset-x-0 bottom-0 border-t border-slate-300 bg-white px-4 pb-[calc(82px+env(safe-area-inset-bottom))] pt-3 transition-transform duration-200 ${boardPickerOpen ? 'translate-y-0' : 'translate-y-full'}`} aria-label="게시판 선택">
@@ -253,7 +273,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {!isAdmin && (
+      {!isAdmin && portalNavigationAvailable && (
         <nav className="mobile-bottom-nav lg:hidden" aria-label="모바일 주요 메뉴">
           <Link href="/" className={pathname === '/' ? 'is-active' : ''}><Home size={19} /><span>홈</span></Link>
           <button type="button" onClick={() => setBoardPickerOpen(true)} className={pathname.startsWith('/boards') ? 'is-active' : ''} aria-expanded={boardPickerOpen}><BookOpen size={19} /><span>게시판</span></button>

@@ -81,7 +81,7 @@ test('notification creation persists nothing when every selected channel is disa
 
 test('encrypted Web Push subscriptions are decrypted only at delivery', async () => {
   const previousKey = process.env.PORTAL_ENCRYPTION_KEY;
-  process.env.PORTAL_ENCRYPTION_KEY = 'test-encryption-key-with-at-least-32-characters';
+  process.env.PORTAL_ENCRYPTION_KEY = 'test-encryption-key-with-at-least-32-characters'; // gitleaks:allow -- deterministic test fixture
   const updates: unknown[] = [];
   let delivered: unknown;
   const prisma = {

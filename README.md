@@ -41,7 +41,7 @@
 | 실시간 | Socket.IO, Redis |
 | 파일 | MinIO/S3 호환 private bucket |
 | 프록시/TLS | Caddy 2 |
-| 실행 | Docker Compose, Node.js 20, Yarn 1.22.22 |
+| 실행 | Docker Compose, Node.js 22, Yarn 1.22.22 |
 
 ```text
 .
@@ -69,8 +69,9 @@
 
 ### 필요한 도구
 
-- Node.js 20
+- Node.js 22
 - Corepack/Yarn 1.22.22
+- Python 3.11 또는 3.12 (리로스쿨 브리지 검증)
 - Docker Engine과 Docker Compose v2
 
 ### 전체 스택

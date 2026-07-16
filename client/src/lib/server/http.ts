@@ -163,7 +163,12 @@ export function requiredInteger(
   min: number,
   max: number,
 ) {
-  const number = typeof value === 'number' ? value : Number(value);
+  const number =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && /^-?\d+$/.test(value.trim())
+        ? Number(value)
+        : Number.NaN;
   if (!Number.isSafeInteger(number) || number < min || number > max) {
     throw new ApiError(
       400,

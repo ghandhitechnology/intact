@@ -16,7 +16,7 @@ export default function AuthFrame({
     <div className="flex min-h-dvh flex-col bg-[var(--surface-muted)] text-[var(--ink)]">
       <header className="border-b border-[var(--line)] bg-white">
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-5 sm:h-16 sm:px-8">
-          <Link href="/main" className="flex items-center gap-3 text-lg font-bold tracking-[-0.04em] text-[var(--ink)]">
+          <Link href="/" className="flex items-center gap-3 text-lg font-bold tracking-[-0.04em] text-[var(--ink)]">
             인텍트
             <span className="border-l border-[var(--line-strong)] pl-3 text-xs font-normal tracking-normal text-[var(--ink-soft)]">인천과학고 생활 포털</span>
           </Link>

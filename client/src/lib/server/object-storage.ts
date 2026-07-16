@@ -59,13 +59,21 @@ async function storageRequest(
   headers.authorization = `AWS4-HMAC-SHA256 Credential=${accessKey}/${scope}, SignedHeaders=${signedHeaderNames.join(';')}, Signature=${signature}`;
 
   const url = new URL(path, endpoint.origin);
-  return fetch(url, {
-    method,
-    headers,
-    body: options.body ? (options.body as BodyInit) : undefined,
-    cache: 'no-store',
-    signal: AbortSignal.timeout(30_000),
-  });
+  // Bound connection/response-header latency without aborting a successful
+  // response body while Next.js streams a large attachment to a slow client.
+  const controller = new AbortController();
+  const responseTimeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    return await fetch(url, {
+      method,
+      headers,
+      body: options.body ? (options.body as BodyInit) : undefined,
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(responseTimeout);
+  }
 }
 
 export async function putObject(key: string, body: Uint8Array, contentType: string) {

@@ -510,7 +510,7 @@ export default function SearchClient({
               <div className="grid gap-px bg-slate-100 sm:grid-cols-2">
                 {memberResults.map((member) => (
                   <article
-                    key={member.studentId}
+                    key={`${member.nickname}:${member.studentId}`}
                     className="flex items-center gap-3 bg-white p-4"
                   >
                     <Avatar member={member} size="lg" />
