@@ -31,6 +31,7 @@ import {
   type PostSummary,
 } from "./demo-data";
 import AttachmentGallery from "./AttachmentGallery";
+import { cosmeticsFromItems } from "@/lib/igk-shop";
 import { fetchWithTimeout, isAbortError, requestErrorMessage } from "@/lib/client/request";
 
 type Filter = "all" | "popular" | "solved" | "files";
@@ -61,6 +62,7 @@ function mapApiPost(item: any, board: BoardDefinition): PostSummary {
       initials: nickname.slice(0, 1),
       profileImage: item?.author?.profileImage || null,
       accent: "emerald",
+      cosmetics: cosmeticsFromItems(item?.author?.items),
     },
     createdAt: new Date(item.publishedAt || item.createdAt).toLocaleString(
       "ko-KR",

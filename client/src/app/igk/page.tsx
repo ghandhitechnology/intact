@@ -22,9 +22,11 @@ import {
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  CalendarCheck,
   Check,
   Coins,
   FileText,
+  Flame,
   Loader2,
   LogIn,
   MessageCircle,
@@ -33,6 +35,8 @@ import {
   Search,
   Send,
   ShieldCheck,
+  ShoppingBag,
+  Snowflake,
   Sparkles,
   ThumbsUp,
   Trophy,
@@ -68,6 +72,13 @@ type Wallet = {
     minimumLifetimeIgk: number;
     label: string | null;
   } | null;
+};
+type Attendance = {
+  streak: number;
+  bestStreak: number;
+  claimedToday: boolean;
+  todayReward: number;
+  freezeCount: number;
 };
 type LedgerEntry = {
   id: string;
@@ -177,10 +188,20 @@ const typeLabels: Record<string, string> = {
   COMMENT_CREATED: "댓글 작성",
   RECOMMENDATION_RECEIVED: "받은 추천 보상",
   ANSWER_ACCEPTED: "답변 채택 보상",
+  ATTENDANCE_REWARD: "출석 보상",
   TRANSFER_SENT: "IGK 선물",
   TRANSFER_RECEIVED: "IGK 선물 받음",
   REVERSAL: "보상 회수",
+  SHOP_PURCHASE: "상점 구매",
   ADMIN_ADJUSTMENT: "운영자 조정",
+};
+
+const demoAttendance: Attendance = {
+  streak: 4,
+  bestStreak: 12,
+  claimedToday: false,
+  todayReward: 8,
+  freezeCount: 1,
 };
 
 function formatDate(value: string) {
@@ -238,6 +259,10 @@ export default function IgkPage() {
   const [rankings, setRankings] = useState<Ranking[]>(
     DEMO_MODE ? demoRankings : [],
   );
+  const [attendance, setAttendance] = useState<Attendance | null>(
+    DEMO_MODE ? demoAttendance : null,
+  );
+  const [claiming, setClaiming] = useState(false);
   const [selfStudentCode, setSelfStudentCode] = useState(
     DEMO_MODE ? "331201" : "",
   );
@@ -282,6 +307,7 @@ export default function IgkPage() {
           ledgerResponse,
           rankingResponse,
           profileResponse,
+          attendanceResponse,
         ] = await Promise.all([
           fetch("/api/igk/balance", {
             cache: "no-store",
@@ -299,8 +325,18 @@ export default function IgkPage() {
             cache: "no-store",
             signal: controller.signal,
           }),
+          fetch("/api/igk/attendance", {
+            cache: "no-store",
+            signal: controller.signal,
+          }),
         ]);
-        const [balancePayload, ledgerPayload, rankingPayload, profilePayload] =
+        const [
+          balancePayload,
+          ledgerPayload,
+          rankingPayload,
+          profilePayload,
+          attendancePayload,
+        ] =
           await Promise.all([
             readApiEnvelope<Wallet>(balanceResponse),
             readApiEnvelope<{ entries: LedgerEntry[] }>(ledgerResponse),
@@ -310,6 +346,7 @@ export default function IgkPage() {
             readApiEnvelope<{
               profile: { studentIdentity: { studentCode: string } | null };
             }>(profileResponse),
+            readApiEnvelope<Attendance>(attendanceResponse),
           ]);
         if (!active) return;
         if (
@@ -338,6 +375,11 @@ export default function IgkPage() {
         });
         setTransactions(ledgerPayload.data.entries.map(toTransaction));
         setRankings(rankingPayload.data.leaders);
+        setAttendance(
+          attendanceResponse.ok && attendancePayload?.ok
+            ? attendancePayload.data
+            : null,
+        );
         if (profileResponse.ok && profilePayload?.ok)
           setSelfStudentCode(
             profilePayload.data.profile.studentIdentity?.studentCode ?? "",
@@ -391,6 +433,73 @@ export default function IgkPage() {
         ? crypto.randomUUID()
         : `igk-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setConfirmOpen(true);
+  }
+
+  async function claimAttendance() {
+    if (!attendance || attendance.claimedToday || claiming) return;
+    setClaiming(true);
+    try {
+      if (DEMO_MODE) {
+        const nextStreak = attendance.streak + 1;
+        setAttendance({
+          ...attendance,
+          streak: nextStreak,
+          bestStreak: Math.max(attendance.bestStreak, nextStreak),
+          claimedToday: true,
+        });
+        if (wallet) {
+          setWallet({ ...wallet, currentIgk: wallet.currentIgk + attendance.todayReward });
+        }
+        setToastTone("success");
+        setToast(`출석 완료! ${attendance.todayReward} IGK를 받았습니다.`);
+        return;
+      }
+      const response = await fetch("/api/igk/attendance", { method: "POST" });
+      const payload = await readApiEnvelope<{
+        streak: number;
+        bestStreak: number;
+        reward: number;
+        balance: number;
+        freezeUsed: boolean;
+        freezeCount: number;
+      }>(response);
+      if (response.status === 401) {
+        setLoadState("auth");
+        return;
+      }
+      if (!response.ok || !payload?.ok) {
+        throw new Error(apiErrorMessage(payload, "출석 체크에 실패했습니다."));
+      }
+      setAttendance({
+        streak: payload.data.streak,
+        bestStreak: payload.data.bestStreak,
+        claimedToday: true,
+        todayReward: payload.data.reward,
+        freezeCount: payload.data.freezeCount,
+      });
+      if (wallet) setWallet({ ...wallet, currentIgk: payload.data.balance });
+      setTransactions((current) => [
+        {
+          id: `attendance-${Date.now()}`,
+          type: "earn",
+          title: "출석 보상",
+          description: `${payload.data.streak}일 연속 출석${payload.data.freezeUsed ? " · 스트릭 프리즈 사용" : ""}`,
+          amount: payload.data.reward,
+          date: "방금",
+          balance: payload.data.balance,
+        },
+        ...current,
+      ]);
+      setToastTone("success");
+      setToast(
+        `${payload.data.streak}일 연속 출석! ${payload.data.reward} IGK를 받았습니다.${payload.data.freezeUsed ? " (스트릭 프리즈 1개 사용)" : ""}`,
+      );
+    } catch (cause) {
+      setToastTone("error");
+      setToast(cause instanceof Error ? cause.message : "출석 체크에 실패했습니다.");
+    } finally {
+      setClaiming(false);
+    }
   }
 
   async function confirmTransfer() {
@@ -597,6 +706,60 @@ export default function IgkPage() {
           </div>
         </div>
       </section>
+
+      {attendance ? (
+        <section className="mt-4 border border-emerald-200 bg-emerald-50/60 px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-xs font-bold text-emerald-800">
+                <CalendarCheck className="h-4 w-4" />
+                매일 출석 체크
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="inline-flex items-center gap-1.5 text-xl font-black text-slate-950">
+                  <Flame className="h-5 w-5 text-rose-500" />
+                  {attendance.streak}일 연속
+                </span>
+                <span className="text-xs font-bold text-slate-500">
+                  최고 {attendance.bestStreak}일
+                </span>
+                {attendance.freezeCount > 0 ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-sky-700">
+                    <Snowflake className="h-3.5 w-3.5" />
+                    프리즈 {attendance.freezeCount}개
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-1 text-xs text-slate-600">
+                {attendance.claimedToday
+                  ? "오늘 출석을 완료했습니다. 내일 다시 만나요!"
+                  : `지금 출석하면 ${attendance.todayReward} IGK를 받습니다. 연속 출석할수록 보상이 커져요.`}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                variant="green"
+                onClick={() => void claimAttendance()}
+                disabled={attendance.claimedToday || claiming}
+              >
+                <CalendarCheck className="h-4 w-4" />
+                {attendance.claimedToday
+                  ? "출석 완료"
+                  : claiming
+                    ? "출석 중…"
+                    : `출석하고 ${attendance.todayReward} IGK 받기`}
+              </Button>
+              <Link
+                href="/igk/shop"
+                className="inline-flex h-9 items-center gap-2 border border-slate-300 bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                <ShoppingBag className="h-4 w-4" />
+                IGK 상점
+              </Link>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
         <Card className="min-w-0 overflow-hidden ">

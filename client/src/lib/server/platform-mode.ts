@@ -85,6 +85,9 @@ function maskIdentityTree(value: unknown, viewerId: string, mode: PlatformMode):
     result.nickname = alias;
     if ('realName' in source) result.realName = alias;
     if ('profileImage' in source) result.profileImage = null;
+    // Shop cosmetics could help re-identify an anonymized user.
+    if ('items' in source) result.items = [];
+    if ('cosmetics' in source) result.cosmetics = null;
     if ('studentId' in source) result.studentId = '------';
     if ('studentCode' in source) result.studentCode = '------';
     if (source.studentIdentity && typeof source.studentIdentity === 'object') {

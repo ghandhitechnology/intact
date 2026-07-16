@@ -65,6 +65,20 @@ html.b-side {
   border-width: 2px !important;
 }
 
+.shop-ring-gold {
+  border-color: #d97706 !important;
+  border-width: 2px !important;
+  box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.35);
+}
+
+.shop-ring-gradient {
+  border-color: #8b5cf6 !important;
+  border-width: 2px !important;
+  box-shadow:
+    0 0 0 2px rgba(59, 130, 246, 0.45),
+    0 0 0 4px rgba(16, 185, 129, 0.25);
+}
+
 html {
   scroll-behavior: smooth;
   background: var(--surface-muted);

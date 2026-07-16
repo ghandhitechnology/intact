@@ -53,6 +53,9 @@ export const publicAuthorSelect = {
   role: true,
   level: true,
   studentIdentity: { select: { studentCode: true } },
+  // Equipped shop cosmetics; resolved into display values on the client via
+  // cosmeticsFromItems() and stripped by B-side masking.
+  items: { where: { equipped: true }, select: { itemId: true } },
 } as const;
 
 export const postListSelect = {

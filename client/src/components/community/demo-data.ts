@@ -1,5 +1,11 @@
 export type BoardSlug = 'question' | 'contest' | 'resources' | 'equipment' | 'free' | 'photos';
 
+export type MemberCosmetics = {
+  nicknameColor?: string;
+  avatarRing?: string;
+  title?: string;
+};
+
 export type Member = {
   nickname: string;
   studentId: string;
@@ -8,6 +14,7 @@ export type Member = {
   initials: string;
   profileImage?: string | null;
   accent: 'emerald' | 'blue' | 'slate' | 'violet' | 'amber';
+  cosmetics?: MemberCosmetics | null;
 };
 
 export type BoardDefinition = {

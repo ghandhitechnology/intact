@@ -24,6 +24,7 @@ import {
   type Member,
   type PostSummary,
 } from "./demo-data";
+import { cosmeticsFromItems } from "@/lib/igk-shop";
 import { fetchWithTimeout, isAbortError, requestErrorMessage } from "@/lib/client/request";
 
 type SearchTab = "posts" | "members" | "tags";
@@ -204,6 +205,7 @@ export default function SearchClient({
                 initials: nickname.slice(0, 1),
                 profileImage: item?.author?.profileImage || null,
                 accent: "emerald" as const,
+                cosmetics: cosmeticsFromItems(item?.author?.items),
               },
               createdAt: new Date(
                 item.publishedAt || item.createdAt,

@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import PostDetailClient from '@/components/community/PostDetailClient';
+import { cosmeticsFromItems } from '@/lib/igk-shop';
 import {
   adminMember,
   getNotice,
@@ -61,6 +62,7 @@ const resolveLivePost = cache(async function resolveLivePost(
           initials: nickname.slice(0, 1),
           profileImage: item?.author?.profileImage || null,
           accent: 'emerald',
+          cosmetics: cosmeticsFromItems(item?.author?.items),
         },
         createdAt: new Date(item.publishedAt || item.createdAt).toLocaleString('ko-KR'),
         comments: Number(item.commentCount || 0),
@@ -92,6 +94,7 @@ const resolveLivePost = cache(async function resolveLivePost(
               initials: commentNickname.slice(0, 1),
               profileImage: comment?.author?.profileImage || null,
               accent: 'blue' as const,
+              cosmetics: cosmeticsFromItems(comment?.author?.items),
             },
             createdAt: new Date(comment.createdAt).toLocaleString('ko-KR'),
             createdAtRaw: new Date(comment.createdAt).getTime(),

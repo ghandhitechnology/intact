@@ -98,9 +98,11 @@ enum IgkTransactionType {
   COMMENT_CREATED
   RECOMMENDATION_RECEIVED
   ANSWER_ACCEPTED
+  ATTENDANCE_REWARD
   TRANSFER_SENT
   TRANSFER_RECEIVED
   REVERSAL
+  SHOP_PURCHASE
   ADMIN_ADJUSTMENT
 }
 
@@ -150,6 +152,9 @@ model User {
   lifetimeIgk        Int        @default(0)
   igkDebt            Int        @default(0)
   level              Int        @default(1)
+  attendanceStreak     Int       @default(0)
+  bestAttendanceStreak Int       @default(0)
+  lastAttendanceDate   DateTime? @db.Date
   mustChangePassword Boolean    @default(false)
   lastLoginAt        DateTime?  @db.Timestamptz(6)
   lastReverifiedAt   DateTime?  @db.Timestamptz(6)
@@ -186,6 +191,7 @@ model User {
   studentInvitesCreated  StudentInvite[]  @relation("StudentInviteCreator")
   studentInvitesUsed     StudentInvite[]  @relation("StudentInviteUser")
   studentInvitesRevoked  StudentInvite[]  @relation("StudentInviteRevoker")
+  items                  UserItem[]
 
   @@index([status, createdAt])
   @@index([role, status])
@@ -583,6 +589,21 @@ model Message {
 
   @@index([roomId, createdAt])
   @@index([senderId, createdAt(sort: Desc)])
+}
+
+model UserItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  userId    String   @db.Uuid
+  itemId    String   @db.VarChar(60)
+  quantity  Int      @default(1)
+  equipped  Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, itemId])
+  @@index([userId])
 }
 
 model IgkLedger {

@@ -1,4 +1,5 @@
 import type { IgkTransactionType, Prisma } from '@prisma/client';
+import { ApiError } from '@/lib/server/http';
 
 type Tx = Prisma.TransactionClient;
 
@@ -9,11 +10,25 @@ export async function lockIgkAccounts(tx: Tx, userIds: string[]) {
   }
 }
 
-function startOfSeoulDay() {
+export function startOfSeoulDay() {
   const now = new Date();
   const seoul = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   seoul.setUTCHours(0, 0, 0, 0);
   return new Date(seoul.getTime() - 9 * 60 * 60 * 1000);
+}
+
+/**
+ * Seoul calendar date encoded as UTC midnight, matching how Prisma stores
+ * `@db.Date` values. Safe to compare against `User.lastAttendanceDate`.
+ */
+export function seoulCalendarDate(now = new Date()) {
+  const shifted = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()));
+}
+
+/** YYYY-MM-DD key for the current Seoul day (idempotency keys, source ids). */
+export function seoulDateKey(now = new Date()) {
+  return seoulCalendarDate(now).toISOString().slice(0, 10);
 }
 
 export async function levelForLifetime(tx: Tx, lifetimeIgk: number) {
@@ -43,7 +58,11 @@ export async function awardIgk(
     amount: number;
     type: Extract<
       IgkTransactionType,
-      'POST_CREATED' | 'COMMENT_CREATED' | 'RECOMMENDATION_RECEIVED' | 'ANSWER_ACCEPTED'
+      | 'POST_CREATED'
+      | 'COMMENT_CREATED'
+      | 'RECOMMENDATION_RECEIVED'
+      | 'ANSWER_ACCEPTED'
+      | 'ATTENDANCE_REWARD'
     >;
     idempotencyKey: string;
     sourceType: string;
@@ -102,6 +121,52 @@ export async function awardIgk(
       idempotencyKey: input.idempotencyKey,
       note: input.note,
       metadata: debtPayment ? { debtPayment } : undefined,
+    },
+  });
+}
+
+export async function spendIgk(
+  tx: Tx,
+  input: {
+    userId: string;
+    amount: number;
+    type: Extract<IgkTransactionType, 'SHOP_PURCHASE'>;
+    idempotencyKey: string;
+    sourceType: string;
+    sourceId: string;
+    note?: string;
+  },
+) {
+  await lockIgkAccounts(tx, [input.userId]);
+  const existing = await tx.igkLedger.findUnique({
+    where: { idempotencyKey: input.idempotencyKey },
+  });
+  if (existing) return existing;
+
+  // Spending only touches currentIgk; lifetimeIgk, level and igkDebt stay intact.
+  const debited = await tx.user.updateMany({
+    where: { id: input.userId, status: 'ACTIVE', currentIgk: { gte: input.amount } },
+    data: { currentIgk: { decrement: input.amount } },
+  });
+  if (debited.count !== 1) {
+    throw new ApiError(400, 'INSUFFICIENT_IGK', '보유 IGK가 부족합니다.');
+  }
+  const user = await tx.user.findUniqueOrThrow({
+    where: { id: input.userId },
+    select: { currentIgk: true, lifetimeIgk: true },
+  });
+
+  return tx.igkLedger.create({
+    data: {
+      userId: input.userId,
+      type: input.type,
+      amount: -input.amount,
+      balanceAfter: user.currentIgk,
+      lifetimeAfter: user.lifetimeIgk,
+      sourceType: input.sourceType,
+      sourceId: input.sourceId,
+      idempotencyKey: input.idempotencyKey,
+      note: input.note,
     },
   });
 }

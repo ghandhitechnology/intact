@@ -4,12 +4,14 @@ import Link from '@/components/portal/IntentLink';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { igkLevelLabel } from '@/lib/igk-levels';
+import { cosmeticsFromItems } from '@/lib/igk-shop';
 import { fetchWithTimeout } from '@/lib/client/request';
 import { clearClientDataCache, getCachedResource, setCachedResource } from '@/components/portal/ClientDataProvider';
 import { usePortalSession } from '@/components/portal/SessionProvider';
 import {
   ArrowRight,
   Bell,
+  CalendarCheck,
   ChevronRight,
   Clock3,
   Coins,
@@ -178,6 +180,49 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
         {loggingOut ? '로그아웃 중…' : '로그아웃'}
       </button>
     </section>
+  );
+}
+
+function AttendanceBanner({ demoMode }: { demoMode: boolean }) {
+  const { session } = usePortalSession();
+  const [state, setState] = useState<{ streak: number; todayReward: number } | null>(null);
+
+  useEffect(() => {
+    if (demoMode || !session?.authenticated) {
+      setState(null);
+      return undefined;
+    }
+    const controller = new AbortController();
+    fetchWithTimeout('/api/igk/attendance', { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const payload = await response.json().catch(() => null);
+        if (!payload?.ok || payload.data?.claimedToday) return;
+        setState({
+          streak: Number(payload.data?.streak || 0),
+          todayReward: Number(payload.data?.todayReward || 0),
+        });
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [demoMode, session]);
+
+  if (!state) return null;
+  return (
+    <Link
+      href="/igk"
+      className="flex items-center gap-2.5 border border-emerald-200 bg-emerald-50 px-3 py-2.5 hover:bg-emerald-100"
+      aria-label="오늘의 출석 체크 하러 가기"
+    >
+      <CalendarCheck className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <strong className="block truncate text-xs font-black text-emerald-900">아직 오늘 출석 전이에요</strong>
+        <span className="mt-0.5 block truncate text-[10px] font-bold text-emerald-700">
+          지금 출석하면 {state.todayReward} IGK{state.streak > 0 ? ` · ${state.streak + 1}일 연속 도전` : ''}
+        </span>
+      </span>
+      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />
+    </Link>
   );
 }
 
@@ -533,6 +578,7 @@ function mapHomePost(item: any, slug: PostSummary['board']): PostSummary {
       initials: nickname.slice(0, 1),
       profileImage: item?.author?.profileImage || null,
       accent: 'emerald',
+      cosmetics: cosmeticsFromItems(item?.author?.items),
     },
     createdAt: new Date(item.publishedAt || item.createdAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
     sortAt: new Date(item.publishedAt || item.createdAt).getTime(),
@@ -675,6 +721,7 @@ export default function HomePage() {
           </div>
           <aside className="grid min-w-0 gap-3 md:grid-cols-3 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-[100px] xl:block xl:space-y-3">
             <HomeAccountPanel demoMode={demoMode} accountStatus={homePayload?.account} />
+            <AttendanceBanner demoMode={demoMode} />
             <NoticeRail items={noticeItems} />
             <HotTopics items={homePosts} />
             <RankingPanel items={rankingItems} />

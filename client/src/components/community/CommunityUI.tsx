@@ -85,6 +85,7 @@ export function Avatar({
         sizes[size],
         avatarStyles[member.accent],
         member.level >= 10 && "top-level-avatar",
+        member.cosmetics?.avatarRing,
       )}
       style={
         member.profileImage
@@ -119,10 +120,17 @@ export function MemberLine({
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-slate-500">
       {!compact && <Avatar member={member} size="sm" />}
-      <span className={cx(
-        "truncate font-semibold text-slate-700",
-        member.nickname.startsWith('#') && "font-mono tracking-wide",
-      )}>
+      <span
+        className={cx(
+          "truncate font-semibold text-slate-700",
+          member.nickname.startsWith('#') && "font-mono tracking-wide",
+        )}
+        style={
+          member.cosmetics?.nicknameColor
+            ? { color: member.cosmetics.nicknameColor }
+            : undefined
+        }
+      >
         {member.nickname}
       </span>
       {member.studentId !== '------' ? (
@@ -137,6 +145,11 @@ export function MemberLine({
       ) : (
         <LevelBadge level={member.level} jojolRank={member.jojolRank} />
       )}
+      {member.cosmetics?.title ? (
+        <span className="inline-flex h-5 shrink-0 items-center border border-amber-200 bg-amber-50 px-1.5 text-[10px] font-extrabold tracking-tight text-amber-700">
+          {member.cosmetics.title}
+        </span>
+      ) : null}
     </span>
   );
 }

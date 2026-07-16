@@ -100,6 +100,8 @@ IGK는 `IgkLedger`가 원장이며 잔액, 선물, 활동 보상과 등급이 �
 
 등급은 내부 level 1–10을 사용자 화면에서 `9등급`, `8등급` … `1등급`, `조진`으로 표시합니다. 조진 중 보유 IGK 상위 8명은 `조졸 · N짱`으로 표시합니다. 기준값은 `client/src/lib/igk-levels.ts`와 `LevelRule`에 맞춰 관리하고 `/igk/roadmap`에서 전체 기준을 공개합니다.
 
+출석 체크는 서울 기준 하루 1회이며 `ATTENDANCE_REWARD` 원장으로 기록되고 연속 일수에 따라 보상이 커집니다. 보상은 `awardIgk`를 거치므로 누적 IGK와 등급에 반영됩니다. IGK 상점(`/igk/shop`)은 닉네임 색상, 아바타 테두리, 칭호, 스트릭 프리즈를 판매하며 구매(`SHOP_PURCHASE`)는 보유 IGK만 차감하고 누적 IGK와 등급은 바꾸지 않습니다. 카탈로그는 `client/src/lib/igk-shop.ts` 상수이고 보유·장착 상태만 `UserItem`에 저장합니다. B-side에서는 익명성 보호를 위해 꾸미기 효과를 마스킹합니다.
+
 관리자는 신고·제재·공지·사용자·초대·지원 요청을 처리합니다. 중요한 변경은 `AdminAuditLog`에 사유와 변경 내용을 기록합니다.
 
 관리자의 IGK 지급·회수는 `User.currentIgk`를 직접 덮어쓰지 않고 계정 lock 안에서 증감합니다. 같은 transaction에서 `ADMIN_ADJUSTMENT` 원장, 사용자 알림, `USER_ADJUST_IGK` 감사 로그를 생성합니다. 활동으로 쌓인 `lifetimeIgk`와 레벨은 관리자의 단순 잔액 조정으로 바뀌지 않습니다.

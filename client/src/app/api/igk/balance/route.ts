@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { JOJOL_RANK_LIMIT } from '@/lib/igk-levels';
+import { seoulCalendarDate } from '@/lib/server/igk';
 import { json, jsonError } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 
@@ -12,7 +13,15 @@ export async function GET(request: Request) {
     const [user, rules, higherRanked, jojolLeaders] = await prisma.$transaction([
       prisma.user.findUniqueOrThrow({
         where: { id: session.user.id },
-        select: { currentIgk: true, lifetimeIgk: true, igkDebt: true, level: true },
+        select: {
+          currentIgk: true,
+          lifetimeIgk: true,
+          igkDebt: true,
+          level: true,
+          attendanceStreak: true,
+          bestAttendanceStreak: true,
+          lastAttendanceDate: true,
+        },
       }),
       prisma.levelRule.findMany({ orderBy: { level: 'asc' } }),
       prisma.user.count({
@@ -37,8 +46,11 @@ export async function GET(request: Request) {
     const progressRange = nextLevel && currentLevel
       ? nextLevel.minimumLifetimeIgk - currentLevel.minimumLifetimeIgk
       : 0;
+    const { lastAttendanceDate, ...walletUser } = user;
     return json({
-      ...user,
+      ...walletUser,
+      attendanceClaimedToday:
+        lastAttendanceDate?.getTime() === seoulCalendarDate().getTime(),
       level: currentLevel?.level ?? 1,
       jojolRank: jojolRank >= 0 ? jojolRank + 1 : null,
       rank: higherRanked + 1,

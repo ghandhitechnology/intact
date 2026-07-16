@@ -48,6 +48,7 @@ import {
 } from "./demo-data";
 import SafeMarkdown from "./SafeMarkdown";
 import AttachmentGallery from "./AttachmentGallery";
+import { cosmeticsFromItems } from "@/lib/igk-shop";
 
 type CommentItem = {
   id: string;
@@ -514,6 +515,7 @@ export default function PostDetailClient({
                   initials: nickname.slice(0, 1),
                   profileImage: item?.author?.profileImage || null,
                   accent: "emerald" as const,
+                  cosmetics: cosmeticsFromItems(item?.author?.items),
                 },
                 createdAt: new Date(
                   item.publishedAt || item.createdAt,
