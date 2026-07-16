@@ -74,7 +74,7 @@ type IgkSummary = {
   currentIgk: number;
   lifetimeIgk: number;
   level: number;
-  jojinRank?: number | null;
+  jojolRank?: number | null;
   rank: number;
   progress: number;
   nextLevel: { level: number; minimumLifetimeIgk: number; label: string | null } | null;
@@ -470,7 +470,7 @@ export default function ProfilePage() {
 
         <section className="min-w-0 space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="현재 등급" value={igkLevelLabel(level, igk?.jojinRank)} detail="활동·받은 선물 누적" icon={<Trophy className="h-4 w-4" />} tone="amber" />
+            <Stat label="현재 등급" value={igkLevelLabel(level, igk?.jojolRank)} detail="활동·받은 선물 누적" icon={<Trophy className="h-4 w-4" />} tone="amber" />
             <Stat label="보유 IGK" value={currentIgk.toLocaleString()} detail={`누적 ${lifetimeIgk.toLocaleString()}`} icon={<Gift className="h-4 w-4" />} tone="green" />
             <Stat label="작성한 글" value={profile._count.posts.toLocaleString()} detail="전체 게시판" icon={<Award className="h-4 w-4" />} />
             <Stat label="교내 랭킹" value={igk ? `#${igk.rank}` : '—'} detail={igk ? '보유 IGK 기준' : '랭킹 정보 없음'} icon={<Users className="h-4 w-4" />} tone="slate" />
@@ -479,7 +479,7 @@ export default function ProfilePage() {
         </section>
 
         <aside className="space-y-4 lg:col-span-2 xl:col-span-1">
-          <Card className=""><CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-blue-700">전체 로드맵</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level, igk?.jojinRank)}</span><p className="mt-1 text-lg font-black text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : igkLevelLabel(level, igk?.jojinRank)}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{lifetimeIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div><p className="mt-3 text-xs leading-5 text-slate-500">{nextThreshold ? <>다음 등급까지 <strong className="text-slate-800">{Math.max(0, nextThreshold - lifetimeIgk).toLocaleString()} IGK</strong>가 필요합니다.</> : '조졸 중 보유 IGK 상위 8명은 조진 · N짱 호칭을 받습니다.'}</p><Link href="/igk/roadmap" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-extrabold text-slate-700 hover:bg-slate-50">9등급부터 조졸까지 보기</Link></div></Card>
+          <Card className=""><CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-blue-700">전체 로드맵</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level, igk?.jojolRank)}</span><p className="mt-1 text-lg font-black text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : igkLevelLabel(level, igk?.jojolRank)}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{lifetimeIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div><p className="mt-3 text-xs leading-5 text-slate-500">{nextThreshold ? <>다음 등급까지 <strong className="text-slate-800">{Math.max(0, nextThreshold - lifetimeIgk).toLocaleString()} IGK</strong>가 필요합니다.</> : '조진 중 보유 IGK 상위 8명은 조졸 · N짱 호칭을 받습니다.'}</p><Link href="/igk/roadmap" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-extrabold text-slate-700 hover:bg-slate-50">9등급부터 조진까지 보기</Link></div></Card>
           <Card className=""><CardHeader title="재학생 인증" /><div className="p-5"><p className="flex items-center gap-2 text-sm font-extrabold text-slate-900"><ShieldCheck className="h-4 w-4 text-emerald-700" />{profile.status === 'ACTIVE' ? '정상 이용 가능' : profile.status}</p><p className="mt-2 text-xs leading-5 text-slate-500">{profile.reverifyDueAt ? `${formatDate(profile.reverifyDueAt)}까지 재인증이 유효합니다.` : '재인증 만료일이 등록되지 않았습니다.'}</p></div></Card>
         </aside>
       </div>

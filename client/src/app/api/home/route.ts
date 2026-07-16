@@ -35,7 +35,7 @@ export async function GET(request: Request) {
       leaders: ranking.leaders || [],
       account: {
         currentIgk: Number(balance.currentIgk ?? session.user.currentIgk ?? 0),
-        jojinRank: Number.isInteger(balance.jojinRank) ? Number(balance.jojinRank) : null,
+        jojolRank: Number.isInteger(balance.jojolRank) ? Number(balance.jojolRank) : null,
         unreadCount: Number(notifications.unreadCount || 0),
       },
     };
