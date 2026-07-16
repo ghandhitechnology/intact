@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { JOJOL_RANK_LIMIT } from '@/lib/igk-levels';
 import { json, jsonError } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
       prisma.user.findMany({
         where: { status: 'ACTIVE', level: 10, studentIdentity: { isNot: null } },
         orderBy: [{ currentIgk: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
-        take: 10,
+        take: JOJOL_RANK_LIMIT,
         select: { id: true },
       }),
     ]);

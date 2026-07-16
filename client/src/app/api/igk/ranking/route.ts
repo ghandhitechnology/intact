@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { JOJOL_RANK_LIMIT } from '@/lib/igk-levels';
 import { json, jsonError } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 import { maskPublicIdentities } from '@/lib/server/platform-mode';
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
       prisma.user.findMany({
         where: { ...eligible, level: 10 },
         orderBy: [{ currentIgk: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
-        take: 10,
+        take: JOJOL_RANK_LIMIT,
         select: {
           id: true,
           nickname: true, realName: true,

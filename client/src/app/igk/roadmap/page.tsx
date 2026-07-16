@@ -44,7 +44,7 @@ export default function IgkRoadmapPage() {
     <div className="mx-auto w-full max-w-[1200px] px-4 py-4 sm:px-6 lg:px-8">
       <PageHeading
         title="등급 로드맵"
-        description="누적 IGK로 선생님까지 올라가고, 이후 보유 IGK 상위 10명은 짱 호칭을 받습니다."
+        description="누적 IGK로 조진까지 올라가고, 조진 중 보유 IGK 상위 8명은 조졸 · N짱 호칭을 받습니다."
         actions={
           <Link href="/igk" className="inline-flex h-9 items-center gap-2 border border-slate-300 bg-white px-4 text-xs font-extrabold text-slate-700 hover:bg-slate-50">
             <ArrowLeft className="h-4 w-4" /> IGK 지갑
@@ -82,7 +82,7 @@ export default function IgkRoadmapPage() {
             </div>
             <div className="bg-white p-4">
               <p className="text-xs font-bold text-slate-500">다음 목표</p>
-              <p className="mt-2 text-xl font-black text-slate-950">{nextRule?.label ?? (wallet.teacherRank ? `${wallet.teacherRank}짱` : '선생님 랭킹')}</p>
+              <p className="mt-2 text-xl font-black text-slate-950">{nextRule?.label ?? (wallet.teacherRank ? `조졸 · ${wallet.teacherRank}짱` : '조진 랭킹')}</p>
               <p className="mt-1 text-xs text-slate-500">
                 {nextRule ? `${Math.max(0, nextRule.minimumLifetimeIgk - wallet.lifetimeIgk).toLocaleString()} IGK 남음` : '최종 등급 도달'}
               </p>
@@ -92,16 +92,16 @@ export default function IgkRoadmapPage() {
           <Card className="mt-5 p-5 ">
             <div className="flex items-center justify-between gap-4 text-xs font-bold text-slate-600">
               <span>{igkLevelLabel(wallet.level, wallet.teacherRank)}</span>
-              <span>{nextRule?.label ?? '선생님'}</span>
+              <span>{nextRule?.label ?? '조진'}</span>
             </div>
             <div className="mt-3"><Progress value={segmentProgress} /></div>
           </Card>
 
           {wallet.level >= 10 ? (
             <section className="mt-4 bg-blue-50 p-4">
-              <p className="text-xs font-extrabold text-blue-800">선생님 랭킹</p>
+              <p className="text-xs font-extrabold text-blue-800">조진 · 조졸 랭킹</p>
               <p className="mt-1 text-sm font-black text-slate-950">{igkLevelLabel(wallet.level, wallet.teacherRank)}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">보유 IGK가 많은 선생님부터 1짱–10짱을 표시하며, 11위부터는 선생님으로 표시합니다.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">보유 IGK가 많은 조진부터 조졸 · 1짱–8짱을 표시하며, 9위부터는 조진으로 표시합니다.</p>
             </section>
           ) : null}
 
@@ -109,7 +109,7 @@ export default function IgkRoadmapPage() {
             {IGK_LEVELS.map((rule, index) => {
               const complete = wallet.level >= rule.level;
               const current = wallet.level === rule.level;
-              const teacher = rule.label === '선생님';
+              const teacher = rule.label === '조진';
               return (
                 <article
                   key={rule.level}

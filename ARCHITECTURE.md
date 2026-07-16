@@ -98,7 +98,7 @@ Realtime을 재시작해도 저장된 메시지는 PostgreSQL에서 복원됩니
 
 IGK는 `IgkLedger`가 원장이며 잔액, 선물, 활동 보상과 등급이 여기서 파생됩니다. 랭킹은 `User.currentIgk`, 등급은 활동 보상과 받은 선물을 합산한 `User.lifetimeIgk` 기준입니다. 선물을 보낸 사람의 누적 등급은 낮아지지 않고, 받은 사람은 수령액 전부가 등급 누적에 반영됩니다. 잔액 변경은 transaction과 lock을 사용해야 하며 UI 값만 수정해서는 안 됩니다.
 
-등급은 내부 level 1–10을 사용자 화면에서 `9등급`, `8등급` … `1등급`, `선생님`으로 표시합니다. 기준값은 `client/src/lib/igk-levels.ts`와 `LevelRule`에 맞춰 관리하고 `/igk/roadmap`에서 전체 기준을 공개합니다.
+등급은 내부 level 1–10을 사용자 화면에서 `9등급`, `8등급` … `1등급`, `조진`으로 표시합니다. 조진 중 보유 IGK 상위 8명은 `조졸 · N짱`으로 표시합니다. 기준값은 `client/src/lib/igk-levels.ts`와 `LevelRule`에 맞춰 관리하고 `/igk/roadmap`에서 전체 기준을 공개합니다.
 
 관리자는 신고·제재·공지·사용자·초대·지원 요청을 처리합니다. 중요한 변경은 `AdminAuditLog`에 사유와 변경 내용을 기록합니다.
 

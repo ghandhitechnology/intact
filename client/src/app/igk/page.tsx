@@ -592,7 +592,7 @@ export default function IgkPage() {
             <p className="mt-2 text-[11px] text-slate-500">
               {nextThreshold
                 ? `다음 등급까지 ${Math.max(0, nextThreshold - wallet.lifetimeIgk).toLocaleString()} IGK`
-                : "최고 등급 선생님"}
+                : "최고 등급 조진"}
             </p>
           </div>
         </div>

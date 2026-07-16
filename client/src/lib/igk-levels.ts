@@ -1,3 +1,5 @@
+export const JOJOL_RANK_LIMIT = 8;
+
 export const IGK_LEVELS = [
   { level: 1, minimumLifetimeIgk: 0, label: '9등급' },
   { level: 2, minimumLifetimeIgk: 100, label: '8등급' },
@@ -8,7 +10,7 @@ export const IGK_LEVELS = [
   { level: 7, minimumLifetimeIgk: 3_500, label: '3등급' },
   { level: 8, minimumLifetimeIgk: 5_750, label: '2등급' },
   { level: 9, minimumLifetimeIgk: 9_125, label: '1등급' },
-  { level: 10, minimumLifetimeIgk: 14_190, label: '선생님' },
+  { level: 10, minimumLifetimeIgk: 14_190, label: '조진' },
 ] as const;
 
 export type IgkLevelRule = (typeof IGK_LEVELS)[number];
@@ -17,9 +19,10 @@ export function igkLevelLabel(level: number, teacherRank?: number | null) {
   const normalized = Math.max(1, Math.min(IGK_LEVELS.length, Math.trunc(level) || 1));
   const label = IGK_LEVELS[normalized - 1]?.label ?? IGK_LEVELS[0].label;
   const rank = Math.trunc(Number(teacherRank));
-  return normalized === IGK_LEVELS.length && rank >= 1 && rank <= 10
-    ? `${label} · ${rank}짱`
-    : label;
+  if (normalized === IGK_LEVELS.length && rank >= 1 && rank <= JOJOL_RANK_LIMIT) {
+    return `조졸 · ${rank}짱`;
+  }
+  return label;
 }
 
 export function igkLevelForLifetime(lifetimeIgk: number) {
