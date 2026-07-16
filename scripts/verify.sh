@@ -34,6 +34,7 @@ step "Prisma schema validation" env \
   yarn --cwd "$CLIENT_DIR" prisma:validate
 step "Migration layout and deploy check" bash "$ROOT_DIR/scripts/check-migrations.sh"
 step "Client lint" yarn --cwd "$CLIENT_DIR" lint
+step "Next.js type generation" yarn --cwd "$CLIENT_DIR" next typegen
 step "Client typecheck" yarn --cwd "$CLIENT_DIR" typecheck
 step "Client tests" yarn --cwd "$CLIENT_DIR" test
 step "Next production build" yarn --cwd "$CLIENT_DIR" build
