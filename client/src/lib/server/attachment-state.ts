@@ -71,6 +71,25 @@ export function isBindEligibleAttachment(attachment: {
     && attachment.finalizedAt != null;
 }
 
+export function isLegacyReadableAttachment(attachment: {
+  scanStatus: string;
+  storageKey: string;
+  finalizedAt?: Date | null;
+}) {
+  return attachment.scanStatus === ATTACHMENT_STATUS.CLEAN
+    && attachment.finalizedAt == null
+    && !attachment.storageKey.startsWith('clean/')
+    && !attachment.storageKey.startsWith('quarantine/');
+}
+
+export function isReadableAttachment(attachment: {
+  scanStatus: string;
+  storageKey: string;
+  finalizedAt?: Date | null;
+}) {
+  return isBindEligibleAttachment(attachment) || isLegacyReadableAttachment(attachment);
+}
+
 export function assertDeleteEligibleAttachment(attachment: {
   postId: string | null;
   messageId: string | null;

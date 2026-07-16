@@ -53,7 +53,7 @@ test('post deletion is idempotent under races and scopes every IGK reversal to i
   assert.match(route, /idempotencyKey:\s*`recommendation:post-delete:\$\{recommendation\.id\}`/);
 });
 
-test('attachment creation quarantines pending files and consumers require finalized clean state', () => {
+test('attachment creation quarantines pending files and consumers enforce readable clean state', () => {
   const upload = compact(source('src/app/api/uploads/route.ts'));
   const messages = compact(source('src/app/api/messages/route.ts'));
   const posts = compact(source('src/app/api/posts/route.ts'));
@@ -68,8 +68,8 @@ test('attachment creation quarantines pending files and consumers require finali
       && /storageKey:\s*\{\s*startsWith:\s*'clean\/'\s*\}/.test(route);
     assert.equal(helperAdopted || directPredicate, true, `${name} must bind only finalized clean files`);
   }
-  assert.match(attachment, /scanStatus !== ATTACHMENT_STATUS\.CLEAN/);
-  assert.match(attachment, /storageKey\.startsWith\('clean\/'\)/);
+  assert.match(attachment, /isReadableAttachment\(attachment\)/);
+  assert.match(attachment, /serveDerivative = thumbnail && !legacyAttachment/);
 });
 
 test('attachment deletion cannot remove a file already bound to content', () => {

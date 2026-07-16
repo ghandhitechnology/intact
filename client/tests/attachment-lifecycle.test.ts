@@ -8,6 +8,8 @@ import {
   assertDeleteEligibleAttachment,
   canTransitionAttachment,
   isBindEligibleAttachment,
+  isLegacyReadableAttachment,
+  isReadableAttachment,
   scanWithClamAv,
   validateAttachmentBytes,
 } from '../src/lib/server/attachment-state';
@@ -120,4 +122,28 @@ test('bind/delete race predicates never allow a deleting or bound file to cross'
     (error: unknown) => typeof error === 'object' && error !== null
       && 'status' in error && error.status === 409,
   );
+});
+
+test('legacy CLEAN attachments remain readable without weakening new upload finalization', () => {
+  const legacy = {
+    scanStatus: ATTACHMENT_STATUS.CLEAN,
+    storageKey: '2026/07/15/user/file',
+    finalizedAt: null,
+  };
+  assert.equal(isLegacyReadableAttachment(legacy), true);
+  assert.equal(isReadableAttachment(legacy), true);
+  assert.equal(isBindEligibleAttachment(legacy), false);
+
+  assert.equal(isReadableAttachment({ ...legacy, scanStatus: ATTACHMENT_STATUS.PENDING }), false);
+  assert.equal(isReadableAttachment({ ...legacy, storageKey: 'quarantine/2026/07/17/user/file' }), false);
+  assert.equal(isReadableAttachment({ ...legacy, finalizedAt: new Date() }), false);
+
+  const finalized = {
+    scanStatus: ATTACHMENT_STATUS.CLEAN,
+    storageKey: 'clean/2026/07/17/user/file',
+    finalizedAt: new Date(),
+  };
+  assert.equal(isLegacyReadableAttachment(finalized), false);
+  assert.equal(isReadableAttachment(finalized), true);
+  assert.equal(isBindEligibleAttachment(finalized), true);
 });

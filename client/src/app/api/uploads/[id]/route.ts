@@ -1,5 +1,11 @@
 import prisma from '@/lib/prisma';
-import { attachmentObjectKeys, assertDeleteEligibleAttachment, ATTACHMENT_STATUS } from '@/lib/server/attachment-state';
+import {
+  attachmentObjectKeys,
+  assertDeleteEligibleAttachment,
+  ATTACHMENT_STATUS,
+  isLegacyReadableAttachment,
+  isReadableAttachment,
+} from '@/lib/server/attachment-state';
 import { deleteObjects, getObject } from '@/lib/server/object-storage';
 import { ApiError, assertSameOrigin, json, jsonError } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
@@ -43,14 +49,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         },
       },
     });
-    if (
-      !attachment
-      || attachment.scanStatus !== ATTACHMENT_STATUS.CLEAN
-      || attachment.finalizedAt == null
-      || !attachment.storageKey.startsWith('clean/')
-    ) {
+    if (!attachment || !isReadableAttachment(attachment)) {
       throw new ApiError(404, 'FILE_NOT_FOUND', '파일을 찾을 수 없어요.');
     }
+    const legacyAttachment = isLegacyReadableAttachment(attachment);
     const canReadPost = Boolean(
       attachment.post
         && (attachment.post.status === 'PUBLISHED' || attachment.post.authorId === session.user.id),
@@ -70,20 +72,21 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     if (thumbnail && !attachment.mimeType.startsWith('image/')) {
       throw new ApiError(400, 'NOT_AN_IMAGE', '이미지 파일만 썸네일을 사용할 수 있습니다.');
     }
+    const serveDerivative = thumbnail && !legacyAttachment;
     const etag = `"${attachment.sha256}${thumbnail ? `-thumb-${requestedWidth}` : ''}"`;
     if (request.headers.get('if-none-match') === etag) {
       return new Response(null, { status: 304, headers: { ETag: etag } });
     }
 
     const object = await getObject(
-      thumbnail ? `${attachment.storageKey}.thumb-${requestedWidth}.webp` : attachment.storageKey,
+      serveDerivative ? `${attachment.storageKey}.thumb-${requestedWidth}.webp` : attachment.storageKey,
     );
     const asciiName = attachment.originalName.replace(/[^A-Za-z0-9._-]/g, '_') || 'download';
     const inline = url.searchParams.get('download') !== '1' && INLINE_MIME_TYPES.has(attachment.mimeType);
     return new Response(object.body, {
       headers: {
-        'Content-Type': thumbnail ? 'image/webp' : attachment.mimeType || 'application/octet-stream',
-        ...(!thumbnail ? { 'Content-Length': String(attachment.sizeBytes) } : {}),
+        'Content-Type': serveDerivative ? 'image/webp' : attachment.mimeType || 'application/octet-stream',
+        ...(!serveDerivative ? { 'Content-Length': String(attachment.sizeBytes) } : {}),
         'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(attachment.originalName)}`,
         'Cache-Control': thumbnail ? 'private, max-age=86400, must-revalidate' : 'private, max-age=300, must-revalidate',
         'Cross-Origin-Resource-Policy': 'same-origin',
