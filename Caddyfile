@@ -17,3 +17,27 @@ ishsoutside.com {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	}
 }
+
+# This Caddy container also fronts the Raufriend app on the Tailscale Mac mini.
+# Keep this block when deploying Intact so the shared proxy does not drop that site.
+www.raufriend.online {
+	redir https://raufriend.online{uri} permanent
+}
+
+raufriend.online {
+	encode zstd gzip
+
+	reverse_proxy https://pyus-mac-mini.tailde5380.ts.net {
+		header_up Host pyus-mac-mini.tailde5380.ts.net
+		header_up X-Forwarded-Proto https
+		transport http {
+			tls_server_name pyus-mac-mini.tailde5380.ts.net
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+	}
+}

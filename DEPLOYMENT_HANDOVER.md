@@ -87,6 +87,8 @@ igwak-portal_redis_data
 
 Caddy는 `/socket.io/*`만 `realtime:3001`로 보내고 나머지는 `web:3000`으로 보냅니다. Web, realtime, MinIO 콘솔 포트는 localhost에만 바인딩되며 인터넷에 직접 노출하면 안 됩니다.
 
+같은 Caddy 컨테이너가 `raufriend.online`도 Tailscale Mac mini로 프록시합니다. Caddy를 재생성할 때 해당 블록을 제거하지 말고, 배포 전후 두 도메인의 HTTP 200을 함께 확인합니다.
+
 ## 3. 필요한 도구
 
 로컬 개발:
