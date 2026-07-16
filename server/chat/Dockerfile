@@ -1,18 +1,18 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 RUN corepack enable
 COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile
-COPY index.ts tsconfig.json ./
+COPY *.ts tsconfig.json ./
 RUN yarn build
 
-FROM node:20-alpine AS production-dependencies
+FROM node:22-alpine AS production-dependencies
 WORKDIR /app
 RUN corepack enable
 COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile --production=true
 
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 realtime
