@@ -111,7 +111,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-[var(--surface-muted)] text-[var(--ink)]">
       <header className={`${isAdmin ? 'hidden' : 'sticky'} top-0 z-50 border-b border-[var(--line-strong)] bg-white`}>
         <div className="utility-bar hidden border-b border-[var(--line)] lg:block">
-          <div className="portal-container flex h-7 items-center justify-between text-[10px] text-[var(--ink-soft)]">
+          <div className="portal-container flex h-7 items-center justify-between text-xs text-[var(--ink-soft)]">
             <span />
             <div className="flex items-center gap-5">
               <Link href="/notifications" className="hover:text-[var(--blue)]">알림 설정</Link>
@@ -132,15 +132,16 @@ export default function PortalShell({ children }: { children: ReactNode }) {
             {mobileOpen ? <X size={21} /> : <Menu size={21} />}
           </button>
 
-          <Link href="/" className="group flex shrink-0 items-center" aria-label="인텍트 홈">
-            <span>
-              <span className="block text-[19px] font-black leading-none tracking-[-0.06em] text-[var(--ink)] lg:text-[20px]">
-                인텍트
-              </span>
+          <Link href="/" className="group flex shrink-0 items-center gap-3" aria-label="인텍트 홈">
+            <span className="block text-[20px] font-bold leading-none tracking-[-0.045em] text-[var(--ink)] lg:text-[22px]">
+              인텍트
+            </span>
+            <span className="hidden border-l border-[var(--line-strong)] pl-3 text-xs leading-4 text-[var(--ink-soft)] sm:block">
+              인천과학고<br />생활 포털
             </span>
           </Link>
           {bSideEnabled ? (
-            <span className="b-side-mark shrink-0 px-2 py-1 text-[9px] font-black tracking-[0.18em]">
+            <span className="b-side-mark shrink-0 px-2 py-1 text-xs font-bold tracking-[0.18em]">
               B-SIDE
             </span>
           ) : null}
@@ -162,6 +163,23 @@ export default function PortalShell({ children }: { children: ReactNode }) {
           </form>
 
         </div>
+
+        <nav className="hidden border-t border-[var(--line)] lg:block" aria-label="주요 게시판">
+          <div className="portal-container flex h-10 items-center gap-7 overflow-x-auto">
+            {navigation.map((item) => {
+              const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`relative flex h-full shrink-0 items-center text-[13px] font-medium transition-colors ${active ? 'text-[var(--green-deep)] after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-[var(--green)]' : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'}`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
 
         {mobileOpen && (
           <div className="mobile-menu border-t border-[var(--line-strong)] bg-white lg:hidden">
@@ -227,9 +245,9 @@ export default function PortalShell({ children }: { children: ReactNode }) {
           <button type="button" aria-label="게시판 선택 닫기" onClick={() => setBoardPickerOpen(false)} className={`absolute inset-0 bg-slate-950/45 transition-opacity ${boardPickerOpen ? 'opacity-100' : 'opacity-0'}`} />
           <section className={`absolute inset-x-0 bottom-0 border-t border-slate-300 bg-white px-4 pb-[calc(82px+env(safe-area-inset-bottom))] pt-3 transition-transform duration-200 ${boardPickerOpen ? 'translate-y-0' : 'translate-y-full'}`} aria-label="게시판 선택">
             <div className="mx-auto mb-4 h-1.5 w-10  bg-slate-200" />
-            <div className="mb-4 flex items-center justify-between px-1"><h2 className="text-lg font-black tracking-[-0.03em] text-slate-950">게시판 선택</h2><button type="button" onClick={() => setBoardPickerOpen(false)} className="grid h-10 w-10 place-items-center  bg-slate-100 text-slate-600" aria-label="닫기"><X size={18} /></button></div>
+            <div className="mb-4 flex items-center justify-between px-1"><h2 className="text-lg font-bold tracking-[-0.03em] text-slate-950">게시판 선택</h2><button type="button" onClick={() => setBoardPickerOpen(false)} className="grid h-10 w-10 place-items-center  bg-slate-100 text-slate-600" aria-label="닫기"><X size={18} /></button></div>
             <div className="grid grid-cols-2 gap-2">
-              {boardNavigation.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-[60px] items-center gap-2.5 border p-3 ${pathname.startsWith(item.href) ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700'}`}><span className="grid h-8 w-8 place-items-center bg-white"><item.icon size={17} /></span><span className="min-w-0 flex-1 text-xs font-extrabold">{item.label}</span><ChevronRight size={14} className="text-slate-300" /></Link>)}
+              {boardNavigation.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-[60px] items-center gap-2.5 border p-3 ${pathname.startsWith(item.href) ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700'}`}><span className="grid h-8 w-8 place-items-center bg-white"><item.icon size={17} /></span><span className="min-w-0 flex-1 text-xs font-semibold">{item.label}</span><ChevronRight size={14} className="text-slate-300" /></Link>)}
             </div>
           </section>
         </div>

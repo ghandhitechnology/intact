@@ -11,6 +11,7 @@ import {
   readJson,
   requiredString,
 } from '@/lib/server/http';
+import { assertNotMaintenance } from '@/lib/server/platform-mode';
 import { attachSessionCookie, createPortalSession, publicUser } from '@/lib/server/session';
 import { parseStudentCode } from '@/lib/server/student-invites';
 
@@ -28,6 +29,7 @@ interface LoginBody {
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
+    await assertNotMaintenance();
     enforceClientIpRateLimit(request, 'login', {
       limit: 100,
       windowMs: 15 * 60 * 1000,

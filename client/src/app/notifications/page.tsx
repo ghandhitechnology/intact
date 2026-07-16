@@ -573,7 +573,7 @@ export default function NotificationsPage() {
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 py-4 sm:px-6 lg:px-8">
       <PageHeading
-        title="알림 센터"
+        title="알림"
         actions={
           DEMO_MODE ? (
             <Button variant="secondary" onClick={() => setSettingsOpen(true)}>
@@ -627,7 +627,7 @@ export default function NotificationsPage() {
           </Card>
         </aside>
 
-        <Card className="min-w-0 overflow-hidden ">
+        <Card className="min-w-0 overflow-hidden rounded-none border-x-0 border-b-0 border-t-2 border-t-slate-800">
           <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-600">
               <input
@@ -738,7 +738,7 @@ export default function NotificationsPage() {
                             <h3
                               className={cn(
                                 "text-sm text-slate-900",
-                                item.unread ? "font-extrabold" : "font-bold",
+                                item.unread ? "font-semibold" : "font-bold",
                               )}
                             >
                               {DEMO_MODE && item.actor ? (
@@ -751,7 +751,7 @@ export default function NotificationsPage() {
                           <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-slate-600">
                             {item.detail}
                           </p>
-                          <p className="mt-2 text-[11px] text-slate-400">
+                          <p className="mt-2 text-xs text-slate-400">
                             {item.time}
                           </p>
                         </button>
@@ -786,7 +786,7 @@ export default function NotificationsPage() {
                           className="min-w-0 flex-1 text-left"
                         >
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-sm font-extrabold text-slate-900">
+                            <h3 className="text-sm font-semibold text-slate-900">
                               {group.title}
                             </h3>
                             <Badge tone="slate">{group.items.length}개</Badge>
@@ -799,11 +799,11 @@ export default function NotificationsPage() {
                             {item.title}
                           </p>
                           {item.detail ? (
-                            <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-500">
+                            <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
                               {item.detail}
                             </p>
                           ) : null}
-                          <p className="mt-2 text-[11px] text-slate-400">
+                          <p className="mt-2 text-xs text-slate-400">
                             {item.time}
                           </p>
                         </button>
@@ -850,18 +850,18 @@ export default function NotificationsPage() {
                                   <p
                                     className={cn(
                                       "text-xs text-slate-800",
-                                      child.unread ? "font-extrabold" : "font-bold",
+                                      child.unread ? "font-semibold" : "font-bold",
                                     )}
                                   >
                                     {child.actor ? `${child.actor} · ` : ""}
                                     {child.title}
                                   </p>
                                   {child.detail ? (
-                                    <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-500">
+                                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
                                       {child.detail}
                                     </p>
                                   ) : null}
-                                  <p className="mt-1 text-[10px] text-slate-400">
+                                  <p className="mt-1 text-xs text-slate-400">
                                     {child.time}
                                   </p>
                                 </button>
@@ -880,7 +880,7 @@ export default function NotificationsPage() {
                 <span className="mx-auto grid h-14 w-14 place-items-center  bg-slate-100 text-slate-400">
                   <BellOff className="h-6 w-6" />
                 </span>
-                <h3 className="mt-4 text-sm font-extrabold text-slate-800">
+                <h3 className="mt-4 text-sm font-semibold text-slate-800">
                   새로운 알림이 없습니다.
                 </h3>
               </div>
@@ -912,7 +912,7 @@ export default function NotificationsPage() {
       >
         <div className="space-y-6">
           <div>
-            <h3 className="mb-2 text-xs font-extrabold text-slate-500">
+            <h3 className="mb-2 text-xs font-semibold text-slate-500">
               알림 유형
             </h3>
             <div className="border border-slate-200">
@@ -935,7 +935,7 @@ export default function NotificationsPage() {
                 >
                   <div>
                     <p className="text-sm font-bold text-slate-800">{label}</p>
-                    <p className="mt-1 text-[11px] text-slate-500">{detail}</p>
+                    <p className="mt-1 text-xs text-slate-500">{detail}</p>
                   </div>
                   <button
                     type="button"
@@ -965,10 +965,10 @@ export default function NotificationsPage() {
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-slate-200 py-4">
             <div>
-              <p className="flex items-center gap-2 text-sm font-extrabold text-emerald-950">
+              <p className="flex items-center gap-2 text-sm font-semibold text-emerald-950">
                 <BellRing className="h-4 w-4" />웹 푸시 알림
               </p>
-              <p className="mt-1 text-[11px] text-emerald-800">
+              <p className="mt-1 text-xs text-emerald-800">
                 이 기기의 브라우저 알림으로 전달합니다.
               </p>
             </div>

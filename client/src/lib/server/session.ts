@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import type { PublicUser } from '@/types/api';
 import { hashToken, privateFingerprint, randomToken } from './crypto';
 import { ApiError, getClientIp } from './http';
+import { assertNotMaintenance } from './platform-mode';
 
 export const SESSION_COOKIE = 'igwak_session';
 export const ADMIN_SESSION_COOKIE = 'igwak_admin_session';
@@ -205,6 +206,9 @@ export function resolveAdminSession(request: Request) {
 }
 
 export async function requireUser(request: Request) {
+  // Hard lockout: while maintenance is on, no portal session may touch data.
+  // Admin routes use requireAdmin/requireReadyAdmin, which stay open.
+  await assertNotMaintenance();
   const session = await resolveSession(request);
   if (!session) {
     throw new ApiError(401, 'AUTH_REQUIRED', '로그인이 필요합니다.');

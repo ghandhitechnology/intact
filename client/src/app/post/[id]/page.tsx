@@ -45,6 +45,14 @@ const resolveLivePost = cache(async function resolveLivePost(
     });
     const sessionPayload = await sessionResponse.json().catch(() => null);
     const sessionUser = sessionPayload?.data?.user || sessionPayload?.user;
+    let moderation: { state: string; message: string } | undefined;
+    if (item.status !== 'PUBLISHED') {
+      const moderationResponse = await fetch(`${internalOrigin.replace(/\/$/, '')}/api/posts/${encodeURIComponent(id)}/moderation`, {
+        headers: { cookie: requestHeaders.get('cookie') || '' }, cache: 'no-store',
+      });
+      const moderationPayload = await moderationResponse.json().catch(() => null);
+      moderation = moderationPayload?.data?.moderation || moderationPayload?.moderation || undefined;
+    }
     const nickname = item?.author?.realName || item?.author?.nickname || '알 수 없음';
     const metadata = item?.metadata && typeof item.metadata === 'object' ? item.metadata : {};
     return {
@@ -81,6 +89,7 @@ const resolveLivePost = cache(async function resolveLivePost(
         })) : [],
         viewerRecommended: Boolean(item?.viewerState?.recommended),
         viewerBookmarked: Boolean(item?.viewerState?.bookmarked),
+        moderation,
         deadline: typeof metadata.deadline === 'string' ? metadata.deadline : undefined,
         commentItems: Array.isArray(item.comments) ? item.comments.map((comment: any) => {
           const commentNickname = comment?.author?.realName || comment?.author?.nickname || '알 수 없음';

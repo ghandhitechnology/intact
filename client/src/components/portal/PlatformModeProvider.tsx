@@ -5,6 +5,7 @@ import { clearClientDataCache } from './ClientDataProvider';
 
 type PlatformModeSnapshot = {
   bSideEnabled: boolean;
+  maintenanceEnabled?: boolean;
   version: string;
 };
 
@@ -37,6 +38,15 @@ export default function PlatformModeProvider({ children }: { children: ReactNode
   const refresh = useCallback(async () => {
     try {
       const next = await requestPlatformMode();
+      // Push already-connected SPA users out as soon as maintenance turns on.
+      // Admin pages stay reachable so the operator can turn it back off.
+      if (next.maintenanceEnabled) {
+        const path = window.location.pathname;
+        if (!path.startsWith('/admin') && path !== '/maintenance') {
+          window.location.replace('/maintenance');
+          return next;
+        }
+      }
       const current = currentRef.current;
       const storedVersion = sessionStorage.getItem(MODE_STORAGE_KEY);
       applyDocumentMode(next.bSideEnabled);

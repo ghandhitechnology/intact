@@ -118,15 +118,15 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
   if (!user) {
     return (
       <section className="bg-white p-3" aria-labelledby="home-login-title">
-        <h2 id="home-login-title" className="text-xs font-black text-slate-800">인텍트 계정</h2>
+        <h2 id="home-login-title" className="text-xs font-bold text-slate-800">인텍트 계정</h2>
         <Link
           href="/login?returnTo=%2F"
-          className="mt-3 flex h-10 w-full items-center justify-center gap-2 bg-emerald-700 text-xs font-black text-white hover:bg-emerald-800"
+          className="mt-3 flex h-10 w-full items-center justify-center gap-2 bg-emerald-700 text-xs font-bold text-white hover:bg-emerald-800"
         >
           <LogIn className="h-4 w-4" aria-hidden="true" />
           로그인
         </Link>
-        <div className="mt-3 flex items-center justify-between text-[10px] font-bold text-slate-500">
+        <div className="mt-3 flex items-center justify-between text-xs font-bold text-slate-500">
           <Link href="/reset-password" className="hover:text-emerald-700">비밀번호 재설정</Link>
           <Link href="/register" className="text-emerald-700 hover:text-emerald-900">회원가입</Link>
         </div>
@@ -149,24 +149,24 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
 
   return (
     <section className="bg-white p-3" aria-labelledby="home-account-title">
-      <p className="text-[10px] font-bold text-emerald-700">로그인 중</p>
+      <p className="text-xs font-bold text-emerald-700">로그인 중</p>
       <Link href="/profile" className="mt-2 flex items-center gap-2.5 hover:bg-slate-50">
         <Avatar member={avatarMember} />
         <span className="min-w-0 flex-1">
-          <strong id="home-account-title" className="block truncate text-xs font-black text-slate-900">{displayName}</strong>
-          <span className="mt-0.5 block truncate text-[10px] text-slate-500">{studentCode} · {igkLevelLabel(level, jojolRank)}</span>
+          <strong id="home-account-title" className="block truncate text-xs font-bold text-slate-900">{displayName}</strong>
+          <span className="mt-0.5 block truncate text-xs text-slate-500">{studentCode} · {igkLevelLabel(level, jojolRank)}</span>
         </span>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" aria-hidden="true" />
       </Link>
       <div className="mt-3 grid grid-cols-3 gap-1 bg-slate-50 p-1">
-        <Link href="/messages" className="flex min-h-12 flex-col items-center justify-center gap-1 bg-white text-[10px] font-bold text-slate-600 hover:text-emerald-700">
+        <Link href="/messages" className="flex min-h-12 flex-col items-center justify-center gap-1 bg-white text-xs font-bold text-slate-600 hover:text-emerald-700">
           <MessageCircle className="h-4 w-4" aria-hidden="true" />대화
         </Link>
-        <Link href="/notifications" className="relative flex min-h-12 flex-col items-center justify-center gap-1 bg-white text-[10px] font-bold text-slate-600 hover:text-emerald-700">
+        <Link href="/notifications" className="relative flex min-h-12 flex-col items-center justify-center gap-1 bg-white text-xs font-bold text-slate-600 hover:text-emerald-700">
           <Bell className={cx('h-4 w-4', unreadCount > 0 && 'text-red-900')} aria-hidden="true" />알림
-          {unreadCount > 0 ? <span className="absolute right-1.5 top-1 bg-red-900 px-1 text-[9px] text-white">{Math.min(unreadCount, 99)}</span> : null}
+          {unreadCount > 0 ? <span className="absolute right-1.5 top-1 bg-red-900 px-1 text-xs text-white">{Math.min(unreadCount, 99)}</span> : null}
         </Link>
-        <Link href="/igk" className="flex min-h-12 flex-col items-center justify-center gap-1 bg-white text-[10px] font-bold text-slate-600 hover:text-emerald-700">
+        <Link href="/igk" className="flex min-h-12 flex-col items-center justify-center gap-1 bg-white text-xs font-bold text-slate-600 hover:text-emerald-700">
           <Coins className="h-4 w-4" aria-hidden="true" />{currentIgk.toLocaleString()}
         </Link>
       </div>
@@ -174,7 +174,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
         type="button"
         onClick={() => void logout()}
         disabled={loggingOut}
-        className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-slate-700 disabled:opacity-50"
+        className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-slate-700 disabled:opacity-50"
       >
         <LogOut className="h-3 w-3" aria-hidden="true" />
         {loggingOut ? '로그아웃 중…' : '로그아웃'}
@@ -216,8 +216,8 @@ function AttendanceBanner({ demoMode }: { demoMode: boolean }) {
     >
       <CalendarCheck className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
       <span className="min-w-0 flex-1">
-        <strong className="block truncate text-xs font-black text-emerald-900">아직 오늘 출석 전이에요</strong>
-        <span className="mt-0.5 block truncate text-[10px] font-bold text-emerald-700">
+        <strong className="block truncate text-xs font-bold text-emerald-900">아직 오늘 출석 전이에요</strong>
+        <span className="mt-0.5 block truncate text-xs font-bold text-emerald-700">
           지금 출석하면 {state.todayReward} IGK{state.streak > 0 ? ` · ${state.streak + 1}일 연속 도전` : ''}
         </span>
       </span>
@@ -231,52 +231,19 @@ function HomeActions() {
     <nav className="grid min-w-0 grid-cols-2 gap-2" aria-label="홈 바로가기">
       <Link
         href="/search"
-        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 border border-slate-300 bg-white px-2 text-[11px] font-bold text-slate-700 transition-colors hover:border-slate-500 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 border border-slate-300 bg-white px-2 text-xs font-bold text-slate-700 transition-colors hover:border-slate-500 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500"
       >
         <Search className="h-3.5 w-3.5" aria-hidden="true" />
         통합검색
       </Link>
       <Link
         href="/boards/free/write"
-        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 bg-emerald-700 px-2 text-[11px] font-bold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 bg-emerald-700 px-2 text-xs font-bold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
       >
         <PenSquare className="h-3.5 w-3.5" aria-hidden="true" />
         글쓰기
       </Link>
     </nav>
-  );
-}
-
-function PortalMenu({ items }: { items: BoardDefinition[] }) {
-  return (
-    <section className="border border-slate-200 bg-white">
-      <div className="border-b border-slate-800 px-4 py-3">
-        <h2 className="text-xs font-black text-slate-900">게시판 바로가기</h2>
-      </div>
-      <nav className="divide-y divide-slate-100" aria-label="게시판 바로가기">
-        {items.map((board) => (
-          <Link
-            key={board.slug}
-            href={`/boards/${board.slug}`}
-            className="group flex min-h-11 items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-800"
-          >
-            <BoardMark board={board} size="sm" />
-            <span className="min-w-0 flex-1 truncate">{board.title}</span>
-            {board.todayCount > 0 ? (
-              <span className="text-[10px] font-black tabular-nums text-emerald-700">
-                +{board.todayCount}
-              </span>
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-emerald-600" />
-            )}
-          </Link>
-        ))}
-      </nav>
-      <div className="grid grid-cols-2 border-t border-slate-200 bg-slate-50">
-        <Link href="/messages" className="border-r border-slate-200 px-3 py-2.5 text-center text-[10px] font-bold text-slate-600 hover:text-emerald-700">대화</Link>
-        <Link href="/notifications" className="px-3 py-2.5 text-center text-[10px] font-bold text-slate-600 hover:text-emerald-700">알림</Link>
-      </div>
-    </section>
   );
 }
 
@@ -286,11 +253,11 @@ function NoticeRail({ items }: { items: Notice[] }) {
       <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
         <div className="flex items-center gap-2">
           <Megaphone className="h-3.5 w-3.5 text-emerald-700" aria-hidden="true" />
-          <h2 className="text-xs font-black tracking-[-0.02em] text-slate-900">관리자 공지</h2>
+          <h2 className="text-xs font-bold tracking-[-0.02em] text-slate-900">관리자 공지</h2>
         </div>
         <Link
           href="/notices"
-          className="text-[10px] font-bold text-slate-400 hover:text-emerald-700"
+          className="text-xs font-bold text-slate-400 hover:text-emerald-700"
         >
           전체 보기
         </Link>
@@ -305,13 +272,13 @@ function NoticeRail({ items }: { items: Notice[] }) {
               <div className="mb-1.5 flex items-center justify-between gap-3">
                 <span
                   className={cx(
-                    'text-[10px] font-extrabold',
+                    'text-xs font-semibold',
                     notice.important ? 'text-rose-600' : 'text-emerald-700',
                   )}
                 >
                   {notice.label}
                 </span>
-                <span className="text-[10px] tabular-nums text-slate-400">{notice.date}</span>
+                <span className="text-xs tabular-nums text-slate-400">{notice.date}</span>
               </div>
               <p className="line-clamp-2 text-xs font-semibold leading-5 text-slate-700 transition-colors group-hover:text-emerald-700">
                 {notice.title}
@@ -330,23 +297,18 @@ function BoardCard({ board, items }: { board: BoardDefinition; items: PostSummar
   const style = boardStyles[board.accent];
 
   return (
-    <article
-      className={cx(
-        'render-lazy group flex flex-col border border-slate-200 bg-white p-4 transition-colors hover:border-emerald-300',
-        style.line,
-      )}
-    >
+    <article className="render-lazy group flex flex-col border-t-2 border-slate-800 bg-white px-4 py-3 transition-colors hover:border-emerald-700">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-2.5">
           <BoardMark board={board} size="sm" />
           <div className="min-w-0">
-            <h2 className="text-sm font-black tracking-[-0.025em] text-slate-900">
+            <h2 className="text-sm font-bold tracking-[-0.025em] text-slate-900">
               {board.title}
             </h2>
-            <p className="mt-0.5 line-clamp-1 text-[10px] leading-4 text-slate-500">{board.description}</p>
+            <p className="mt-0.5 line-clamp-1 text-xs leading-4 text-slate-500">{board.description}</p>
           </div>
         </div>
-        <span className={cx('shrink-0 text-xs font-extrabold', style.text)}>
+        <span className={cx('shrink-0 text-xs font-semibold', style.text)}>
           +{board.todayCount}
         </span>
       </div>
@@ -366,11 +328,11 @@ function BoardCard({ board, items }: { board: BoardDefinition; items: PostSummar
                   {post.title}
                 </p>
               </div>
-              <p className="mt-1 truncate text-[10px] text-slate-400">
+              <p className="mt-1 truncate text-xs text-slate-400">
                 {post.author.nickname} · {post.createdAt}
               </p>
             </div>
-            <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-[11px] font-bold tabular-nums text-slate-400" title="조회수">
+            <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-xs font-bold tabular-nums text-slate-400" title="조회수">
               <Eye className="h-3 w-3" aria-hidden="true" />
               {post.views}
             </span>
@@ -381,7 +343,7 @@ function BoardCard({ board, items }: { board: BoardDefinition; items: PostSummar
       <Link
         href={`/boards/${board.slug}`}
         className={cx(
-          'mt-3 inline-flex items-center justify-between text-[11px] font-extrabold',
+          'mt-3 inline-flex items-center justify-between text-xs font-semibold',
           style.text,
         )}
       >
@@ -399,19 +361,19 @@ function LatestActivity({ items }: { items: PostSummary[] }) {
   const latest = items.slice(0, 8);
 
   return (
-    <section className="border border-slate-200 bg-white px-3 py-2 sm:px-4">
+    <section className="border-t-2 border-slate-800 bg-white px-3 py-2 sm:px-4">
       <div className="flex h-8 items-center justify-between gap-4">
-        <h2 className="text-sm font-black tracking-[-0.02em] text-slate-900">
+        <h2 className="text-sm font-bold tracking-[-0.02em] text-slate-900">
           지금 올라오는 이야기
         </h2>
         <Link
           href="/search"
-          className="text-[11px] font-bold text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-emerald-700"
+          className="text-xs font-bold text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-emerald-700"
         >
           전체 보기
         </Link>
       </div>
-      <div className="border-t border-slate-900">
+      <div>
         {latest.map((post) => (
           <article
             key={post.id}
@@ -419,11 +381,11 @@ function LatestActivity({ items }: { items: PostSummary[] }) {
           >
             <div className="min-w-0">
               <BoardBadge slug={post.board} />
-              <span className="mt-1 block whitespace-nowrap text-[10px] tabular-nums text-slate-400 sm:hidden">
+              <span className="mt-1 block whitespace-nowrap text-xs tabular-nums text-slate-400 sm:hidden">
                 {post.createdAt}
               </span>
             </div>
-            <span className="hidden whitespace-nowrap text-[10px] tabular-nums text-slate-400 sm:block">
+            <span className="hidden whitespace-nowrap text-xs tabular-nums text-slate-400 sm:block">
               {post.createdAt}
             </span>
             <div className="min-w-0">
@@ -437,7 +399,7 @@ function LatestActivity({ items }: { items: PostSummary[] }) {
                 <h3 className="truncate text-xs font-bold text-slate-800 group-hover:text-emerald-700 sm:text-[13px]">
                   {post.title}
                 </h3>
-                <span className="inline-flex shrink-0 items-center gap-1 text-xs font-extrabold text-emerald-700" title="조회수">
+                <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-700" title="조회수">
                   <Eye className="h-3 w-3" aria-hidden="true" />
                   {post.views}
                 </span>
@@ -469,8 +431,8 @@ function HotTopics({ items }: { items: PostSummary[] }) {
     <section className="border border-slate-200 bg-white p-4">
       <div className="mb-4 flex items-center gap-2">
         <Flame className="h-4 w-4 text-rose-500" aria-hidden="true" />
-        <h2 className="text-sm font-black text-slate-900">인기 게시글</h2>
-        <span className="ml-auto text-[10px] font-semibold text-slate-400">추천·댓글 기준</span>
+        <h2 className="text-sm font-bold text-slate-900">인기 게시글</h2>
+        <span className="ml-auto text-xs font-semibold text-slate-400">추천·댓글 기준</span>
       </div>
       <ol className="divide-y divide-slate-100 border-t border-slate-900">
         {hotPosts.map((post, index) => (
@@ -481,7 +443,7 @@ function HotTopics({ items }: { items: PostSummary[] }) {
             >
               <span
                 className={cx(
-                  'pt-0.5 text-sm font-black tabular-nums',
+                  'pt-0.5 text-sm font-bold tabular-nums',
                   index < 3 ? 'text-emerald-700' : 'text-slate-300',
                 )}
               >
@@ -491,7 +453,7 @@ function HotTopics({ items }: { items: PostSummary[] }) {
                 <span className="line-clamp-2 text-sm font-semibold leading-5 text-slate-700 group-hover:text-emerald-700">
                   {post.title}
                 </span>
-                <span className="mt-1.5 flex items-center gap-3 text-[10px] text-slate-400">
+                <span className="mt-1.5 flex items-center gap-3 text-xs text-slate-400">
                   <span>{getBoardLabel(post)}</span>
                   <span className="inline-flex items-center gap-1">
                     <ThumbsUp className="h-3 w-3" aria-hidden="true" />
@@ -523,8 +485,8 @@ function RankingPanel({ items }: { items: RankingMember[] }) {
     <section className="border border-slate-200 bg-white p-4">
       <div className="mb-4 flex items-center gap-2">
         <Trophy className="h-4 w-4 text-amber-500" aria-hidden="true" />
-        <h2 className="text-sm font-black text-slate-900">보유 IGK 랭킹</h2>
-        <span className="ml-auto text-[10px] font-semibold text-slate-400">현재 잔액 기준</span>
+        <h2 className="text-sm font-bold text-slate-900">보유 IGK 랭킹</h2>
+        <span className="ml-auto text-xs font-semibold text-slate-400">현재 잔액 기준</span>
       </div>
       <ol className="border-t border-slate-900">
         {items.slice(0, 5).map((member) => (
@@ -534,7 +496,7 @@ function RankingPanel({ items }: { items: RankingMember[] }) {
           >
             <span
               className={cx(
-                'text-center text-xs font-black tabular-nums',
+                'text-center text-xs font-bold tabular-nums',
                 member.rank <= 3 ? 'text-emerald-700' : 'text-slate-400',
               )}
             >
@@ -545,13 +507,13 @@ function RankingPanel({ items }: { items: RankingMember[] }) {
               <span className="block truncate text-xs font-bold text-slate-700">
                 {member.nickname}
               </span>
-              <span className="block text-[10px] text-slate-400">
+              <span className="block text-xs text-slate-400">
                 {member.studentId !== '------' ? `${member.studentId} · ` : ''}{igkLevelLabel(member.level, member.jojolRank)}
               </span>
             </span>
-            <span className="text-xs font-black tabular-nums text-slate-700">
+            <span className="text-xs font-bold tabular-nums text-slate-700">
               {formatNumber(member.igk)}
-              <span className="ml-1 text-[9px] font-bold text-slate-400">IGK</span>
+              <span className="ml-1 text-xs font-bold text-slate-400">IGK</span>
             </span>
           </li>
         ))}
@@ -688,38 +650,41 @@ export default function HomePage() {
   }, [demoMode, homeError, homePayload, reloadKey]);
 
   return (
-    <div className="min-h-screen min-w-0 overflow-x-hidden py-1 text-slate-900 sm:py-3">
-      <div className="mx-auto min-w-0 max-w-[1540px]">
-        <div className="grid min-w-0 items-start gap-3 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_280px]">
-          <aside className="hidden min-w-0 space-y-3 lg:sticky lg:top-[100px] lg:block">
-            <HomeActions />
-            <PortalMenu items={boardItems} />
-          </aside>
+    <div className="min-w-0 overflow-x-hidden py-2 text-slate-900 sm:py-4">
+      <div className="mx-auto min-w-0 max-w-[1320px]">
+        <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0">
-            <section aria-label="게시판 둘러보기">
-              <div className="mb-3 flex min-h-9 items-center justify-between gap-4 border-b border-slate-800 bg-white px-1">
-                <h1 className="text-sm font-black tracking-[-0.025em] text-slate-950">인텍트 게시판</h1>
-                <span className="hidden items-center gap-2 text-xs text-slate-400 sm:inline-flex">
+            <div className="mb-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-end">
+              <div>
+                <p className="text-sm font-medium text-emerald-800">인천과학고 학생들의 지금</p>
+                <h1 className="mt-1 text-2xl font-bold tracking-[-0.03em] text-slate-950">오늘 올라온 이야기</h1>
+              </div>
+              <HomeActions />
+            </div>
+            <LatestActivity items={homePosts} />
+
+            <section className="mt-6" aria-label="게시판 둘러보기">
+              <div className="mb-3 flex min-h-10 items-center justify-between gap-4 border-b-2 border-slate-800">
+                <h2 className="text-base font-bold tracking-[-0.02em] text-slate-950">게시판별 새 글</h2>
+                <span className="hidden items-center gap-2 text-xs text-slate-500 sm:inline-flex">
                   <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
-                  {loadState === 'ready' ? '방금 업데이트됨' : homeLoading || loadState === 'loading' ? '정보를 불러오는 중…' : '일부 정보를 불러오지 못함'}
+                  {loadState === 'ready' ? '방금 확인' : homeLoading || loadState === 'loading' ? '불러오는 중…' : '일부 정보 누락'}
                 </span>
                 {(loadState === 'partial' || loadState === 'error') ? (
-                  <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="text-xs font-bold text-amber-800 underline underline-offset-2">
+                  <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="text-xs font-semibold text-amber-800 underline underline-offset-2">
                     다시 불러오기
                   </button>
                 ) : null}
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-x-5 gap-y-4 md:grid-cols-2">
                 {boardItems.map((board) => (
                   <BoardCard key={board.slug} board={board} items={homePosts} />
                 ))}
               </div>
             </section>
-            <div className="mt-3">
-              <LatestActivity items={homePosts} />
-            </div>
           </div>
-          <aside className="grid min-w-0 gap-3 md:grid-cols-3 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-[100px] xl:block xl:space-y-3">
+
+          <aside className="grid min-w-0 gap-4 md:grid-cols-2 xl:sticky xl:top-[140px] xl:block xl:space-y-4">
             <HomeAccountPanel demoMode={demoMode} accountStatus={homePayload?.account} />
             <AttendanceBanner demoMode={demoMode} />
             <NoticeRail items={noticeItems} />

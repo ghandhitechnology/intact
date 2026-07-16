@@ -1,0 +1,14 @@
+{
+  "name": "intact-codex-moderation",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "probe": "node src/probe.mjs",
+    "security-probe": "node src/security-probe.mjs"
+  },
+  "dependencies": {
+    "@openai/codex": "0.144.5"
+  }
+}

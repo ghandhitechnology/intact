@@ -39,8 +39,8 @@ export function PageHeading({ title, description, actions }: {
   return (
     <div className="flex flex-col gap-3 border-b border-slate-300 pb-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-xl font-extrabold tracking-[-0.03em] text-slate-950 sm:text-2xl">{title}</h1>
-        {description ? <p className="mt-1.5 max-w-3xl text-xs leading-5 text-slate-600 sm:text-sm">{description}</p> : null}
+        <h1 className="text-2xl font-bold tracking-[-0.025em] text-slate-950 sm:text-[28px]">{title}</h1>
+        {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{description}</p> : null}
       </div>
       {actions ? <div className="shrink-0">{actions}</div> : null}
     </div>
@@ -48,17 +48,17 @@ export function PageHeading({ title, description, actions }: {
 }
 
 export function Card({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <section className={cn('border border-slate-200 bg-white', className)} {...props}>{children}</section>;
+  return <section className={cn('rounded-sm border border-slate-300 bg-white', className)} {...props}>{children}</section>;
 }
 
 export function CardHeader({ title, description, action, className }: {
   title: ReactNode; description?: ReactNode; action?: ReactNode; className?: string;
 }) {
   return (
-    <div className={cn('flex min-h-[50px] items-center justify-between gap-4 border-b border-slate-200 px-4 py-3', className)}>
+    <div className={cn('flex min-h-[52px] items-center justify-between gap-4 border-b border-slate-200 px-4 py-3', className)}>
       <div className="min-w-0">
-        <h2 className="truncate text-sm font-extrabold tracking-[-0.01em] text-slate-950">{title}</h2>
-        {description ? <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p> : null}
+        <h2 className="truncate text-sm font-bold tracking-[-0.01em] text-slate-950">{title}</h2>
+        {description ? <p className="mt-1 text-xs leading-5 text-slate-600">{description}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -74,23 +74,23 @@ const buttonStyles = {
 };
 
 export function Button({ variant = 'primary', className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof buttonStyles }) {
-  return <button className={cn('inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap px-3.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed', buttonStyles[variant], className)} {...props}>{children}</button>;
+  return <button className={cn('inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed', buttonStyles[variant], className)} {...props}>{children}</button>;
 }
 
 export function IconButton({ label, className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
-  return <button aria-label={label} title={label} className={cn('inline-flex h-10 w-10 items-center justify-center  border border-transparent text-slate-500 transition hover:border-slate-200 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100', className)} {...props}>{children}</button>;
+  return <button aria-label={label} title={label} className={cn('inline-flex h-10 w-10 items-center justify-center rounded-md border border-transparent text-slate-500 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100', className)} {...props}>{children}</button>;
 }
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn('h-10 w-full border border-slate-300 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100 disabled:text-slate-500', className)} {...props} />;
+  return <input className={cn('h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100 disabled:text-slate-500', className)} {...props} />;
 }
 
 export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn('h-10 w-full border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 transition focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props}>{children}</select>;
+  return <select className={cn('h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props}>{children}</select>;
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn('w-full resize-none border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props} />;
+  return <textarea className={cn('w-full resize-none rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props} />;
 }
 
 export function Field({ label, hint, error, required, children }: {
@@ -98,7 +98,7 @@ export function Field({ label, hint, error, required, children }: {
 }) {
   return (
     <label className="block">
-      <span className="mb-2 flex items-center justify-between gap-3 text-sm font-bold text-slate-800">
+      <span className="mb-2 flex items-center justify-between gap-3 text-sm font-semibold text-slate-800">
         <span>{label}{required ? <span className="ml-1 text-emerald-700">*</span> : null}</span>
         {hint ? <span className="text-xs font-normal text-slate-500">{hint}</span> : null}
       </span>
@@ -116,7 +116,7 @@ export function Badge({ tone = 'slate', children, className }: {
     green: 'border-emerald-300 bg-white text-emerald-700', amber: 'border-amber-300 bg-white text-amber-700',
     red: 'border-red-300 bg-white text-red-700', violet: 'border-violet-300 bg-white text-violet-700',
   };
-  return <span className={cn('inline-flex min-h-[24px] items-center  border px-2 text-[11px] font-bold leading-5', tones[tone], className)}>{children}</span>;
+  return <span className={cn('inline-flex min-h-[24px] items-center rounded-sm border px-2 text-xs font-semibold leading-5', tones[tone], className)}>{children}</span>;
 }
 
 export function Avatar({ name, imageUrl, size = 'md', status, tone = 'blue', className }: {
@@ -126,7 +126,7 @@ export function Avatar({ name, imageUrl, size = 'md', status, tone = 'blue', cla
   const tones = { blue: 'bg-blue-100 text-blue-800', green: 'bg-emerald-100 text-emerald-800', violet: 'bg-violet-100 text-violet-800', amber: 'bg-amber-100 text-amber-800', slate: 'bg-slate-200 text-slate-700' };
   return (
     <span className="relative inline-flex shrink-0">
-      <span className={cn('inline-flex items-center justify-center rounded-full border border-white bg-cover bg-center font-black tracking-[-0.04em]', sizes[size], tones[tone], className)} style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}>{imageUrl ? <span className="sr-only">{name} 프로필 이미지</span> : name.slice(0, 2)}</span>
+      <span className={cn('inline-flex items-center justify-center rounded-full border border-white bg-cover bg-center font-bold tracking-[-0.04em]', sizes[size], tones[tone], className)} style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}>{imageUrl ? <span className="sr-only">{name} 프로필 이미지</span> : name.slice(0, 2)}</span>
       {status ? <span className={cn('absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white', status === 'online' ? 'bg-emerald-500' : 'bg-slate-300')} /> : null}
     </span>
   );
@@ -141,7 +141,7 @@ export function Tabs<T extends string>({ items, value, onChange, className }: {
 }) {
   return (
     <div className={cn('flex overflow-x-auto border-b border-slate-200 bg-white', className)} role="tablist">
-      {items.map((item) => <button key={item.value} type="button" role="tab" aria-selected={value === item.value} onClick={() => onChange(item.value)} className={cn('relative flex h-10 shrink-0 items-center gap-2 px-4 text-xs font-bold transition', value === item.value ? 'text-emerald-700 after:absolute after:bottom-0 after:left-3 after:right-3 after:h-0.5 after:bg-emerald-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')}>{item.label}{typeof item.count === 'number' ? <span className={cn('min-w-[20px] px-1.5 py-0.5 text-[10px]', value === item.value ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500')}>{item.count}</span> : null}</button>)}
+      {items.map((item) => <button key={item.value} type="button" role="tab" aria-selected={value === item.value} onClick={() => onChange(item.value)} className={cn('relative flex h-11 shrink-0 items-center gap-2 px-4 text-[13px] font-semibold transition', value === item.value ? 'text-emerald-800 after:absolute after:bottom-0 after:left-3 after:right-3 after:h-0.5 after:bg-emerald-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900')}>{item.label}{typeof item.count === 'number' ? <span className={cn('min-w-[20px] rounded-sm px-1.5 py-0.5 text-xs', value === item.value ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600')}>{item.count}</span> : null}</button>)}
     </div>
   );
 }
@@ -150,7 +150,7 @@ export function Stat({ label, value, detail, icon, tone = 'blue' }: {
   label: string; value: string; detail?: string; icon?: ReactNode; tone?: 'blue' | 'green' | 'amber' | 'slate';
 }) {
   const tones = { blue: 'text-blue-700', green: 'text-emerald-700', amber: 'text-amber-700', slate: 'text-slate-700' };
-  return <div className="border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><p className="text-xs font-bold text-slate-500">{label}</p>{icon ? <span className={cn('grid h-8 w-8 place-items-center', tones[tone])}>{icon}</span> : null}</div><p className="mt-3 text-2xl font-black tracking-[-0.04em] text-slate-950">{value}</p>{detail ? <p className="mt-1 text-xs text-slate-500">{detail}</p> : null}</div>;
+  return <div className="border-y border-slate-300 bg-white px-4 py-3.5"><div className="flex items-start justify-between gap-3"><p className="text-xs font-semibold text-slate-600">{label}</p>{icon ? <span className={cn('mt-0.5', tones[tone])}>{icon}</span> : null}</div><p className="mt-2 text-2xl font-bold tracking-[-0.035em] text-slate-950">{value}</p>{detail ? <p className="mt-1 text-xs leading-5 text-slate-600">{detail}</p> : null}</div>;
 }
 
 export function Modal({ open, title, description, children, footer, onClose, wide }: {
@@ -205,7 +205,7 @@ export function Modal({ open, title, description, children, footer, onClose, wid
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/55 p-0 sm:items-center sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={cn('max-h-[92vh] w-full overflow-hidden border border-stone-300 bg-white', wide ? 'sm:max-w-3xl' : 'sm:max-w-lg')}>
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6"><div><h2 id={titleId} className="text-lg font-black tracking-[-0.02em] text-slate-950">{title}</h2>{description ? <p className="mt-1 text-sm leading-5 text-slate-500">{description}</p> : null}</div><IconButton label="닫기" onClick={onClose} className="-mr-2 -mt-1"><X className="h-5 w-5" /></IconButton></div>
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6"><div><h2 id={titleId} className="text-lg font-bold tracking-[-0.02em] text-slate-950">{title}</h2>{description ? <p className="mt-1 text-sm leading-5 text-slate-500">{description}</p> : null}</div><IconButton label="닫기" onClick={onClose} className="-mr-2 -mt-1"><X className="h-5 w-5" /></IconButton></div>
         <div className="max-h-[65vh] overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
         {footer ? <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">{footer}</div> : null}
       </div>

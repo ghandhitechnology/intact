@@ -110,7 +110,7 @@ export default function AttachmentGallery({
               className="h-full w-full object-cover"
             />
             {index === visible.length - 1 && images.length > visible.length ? (
-              <span className="absolute inset-0 grid place-items-center bg-slate-950/55 text-2xl font-black text-white">
+              <span className="absolute inset-0 grid place-items-center bg-slate-950/55 text-2xl font-bold text-white">
                 +{images.length - visible.length}
               </span>
             ) : null}
@@ -136,7 +136,7 @@ export default function AttachmentGallery({
             <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/20 bg-black px-4 text-white sm:px-6">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold">{current.originalName}</p>
-                <p className="mt-0.5 text-[11px] text-white/55">
+                <p className="mt-0.5 text-xs text-white/55">
                   {selected + 1} / {images.length} · {(current.sizeBytes / 1_048_576).toFixed(1)}MB
                 </p>
               </div>

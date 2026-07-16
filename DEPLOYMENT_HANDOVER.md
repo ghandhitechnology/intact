@@ -140,7 +140,9 @@ openssl rand -hex 32
 | `INTERNAL_API_SECRET` | web ↔ realtime 내부 인증 |
 | `S3_*` | MinIO endpoint, private bucket, 접근 키 |
 | `ADMIN_INITIAL_*` | 최초 관리자 생성용. 최초 로그인 뒤 관리자 비밀번호 변경 |
-| `RIRO_AUTH_ENABLED` | 공식 연동 승인 전 `false` 유지 |
+| `RIRO_AUTH_MODE` | 한국 인증 브리지 사용 시 `BRIDGE`, 장애 시 `OFF` |
+| `RIRO_BRIDGE_URL` | Mac mini의 Tailscale 전용 주소(기본 `http://100.85.99.14:8765`) |
+| `RIRO_BRIDGE_SECRET` | 포털과 브리지에만 저장하는 독립 64자리 hex 비밀값 |
 | `TRUST_PROXY` | 프록시 헤더가 신뢰 가능한 경우에만 `true` |
 
 `NEXT_PUBLIC_*` 값은 Docker 이미지 빌드 시 번들에 포함됩니다. 이 값을 바꾼 뒤에는 컨테이너 재시작만 하지 말고 반드시 `web`과 필요 시 `realtime` 이미지를 다시 빌드합니다.

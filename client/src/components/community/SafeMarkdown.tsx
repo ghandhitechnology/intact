@@ -21,7 +21,7 @@ function inlineMarkdown(value: string): ReactNode[] {
     const token = match[0];
     const key = `${match.index}-${token}`;
     if (token.startsWith('**')) {
-      nodes.push(<strong key={key} className="font-extrabold text-slate-900">{token.slice(2, -2)}</strong>);
+      nodes.push(<strong key={key} className="font-semibold text-slate-900">{token.slice(2, -2)}</strong>);
     } else if (token.startsWith('*')) {
       nodes.push(<em key={key}>{token.slice(1, -1)}</em>);
     } else if (token.startsWith('`')) {

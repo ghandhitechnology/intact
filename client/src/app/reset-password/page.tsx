@@ -2,7 +2,7 @@
 
 import AuthFrame from '@/components/operations/AuthFrame';
 import { apiErrorMessage, Button, Field, Input, LoadingLabel, readApiEnvelope } from '@/components/operations/ui';
-import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
@@ -105,7 +105,7 @@ export default function ResetPasswordPage() {
         </form>
       )}
       {step === 'done' && (
-        <div className="py-4 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" /><h2 className="mt-4 text-lg font-black">비밀번호를 변경했습니다.</h2><p className="mt-2 text-sm text-slate-500">기존의 모든 로그인 세션은 종료되었습니다.</p><Link href="/login" className="mt-6 inline-flex h-11 items-center bg-blue-700 px-5 text-sm font-bold text-white">학번 {studentCode}로 로그인</Link></div>
+        <div className="border-l-4 border-emerald-700 bg-white py-2 pl-5"><h2 className="text-lg font-bold">비밀번호를 변경했습니다.</h2><p className="mt-2 text-sm leading-6 text-slate-600">기존 로그인은 모두 종료되었습니다. 새 비밀번호로 다시 로그인해 주세요.</p><Link href="/login" className="mt-6 inline-flex h-11 items-center rounded-md bg-blue-800 px-5 text-sm font-semibold text-white">학번 {studentCode}로 로그인</Link></div>
       )}
     </AuthFrame>
   );

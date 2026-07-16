@@ -10,6 +10,7 @@ export async function GET() {
     return json(
       {
         bSideEnabled: mode.bSideEnabled,
+        maintenanceEnabled: mode.maintenanceEnabled,
         version: `${mode.bSideEpoch}:${mode.updatedAt.getTime()}`,
       },
       200,

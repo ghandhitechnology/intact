@@ -147,6 +147,7 @@ export default function PostComposer({
   const [savedAt, setSavedAt] = useState("아직 저장되지 않음");
   const [published, setPublished] = useState(false);
   const [publishedId, setPublishedId] = useState<string | null>(null);
+  const [moderationPending, setModerationPending] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -489,7 +490,7 @@ export default function PostComposer({
     }
     const post = body?.data?.post || body?.post;
     if (post?.id) setDraftId(post.id);
-    return post;
+    return { post, moderation: body?.data?.moderation || body?.moderation || null };
   }
 
   async function saveDraft() {
@@ -500,7 +501,7 @@ export default function PostComposer({
     setSubmitting(true);
     setSubmitError("");
     try {
-      const post = await persistPost("DRAFT");
+      const { post } = await persistPost("DRAFT");
       serverSavedFingerprintRef.current = draftFingerprint(
         selectedSlug,
         title,
@@ -535,8 +536,9 @@ export default function PostComposer({
     setSubmitting(true);
     setSubmitError("");
     try {
-      const post = await persistPost("PUBLISHED");
+      const { post, moderation } = await persistPost("PUBLISHED");
       setPublishedId(post?.id || null);
+      setModerationPending(Boolean(moderation?.enforced));
       setPublished(true);
       if (draftStorageKeyRef.current)
         window.localStorage.removeItem(draftStorageKeyRef.current);
@@ -557,7 +559,14 @@ export default function PostComposer({
           <span className="mx-auto flex h-14 w-14 items-center justify-center border border-emerald-200 bg-emerald-50 text-emerald-700">
             <CheckCircle2 className="h-7 w-7" aria-hidden="true" />
           </span>
-          <h1 className="mt-4 text-xl font-black tracking-[-0.035em] text-slate-950">게시 완료</h1>
+          <h1 className="mt-4 text-xl font-bold tracking-[-0.035em] text-slate-950">
+            {moderationPending ? "이중망 검사 접수 완료" : "게시 완료"}
+          </h1>
+          {moderationPending ? (
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              한국어 우회 표현과 이미지까지 두 단계로 확인하고 있어요. 승인되면 자동으로 공개됩니다.
+            </p>
+          ) : null}
           <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
             <button
               type="button"
@@ -570,9 +579,9 @@ export default function PostComposer({
               href={
                 publishedId ? `/post/${publishedId}` : `/boards/${board.slug}`
               }
-              className="inline-flex h-9 items-center justify-center border border-emerald-700 bg-emerald-700 px-4 text-xs font-extrabold text-white hover:bg-emerald-800"
+              className="inline-flex h-9 items-center justify-center border border-emerald-700 bg-emerald-700 px-4 text-xs font-semibold text-white hover:bg-emerald-800"
             >
-              {publishedId ? "게시글 확인하기" : "게시판으로 가기"}
+              {publishedId ? (moderationPending ? "검사 상태 확인하기" : "게시글 확인하기") : "게시판으로 가기"}
             </Link>
           </div>
         </div>
@@ -581,8 +590,8 @@ export default function PostComposer({
   }
 
   return (
-    <div className="min-h-screen px-4 py-2 sm:px-6 sm:py-4 lg:px-8">
-      <form onSubmit={submitPost} className="mx-auto max-w-[1540px]">
+    <div className="px-4 py-3 sm:px-6 sm:py-5">
+      <form onSubmit={submitPost} className="mx-auto max-w-[1180px]">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <Link
             href={`/boards/${initialBoard.slug}`}
@@ -591,19 +600,19 @@ export default function PostComposer({
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             {initialBoard.title}으로 돌아가기
           </Link>
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
+          <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
             <Save className="h-3.5 w-3.5" aria-hidden="true" />
             {savedAt}
           </span>
         </div>
 
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
-          <section className="border border-slate-200 bg-white ">
+          <section className="border-t-2 border-slate-800 bg-white">
             <header className="border-b border-slate-200 px-4 py-4 sm:px-5">
               <div className="flex items-start gap-4">
                 <BoardMark board={board} />
                 <div>
-                  <h1 className="text-xl font-black tracking-[-0.035em] text-slate-950">
+                  <h1 className="text-2xl font-bold tracking-[-0.03em] text-slate-950">
                     새 글 작성
                   </h1>
                 </div>
@@ -613,7 +622,7 @@ export default function PostComposer({
             <div className="space-y-5 p-4 sm:p-5">
               <div className="grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
                 <label className="block">
-                  <span className="mb-2 block text-xs font-extrabold text-slate-700">
+                  <span className="mb-2 block text-xs font-semibold text-slate-700">
                     게시판 <span className="text-rose-500">*</span>
                   </span>
                   <span className="relative block">
@@ -637,7 +646,7 @@ export default function PostComposer({
                   </span>
                 </label>
                 <label className="block">
-                  <span className="mb-2 flex items-center justify-between gap-3 text-xs font-extrabold text-slate-700">
+                  <span className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-700">
                     <span>
                       제목 <span className="text-rose-500">*</span>
                     </span>
@@ -659,7 +668,7 @@ export default function PostComposer({
 
               {!photoMode ? <div>
                 <div className="mb-2 flex items-center justify-between gap-4">
-                  <span className="text-xs font-extrabold text-slate-700">
+                  <span className="text-xs font-semibold text-slate-700">
                     내용 <span className="text-rose-500">*</span>
                   </span>
                   <div
@@ -674,7 +683,7 @@ export default function PostComposer({
                         onClick={() => setMode(item)}
                         aria-pressed={mode === item}
                         className={cx(
-                          "px-3 py-1.5 text-[11px] font-bold",
+                          "px-3 py-1.5 text-xs font-bold",
                           mode === item
                             ? "bg-white text-slate-800 "
                             : "text-slate-400",
@@ -755,7 +764,7 @@ export default function PostComposer({
                       )}
                     </div>
                   )}
-                  <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2 text-[10px] text-slate-400">
+                  <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2 text-xs text-slate-400">
                     <span>Markdown 지원</span>
                     <span className="tabular-nums">
                       {content.length} / 10,000
@@ -768,7 +777,7 @@ export default function PostComposer({
                 {!photoMode ? <div>
                   <label
                     htmlFor="post-tags"
-                    className="mb-2 flex items-center justify-between gap-3 text-xs font-extrabold text-slate-700"
+                    className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-700"
                   >
                     <span>태그</span>
                     <span className="font-normal text-slate-400">최대 5개</span>
@@ -800,7 +809,7 @@ export default function PostComposer({
                     {tags.map((tag) => (
                       <span
                         key={tag}
-                        className="inline-flex items-center gap-1 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700"
+                        className="inline-flex items-center gap-1 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700"
                       >
                         #{tag}
                         <button
@@ -820,7 +829,7 @@ export default function PostComposer({
                 </div> : null}
 
                 <div className={photoMode ? "lg:col-span-2" : undefined}>
-                  <span className="mb-2 flex items-center justify-between gap-3 text-xs font-extrabold text-slate-700">
+                  <span className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-700">
                     <span>{photoMode ? "사진" : "첨부 파일"}</span>
                     <span className="font-normal text-slate-400">
                       최대 {attachmentLimit}개 · 각 20MB
@@ -849,7 +858,7 @@ export default function PostComposer({
                         <li
                           key={item.key}
                           className={cx(
-                            "relative border border-slate-200 bg-white text-[11px]",
+                            "relative border border-slate-200 bg-white text-xs",
                             photoMode ? "overflow-hidden" : "flex items-center gap-2 px-2.5 py-2",
                           )}
                         >
@@ -907,7 +916,7 @@ export default function PostComposer({
                   type="button"
                   onClick={saveDraft}
                   disabled={submitting}
-                  className="inline-flex h-9 flex-1 items-center justify-center gap-2 border border-slate-300 bg-white px-4 text-xs font-extrabold text-slate-600 hover:border-slate-500 sm:flex-none"
+                  className="inline-flex h-9 flex-1 items-center justify-center gap-2 border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-600 hover:border-slate-500 sm:flex-none"
                 >
                   <Save className="h-3.5 w-3.5" aria-hidden="true" />
                   임시저장
@@ -915,7 +924,7 @@ export default function PostComposer({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex h-9 flex-1 items-center justify-center gap-2 border border-emerald-700 bg-emerald-700 px-4 text-xs font-extrabold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300 sm:flex-none"
+                  className="inline-flex h-9 flex-1 items-center justify-center gap-2 border border-emerald-700 bg-emerald-700 px-4 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300 sm:flex-none"
                 >
                   <Send className="h-3.5 w-3.5" aria-hidden="true" />
                   {submitting ? "저장 중…" : "게시하기"}
@@ -934,12 +943,12 @@ export default function PostComposer({
                   <Avatar member={author} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-black text-slate-800">
+                      <p className="truncate text-sm font-bold text-slate-800">
                         {author.nickname}
                       </p>
                       <LevelBadge level={author.level} />
                     </div>
-                    <p className="mt-1 text-[11px] tabular-nums text-slate-400">
+                    <p className="mt-1 text-xs tabular-nums text-slate-400">
                       {bSideEnabled ? '다른 사용자에게 익명 해시로 표시' : `학번 ${author.studentId}`}
                     </p>
                   </div>
@@ -954,7 +963,7 @@ export default function PostComposer({
                   className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400"
                   aria-hidden="true"
                 />
-                <p className="text-[11px] leading-5 text-slate-500">
+                <p className="text-xs leading-5 text-slate-500">
                   {bSideEnabled ? 'B-side 익명 처리' : '인증 계정으로 게시'}
                 </p>
               </div>

@@ -51,12 +51,12 @@ function SearchPost({ post, query }: { post: PostSummary; query: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <BoardBadge slug={post.board} />
         {post.hot && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-rose-500">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500">
             <Flame className="h-3 w-3" aria-hidden="true" />
             인기
           </span>
         )}
-        <span className="ml-auto text-[10px] text-slate-400">
+        <span className="ml-auto text-xs text-slate-400">
           {post.createdAt}
         </span>
       </div>
@@ -64,7 +64,7 @@ function SearchPost({ post, query }: { post: PostSummary; query: string }) {
         href={`/post/${post.id}`}
         className="group mt-3 block focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
       >
-        <h2 className="text-[15px] font-extrabold tracking-[-0.02em] text-slate-800 group-hover:text-emerald-700">
+        <h2 className="text-[15px] font-semibold tracking-[-0.02em] text-slate-800 group-hover:text-emerald-700">
           {post.title}
         </h2>
         <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
@@ -77,7 +77,7 @@ function SearchPost({ post, query }: { post: PostSummary; query: string }) {
             <span
               key={tag}
               className={cx(
-                "px-2 py-1 text-[10px] font-bold",
+                "px-2 py-1 text-xs font-bold",
                 normalize(query) === normalize(tag)
                   ? "bg-emerald-100 text-emerald-800"
                   : "bg-slate-100 text-slate-500",
@@ -86,7 +86,7 @@ function SearchPost({ post, query }: { post: PostSummary; query: string }) {
               #{tag}
             </span>
           ))}
-          <span className="ml-1 text-[10px] text-slate-400">
+          <span className="ml-1 text-xs text-slate-400">
             {post.author.nickname} · {post.author.studentId}
           </span>
         </div>
@@ -349,18 +349,18 @@ export default function SearchClient({
   };
 
   return (
-    <div className="min-h-screen px-4 py-2 sm:px-6 sm:py-4 lg:px-8">
-      <div className="mx-auto max-w-[1540px]">
+    <div className="px-4 py-3 sm:px-6 sm:py-5">
+      <div className="mx-auto max-w-[1320px]">
         <Link
           href="/"
-          className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-emerald-700"
+          className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-emerald-800"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
           홈으로
         </Link>
 
-        <header className="border border-slate-200 bg-white px-4 py-4 sm:px-5">
-          <h1 className="text-xl font-black tracking-[-0.035em] text-slate-950 sm:text-2xl">
+        <header className="border-b-2 border-slate-800 bg-white px-1 pb-5 pt-2">
+          <h1 className="text-2xl font-bold tracking-[-0.03em] text-slate-950 sm:text-[28px]">
             인텍트 통합검색
           </h1>
 
@@ -394,7 +394,7 @@ export default function SearchClient({
             )}
             <button
               type="submit"
-              className="m-1 inline-flex min-w-[68px] items-center justify-center bg-emerald-700 px-4 text-xs font-extrabold text-white hover:bg-emerald-800"
+              className="m-1 inline-flex min-w-[68px] items-center justify-center bg-emerald-700 px-4 text-xs font-semibold text-white hover:bg-emerald-800"
             >
               검색
             </button>
@@ -402,7 +402,7 @@ export default function SearchClient({
         </header>
 
         <div className="mt-4 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
-          <section className="border border-slate-200 bg-white ">
+          <section className="border-t-2 border-slate-800 bg-white">
             <div className="border-b border-slate-200 px-4 pt-4 sm:px-6 sm:pt-5">
               <div
                 className="flex gap-1 overflow-x-auto"
@@ -423,7 +423,7 @@ export default function SearchClient({
                     aria-selected={tab === value}
                     onClick={() => setTab(value)}
                     className={cx(
-                      "shrink-0 border-b-2 px-4 py-3 text-xs font-extrabold",
+                      "shrink-0 border-b-2 px-4 py-3 text-[13px] font-semibold",
                       tab === value
                         ? "border-emerald-600 text-emerald-700"
                         : "border-transparent text-slate-400 hover:text-slate-700",
@@ -464,7 +464,7 @@ export default function SearchClient({
                       <>최근 게시글</>
                     )}
                   </p>
-                  <label className="inline-flex items-center gap-2 text-[11px] font-bold text-slate-500">
+                  <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-500">
                     <SlidersHorizontal
                       className="h-3.5 w-3.5"
                       aria-hidden="true"
@@ -473,7 +473,7 @@ export default function SearchClient({
                     <select
                       value={sort}
                       onChange={(event) => setSort(event.target.value as Sort)}
-                      className="border-0 bg-transparent pr-7 text-[11px] font-bold text-slate-600 focus:ring-0"
+                      className="border-0 bg-transparent pr-7 text-xs font-bold text-slate-600 focus:ring-0"
                     >
                       <option value="relevance">관련도순</option>
                       <option value="latest">최신순</option>
@@ -492,7 +492,7 @@ export default function SearchClient({
                         className="mx-auto h-8 w-8 text-slate-300"
                         aria-hidden="true"
                       />
-                      <p className="mt-4 text-sm font-black text-slate-700">
+                      <p className="mt-4 text-sm font-bold text-slate-700">
                         검색 결과가 없습니다.
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
@@ -514,13 +514,13 @@ export default function SearchClient({
                     <Avatar member={member} size="lg" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <h2 className="truncate text-sm font-black text-slate-800">
+                        <h2 className="truncate text-sm font-bold text-slate-800">
                           {member.nickname}
                         </h2>
                         <LevelBadge level={member.level} />
                       </div>
                       {member.studentId !== '------' ? (
-                        <p className="mt-1 text-[11px] tabular-nums text-slate-400">
+                        <p className="mt-1 text-xs tabular-nums text-slate-400">
                           학번 {member.studentId}
                         </p>
                       ) : null}
@@ -542,16 +542,14 @@ export default function SearchClient({
                     key={tag}
                     type="button"
                     onClick={() => searchFor(tag)}
-                    className="group flex items-center gap-3 bg-white p-4 text-left hover:bg-emerald-50"
+                    className="group flex items-center gap-3 border-b border-slate-100 bg-white p-4 text-left hover:bg-slate-50"
                   >
-                    <span className="inline-flex h-9 w-9 items-center justify-center border border-slate-200 bg-slate-50 text-slate-500 group-hover:border-emerald-200 group-hover:bg-white group-hover:text-emerald-700">
-                      <Hash className="h-4 w-4" aria-hidden="true" />
-                    </span>
+                    <Hash className="h-4 w-4 text-slate-500 group-hover:text-emerald-700" aria-hidden="true" />
                     <span>
-                      <span className="block text-sm font-extrabold text-slate-700 group-hover:text-emerald-800">
+                      <span className="block text-sm font-semibold text-slate-700 group-hover:text-emerald-800">
                         {tag}
                       </span>
-                      <span className="mt-1 block text-[10px] text-slate-400">
+                      <span className="mt-1 block text-xs text-slate-400">
                         게시글 {count}개
                       </span>
                     </span>
@@ -569,10 +567,10 @@ export default function SearchClient({
                     className="h-4 w-4 text-rose-500"
                     aria-hidden="true"
                   />
-                  <h2 className="text-sm font-black text-slate-900">
+                  <h2 className="text-sm font-bold text-slate-900">
                     {demoMode ? "인기 검색어" : "게시글 추천 태그"}
                   </h2>
-                  <span className="ml-auto text-[10px] text-slate-400">
+                  <span className="ml-auto text-xs text-slate-400">
                     {demoMode ? "시연 데이터" : "현재 검색 기준"}
                   </span>
                 </div>
@@ -586,7 +584,7 @@ export default function SearchClient({
                       >
                         <span
                           className={cx(
-                            "w-4 text-center font-black tabular-nums",
+                            "w-4 text-center font-bold tabular-nums",
                             index < 3 ? "text-emerald-700" : "text-slate-300",
                           )}
                         >
@@ -607,12 +605,12 @@ export default function SearchClient({
             <section className="border border-slate-200 bg-white p-4">
               <div className="mb-4 flex items-center gap-2">
                 <Clock3 className="h-4 w-4 text-blue-600" aria-hidden="true" />
-                <h2 className="text-sm font-black text-slate-900">최근 검색</h2>
+                <h2 className="text-sm font-bold text-slate-900">최근 검색</h2>
                 {recentQueries.length > 0 && (
                   <button
                     type="button"
                     onClick={clearRecentSearches}
-                    className="ml-auto text-[10px] font-bold text-slate-400 hover:text-slate-700"
+                    className="ml-auto text-xs font-bold text-slate-400 hover:text-slate-700"
                   >
                     전체 삭제
                   </button>
@@ -624,13 +622,13 @@ export default function SearchClient({
                     key={item}
                     type="button"
                     onClick={() => searchFor(item)}
-                    className="border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:border-slate-400"
+                    className="border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-500 hover:border-slate-400"
                   >
                     {item}
                   </button>
                 ))}
                 {recentQueries.length === 0 && (
-                  <p className="text-[11px] leading-5 text-slate-400">
+                  <p className="text-xs leading-5 text-slate-400">
                     최근 검색 없음
                   </p>
                 )}
@@ -643,7 +641,7 @@ export default function SearchClient({
                   className="h-4 w-4 text-emerald-600"
                   aria-hidden="true"
                 />
-                <h2 className="text-sm font-black text-slate-900">
+                <h2 className="text-sm font-bold text-slate-900">
                   게시판 좁혀보기
                 </h2>
               </div>

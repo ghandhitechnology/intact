@@ -1357,7 +1357,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="-mx-3 w-[calc(100%+24px)] max-w-[1540px] pb-0 sm:mx-auto sm:w-full sm:px-6 sm:py-4 lg:px-8">
+    <div className="-mx-3 w-[calc(100%+24px)] max-w-[1320px] pb-0 sm:mx-auto sm:w-full sm:px-6 sm:py-5 lg:px-8">
       <div className="hidden sm:block">
         <PageHeading
           title="메시지"
@@ -1369,7 +1369,7 @@ export default function MessagesPage() {
         />
       </div>
 
-      <Card className="h-[calc(100dvh-130px-env(safe-area-inset-bottom))] min-h-0 overflow-hidden border-x-0 sm:mt-4 sm:h-[min(780px,calc(100vh-180px))] sm:min-h-[620px] sm:border-x">
+      <Card className="h-[calc(100dvh-130px-env(safe-area-inset-bottom))] min-h-0 overflow-hidden rounded-none border-x-0 border-b-0 border-t-2 border-t-slate-800 sm:mt-4 sm:h-[min(780px,calc(100vh-180px))] sm:min-h-[620px]">
         <div
           className={cn(
             "h-full min-h-0 border-r border-slate-200 md:grid md:grid-cols-[280px_minmax(0,1fr)]",
@@ -1385,7 +1385,7 @@ export default function MessagesPage() {
             <div className="border-b border-slate-200 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="font-black text-slate-950">대화</h2>
+                  <h2 className="font-bold text-slate-950">대화</h2>
                   <p className="mt-0.5 text-xs text-slate-500">
                     {DEMO_MODE
                       ? `읽지 않음 ${rooms.reduce((sum, item) => sum + item.unread, 0)}개`
@@ -1441,7 +1441,7 @@ export default function MessagesPage() {
                           <BellOff className="h-3 w-3 shrink-0 text-slate-400" />
                         ) : null}
                       </span>
-                      <time className="shrink-0 text-[10px] font-medium text-slate-400">
+                      <time className="shrink-0 text-xs font-medium text-slate-400">
                         {item.time}
                       </time>
                     </span>
@@ -1450,7 +1450,7 @@ export default function MessagesPage() {
                         {item.preview}
                       </span>
                       {item.unread > 0 ? (
-                        <span className="grid h-5 min-w-[20px] place-items-center  bg-blue-700 px-1 text-[10px] font-bold text-white">
+                        <span className="grid h-5 min-w-[20px] place-items-center  bg-blue-700 px-1 text-xs font-bold text-white">
                           {item.unread}
                         </span>
                       ) : null}
@@ -1510,10 +1510,10 @@ export default function MessagesPage() {
                   }
                 />
                 <div className="min-w-0">
-                  <h2 className="truncate text-sm font-extrabold text-slate-950">
+                  <h2 className="truncate text-sm font-semibold text-slate-950">
                     {room.name}
                   </h2>
-                  <p className="mt-0.5 text-[11px] text-slate-500">
+                  <p className="mt-0.5 text-xs text-slate-500">
                     {!room.id
                       ? "왼쪽에서 대화를 선택하세요."
                       : room.type === "group"
@@ -1528,7 +1528,7 @@ export default function MessagesPage() {
               </div>
               <div className="flex items-center">
                 <span className={cn(
-                  "mr-2 hidden text-[10px] font-bold sm:inline",
+                  "mr-2 hidden text-xs font-bold sm:inline",
                   connectionState === "live" ? "text-emerald-700" : "text-amber-700",
                 )} role="status">
                   {connectionState === "live" ? "실시간" : connectionState === "connecting" ? "연결 중" : "재연결 중"}
@@ -1617,7 +1617,7 @@ export default function MessagesPage() {
                   </button>
                 </div>
               ) : room.id && roomMessages.length ? (
-                <div className="mx-auto mb-5 w-fit  bg-slate-200/70 px-3 py-1 text-[10px] font-bold text-slate-500">
+                <div className="mx-auto mb-5 w-fit  bg-slate-200/70 px-3 py-1 text-xs font-bold text-slate-500">
                   대화의 시작
                 </div>
               ) : null}
@@ -1675,7 +1675,7 @@ export default function MessagesPage() {
                         <div className="flex items-end gap-2">
                           <div
                             className={cn(
-                            " border px-3.5 py-2.5 text-sm leading-6",
+                            "rounded-lg border px-3.5 py-2.5 text-sm leading-6",
                               message.failed
                                 ? "border-red-400 bg-red-50 text-red-800"
                                 : message.mine
@@ -1687,7 +1687,7 @@ export default function MessagesPage() {
                               {message.body}
                             </p>
                             {message.failed ? (
-                              <p className="mt-1 text-[10px] font-bold text-red-600">
+                              <p className="mt-1 text-xs font-bold text-red-600">
                                 전송 실패
                               </p>
                             ) : null}
@@ -1713,17 +1713,17 @@ export default function MessagesPage() {
                                   <strong className="block truncate text-xs">
                                     {message.file.name}
                                   </strong>
-                                  <span className="mt-0.5 block text-[10px] text-slate-400">
+                                  <span className="mt-0.5 block text-xs text-slate-400">
                                     {message.file.size}
                                   </span>
                                 </span>
-                                {message.file.id ? <span className="ml-auto text-[10px] font-bold">열기</span> : null}
+                                {message.file.id ? <span className="ml-auto text-xs font-bold">열기</span> : null}
                               </a>
                             ) : null}
                           </div>
                           <span
                             className={cn(
-                              "mb-0.5 flex shrink-0 flex-col items-end text-[9px] text-slate-400",
+                              "mb-0.5 flex shrink-0 flex-col items-end text-xs text-slate-400",
                               message.mine && "order-1",
                             )}
                           >
@@ -1749,7 +1749,7 @@ export default function MessagesPage() {
                 })}
               </div>
               {(typingByRoom[room.id] ?? []).length > 0 && !messageQuery ? (
-                <div className="mt-5 flex items-center gap-2 pl-11 text-[11px] font-medium text-slate-400">
+                <div className="mt-5 flex items-center gap-2 pl-11 text-xs font-medium text-slate-400">
                   <span className="flex gap-1">
                     <i className="h-1.5 w-1.5 animate-bounce  bg-slate-400" />
                     <i className="h-1.5 w-1.5 animate-bounce  bg-slate-400 [animation-delay:120ms]" />
@@ -1883,7 +1883,7 @@ export default function MessagesPage() {
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </IconButton>
-                <h2 className="text-sm font-extrabold text-slate-950">
+                <h2 className="text-sm font-semibold text-slate-950">
                   대화 정보
                 </h2>
               </div>
@@ -1900,7 +1900,7 @@ export default function MessagesPage() {
             <div className="flex-1 overflow-y-auto">
               <div className="border-b border-slate-200 px-4 py-5 text-center">
                 <Avatar name={room.name} size="xl" tone={room.tone} />
-                <h3 className="mt-3 text-base font-black text-slate-950">
+                <h3 className="mt-3 text-base font-bold text-slate-950">
                   {room.name}
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">
@@ -1923,7 +1923,7 @@ export default function MessagesPage() {
                           ),
                         )
                       }
-                      className="flex flex-col items-center gap-1.5 text-[10px] font-bold text-slate-500"
+                      className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
                     >
                       <span className="grid h-9 w-9 place-items-center bg-slate-100 text-slate-700">
                         {room.muted ? (
@@ -1945,7 +1945,7 @@ export default function MessagesPage() {
                           ),
                         )
                       }
-                      className="flex flex-col items-center gap-1.5 text-[10px] font-bold text-slate-500"
+                      className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
                     >
                       <span className="grid h-9 w-9 place-items-center bg-slate-100 text-slate-700">
                         <Pin className="h-4 w-4" />
@@ -1954,7 +1954,7 @@ export default function MessagesPage() {
                     </button>
                     <button
                       type="button"
-                      className="flex flex-col items-center gap-1.5 text-[10px] font-bold text-slate-500"
+                      className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
                     >
                       <span className="grid h-9 w-9 place-items-center bg-slate-100 text-slate-700">
                         <Search className="h-4 w-4" />
@@ -1967,7 +1967,7 @@ export default function MessagesPage() {
               {room.type === "group" ? (
                 <div className="border-b border-slate-200 p-5">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-extrabold text-slate-900">
+                    <h3 className="text-xs font-semibold text-slate-900">
                       참여자 {room.members}
                     </h3>
                     {DEMO_MODE ? (
@@ -2001,7 +2001,7 @@ export default function MessagesPage() {
               ) : null}
               {DEMO_MODE ? (
                 <div className="border-b border-slate-200 p-5">
-                  <h3 className="text-xs font-extrabold text-slate-900">
+                  <h3 className="text-xs font-semibold text-slate-900">
                     데모 공유 파일
                   </h3>
                   <div className="mt-3 grid grid-cols-3 gap-1.5">
@@ -2168,7 +2168,7 @@ export default function MessagesPage() {
                 )}
                 placeholder={bSideEnabled ? "예: #A1B2C3D4, #91F0E2A7" : "예: 331108, 331203"}
               />
-              <span className="mt-2 block text-[11px] leading-5 text-slate-500">{bSideEnabled ? '화면에 표시된 해시 · 쉼표/공백 구분 · 본인 제외' : '31~33기 학번 · 쉼표/공백 구분 · 본인 제외'}</span>
+              <span className="mt-2 block text-xs leading-5 text-slate-500">{bSideEnabled ? '화면에 표시된 해시 · 쉼표/공백 구분 · 본인 제외' : '31~33기 학번 · 쉼표/공백 구분 · 본인 제외'}</span>
             </label>
           )}
           {createError ? (

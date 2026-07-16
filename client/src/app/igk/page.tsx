@@ -655,11 +655,11 @@ export default function IgkPage() {
     );
 
   return (
-    <div className="mx-auto w-full max-w-[1540px] px-4 py-4 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 lg:px-8">
       <PageHeading
         title="IGK 지갑"
       />
-      <section className="relative mt-4 border border-slate-200 bg-white px-4 py-4 sm:px-5">
+      <section className="relative mt-5 border-t-2 border-slate-800 bg-white px-4 py-5 sm:px-5">
         <div className="relative grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
           <div>
             <p className="flex items-center gap-2 text-xs font-bold text-emerald-700">
@@ -667,7 +667,7 @@ export default function IgkPage() {
               보유 IGK
             </p>
             <div className="mt-2 flex items-baseline gap-2">
-              <strong className="text-3xl font-black text-slate-950">
+              <strong className="text-3xl font-bold text-slate-950">
                 {balance.toLocaleString()}
               </strong>
               <span className="text-base font-bold text-slate-500">IGK</span>
@@ -689,7 +689,7 @@ export default function IgkPage() {
                 {igkLevelLabel(wallet.level, wallet.jojolRank)}
               </span>
               {nextThreshold ? (
-                <span className="font-extrabold text-slate-800">
+                <span className="font-semibold text-slate-800">
                   {wallet.lifetimeIgk.toLocaleString()} /{" "}
                   {nextThreshold.toLocaleString()}
                 </span>
@@ -698,7 +698,7 @@ export default function IgkPage() {
             <div className="mt-3">
               <Progress value={wallet.progress * 100} />
             </div>
-            <p className="mt-2 text-[11px] text-slate-500">
+            <p className="mt-2 text-xs text-slate-500">
               {nextThreshold
                 ? `다음 등급까지 ${Math.max(0, nextThreshold - wallet.lifetimeIgk).toLocaleString()} IGK`
                 : "최고 등급 조진"}
@@ -708,7 +708,7 @@ export default function IgkPage() {
       </section>
 
       {attendance ? (
-        <section className="mt-4 border border-emerald-200 bg-emerald-50/60 px-4 py-4 sm:px-5">
+        <section className="mt-4 border-l-4 border-emerald-700 bg-white px-4 py-4 sm:px-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="flex items-center gap-2 text-xs font-bold text-emerald-800">
@@ -716,7 +716,7 @@ export default function IgkPage() {
                 매일 출석 체크
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="inline-flex items-center gap-1.5 text-xl font-black text-slate-950">
+                <span className="inline-flex items-center gap-1.5 text-xl font-bold text-slate-950">
                   <Flame className="h-5 w-5 text-rose-500" />
                   {attendance.streak}일 연속
                 </span>
@@ -779,7 +779,7 @@ export default function IgkPage() {
           {tab === "ledger" ? (
             <>
               <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 p-4">
-                <h2 className="text-sm font-extrabold">IGK 원장</h2>
+                <h2 className="text-sm font-semibold">IGK 원장</h2>
                 <Select
                   value={filter}
                   onChange={(event) => setFilter(event.target.value)}
@@ -813,7 +813,7 @@ export default function IgkPage() {
                       <p className="mt-1 truncate text-xs text-slate-500">
                         {item.description}
                       </p>
-                      <p className="mt-1 text-[10px] text-slate-400">
+                      <p className="mt-1 text-xs text-slate-400">
                         {item.date} · 잔액 {item.balance.toLocaleString()} IGK
                       </p>
                     </div>
@@ -840,7 +840,7 @@ export default function IgkPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="border border-emerald-300 bg-white p-5">
                   <Badge tone="green">현재</Badge>
-                  <p className="mt-3 text-lg font-black">
+                  <p className="mt-3 text-lg font-bold">
                     {igkLevelLabel(wallet.level, wallet.jojolRank)}
                   </p>
                   <p className="mt-1 text-xs text-slate-600">
@@ -850,7 +850,7 @@ export default function IgkPage() {
                 {wallet.nextLevel ? (
                   <div className="border border-slate-200 p-5">
                     <Badge tone="slate">다음</Badge>
-                    <p className="mt-3 text-lg font-black">
+                    <p className="mt-3 text-lg font-bold">
                       {wallet.nextLevel.label ?? igkLevelLabel(wallet.nextLevel.level)}
                     </p>
                     <p className="mt-1 text-xs text-slate-600">
@@ -863,7 +863,7 @@ export default function IgkPage() {
               </div>
               <Link
                 href="/igk/roadmap"
-                className="mt-4 flex h-9 items-center justify-center border border-slate-300 text-xs font-extrabold text-slate-800 hover:bg-slate-50"
+                className="mt-4 flex h-9 items-center justify-center border border-slate-300 text-xs font-semibold text-slate-800 hover:bg-slate-50"
               >
                 전체 등급 로드맵 보기
               </Link>
@@ -872,7 +872,7 @@ export default function IgkPage() {
           {tab === "ranking" ? (
             <div>
               <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
-                <h2 className="text-sm font-extrabold">보유 IGK 랭킹</h2>
+                <h2 className="text-sm font-semibold">보유 IGK 랭킹</h2>
                 <p className="mt-1 text-xs text-slate-500">현재 사용할 수 있는 IGK 잔액 기준</p>
                 <Badge tone="blue" className="mt-2">
                   내 순위 {wallet.rank}위
@@ -885,7 +885,7 @@ export default function IgkPage() {
                     key={person.id}
                     className="flex items-center gap-3 border-b border-slate-100 px-4 py-3"
                   >
-                    <span className="grid h-8 w-8 place-items-center text-sm font-black">
+                    <span className="grid h-8 w-8 place-items-center text-sm font-bold">
                       {person.rank <= 3 ? (
                         <Trophy className="h-4 w-4 text-amber-600" />
                       ) : (
@@ -907,7 +907,7 @@ export default function IgkPage() {
                       <h3 className="truncate text-sm font-bold">
                         {displayName}
                       </h3>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-xs text-slate-400">
                         {person.studentIdentity?.studentCode && person.studentIdentity.studentCode !== '------'
                           ? `${person.studentIdentity.studentCode} · `
                           : ''}
@@ -932,7 +932,7 @@ export default function IgkPage() {
             <CardHeader
               title="IGK 선물하기"
               action={
-                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-800">
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800">
                   <Coins className="h-4 w-4" />보유 {balance.toLocaleString()} IGK
                 </span>
               }
@@ -978,7 +978,7 @@ export default function IgkPage() {
                 />
               </Field>
               {giftAmount > 0 && giftAmount <= balance ? (
-                <p className="-mt-2 text-right text-[11px] font-bold text-slate-500">
+                <p className="-mt-2 text-right text-xs font-bold text-slate-500">
                   선물 후 {(balance - giftAmount).toLocaleString()} IGK
                 </p>
               ) : null}
@@ -999,7 +999,7 @@ export default function IgkPage() {
                 <Send className="h-4 w-4" />
                 선물 내용 확인
               </Button>
-              <p className="flex gap-2 text-[11px] leading-5 text-slate-500">
+              <p className="flex gap-2 text-xs leading-5 text-slate-500">
                 <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
                 하루 누적 선물이 100 IGK 이상이 되면 비밀번호를 확인합니다.
               </p>
@@ -1060,7 +1060,7 @@ export default function IgkPage() {
           <div className="border border-slate-300 bg-white p-5 text-center">
             <Avatar name={recipient || "학생"} size="lg" tone="green" />
             <p className="mt-3 text-sm font-bold">{recipient} 학생에게</p>
-            <p className="mt-2 text-3xl font-black text-emerald-700">
+            <p className="mt-2 text-3xl font-bold text-emerald-700">
               {giftAmount.toLocaleString()} IGK
             </p>
           </div>

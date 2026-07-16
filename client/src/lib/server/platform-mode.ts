@@ -1,9 +1,11 @@
 import { createHmac } from 'node:crypto';
 import prisma from '@/lib/prisma';
+import { ApiError } from '@/lib/server/http';
 
 export type PlatformMode = {
   bSideEnabled: boolean;
   bSideEpoch: number;
+  maintenanceEnabled: boolean;
   updatedAt: Date;
 };
 
@@ -18,6 +20,7 @@ function normalizedMode(value: PlatformMode): PlatformMode {
   return {
     bSideEnabled: Boolean(value.bSideEnabled),
     bSideEpoch: Math.max(0, Number(value.bSideEpoch) || 0),
+    maintenanceEnabled: Boolean(value.maintenanceEnabled),
     updatedAt: value.updatedAt,
   };
 }
@@ -31,7 +34,7 @@ export async function getPlatformMode(options: { fresh?: boolean } = {}) {
       where: { id: PLATFORM_SETTING_ID },
       create: { id: PLATFORM_SETTING_ID },
       update: {},
-      select: { bSideEnabled: true, bSideEpoch: true, updatedAt: true },
+      select: { bSideEnabled: true, bSideEpoch: true, maintenanceEnabled: true, updatedAt: true },
     })
     .then((mode) => {
       cachedMode = normalizedMode(mode);
@@ -47,6 +50,14 @@ export async function getPlatformMode(options: { fresh?: boolean } = {}) {
 export function primePlatformMode(mode: PlatformMode) {
   cachedMode = normalizedMode(mode);
   cacheExpiresAt = Date.now() + CACHE_TTL_MS;
+}
+
+/** Blocks non-admin traffic while maintenance mode is on. */
+export async function assertNotMaintenance() {
+  const mode = await getPlatformMode();
+  if (mode.maintenanceEnabled) {
+    throw new ApiError(503, 'MAINTENANCE', '서버 점검 중입니다. 잠시 후 다시 이용해 주세요.');
+  }
 }
 
 function pseudonymSecret() {

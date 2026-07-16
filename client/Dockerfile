@@ -10,6 +10,13 @@ WORKDIR /app
 COPY prisma ./prisma
 CMD ["yarn", "prisma", "migrate", "deploy"]
 
+FROM dependencies AS moderation-worker
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor && rm -rf /var/lib/apt/lists/*
+COPY . .
+RUN yarn prisma generate
+CMD ["./node_modules/.bin/tsx", "scripts/moderation-worker.ts"]
+
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*

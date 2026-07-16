@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { commentSelect, isPhotoMimeType, parseAttachmentIds, publicAuthorSelect, sanitizePostMetadata } from '@/lib/server/content';
 import { awardIgk, reverseReward } from '@/lib/server/igk';
@@ -13,6 +14,7 @@ import {
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 import { maskPublicIdentities } from '@/lib/server/platform-mode';
+import { getModerationMode, publicModerationStatus, queueModerationSubmission } from '@/lib/server/moderation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -169,7 +171,8 @@ export async function PATCH(
     const requestedStatus = body.status === 'DRAFT' || body.status === 'PUBLISHED'
       ? body.status
       : null;
-    const targetStatus = requestedStatus ?? old.status;
+    const targetStatus = requestedStatus ?? (old.status === 'PENDING_MODERATION' ? 'PUBLISHED' : old.status);
+    const moderationMode = getModerationMode();
     const rawTitle = body.title === undefined
       ? old.title
       : typeof body.title === 'string' ? body.title.trim() : '';
@@ -212,7 +215,7 @@ export async function PATCH(
     const editReason = typeof body.editReason === 'string'
       ? body.editReason.trim().slice(0, 300)
       : null;
-    const post = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       await lockResources(tx, [`post:${old.id}`]);
       const current = await tx.post.findUnique({ where: { id: old.id } });
       if (!current || current.status === 'DELETED') {
@@ -226,6 +229,83 @@ export async function PATCH(
       }
       if (current.updatedAt.getTime() !== old.updatedAt.getTime()) {
         throw new ApiError(409, 'STALE_POST', '게시글 상태가 변경되었습니다. 새로고침 후 다시 시도해 주세요.');
+      }
+      if (targetStatus === 'PUBLISHED' && moderationMode === 'ENFORCE') {
+        if (!['DRAFT', 'PUBLISHED', 'PENDING_MODERATION'].includes(current.status)) {
+          throw new ApiError(409, 'INVALID_STATUS_TRANSITION', '현재 상태에서는 게시 검사를 요청할 수 없습니다.');
+        }
+        const currentAttachments = await tx.attachment.findMany({
+          where: { postId: current.id },
+          select: { id: true, mimeType: true },
+        });
+        const candidateAttachmentIds = Array.from(new Set([
+          ...currentAttachments.map((attachment) => attachment.id),
+          ...attachmentIds,
+        ]));
+        const candidateAttachments = await tx.attachment.findMany({
+          where: {
+            id: { in: candidateAttachmentIds },
+            uploaderId: session.user.id,
+            messageId: null,
+            OR: [{ postId: null }, { postId: current.id }],
+          },
+          select: { id: true, mimeType: true },
+        });
+        if (candidateAttachments.length !== candidateAttachmentIds.length) {
+          throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않아요. 파일을 다시 선택해 주세요.');
+        }
+        if (photoPost && (
+          candidateAttachments.length === 0
+          || candidateAttachments.length > 12
+          || candidateAttachments.some((attachment) => !isPhotoMimeType(attachment.mimeType))
+        )) {
+          throw new ApiError(400, 'IMAGES_ONLY', '사진게시판에는 이미지를 1~12장 올릴 수 있어요.');
+        }
+
+        let visiblePost;
+        const isNewPost = current.status !== 'PUBLISHED';
+        if (isNewPost) {
+          if (attachmentIds.length) {
+            await tx.attachment.updateMany({
+              where: { id: { in: attachmentIds }, uploaderId: session.user.id, postId: null, messageId: null },
+              data: { postId: current.id },
+            });
+          }
+          visiblePost = await tx.post.update({
+            where: { id: current.id },
+            data: {
+              title,
+              content,
+              contentText,
+              tags,
+              status: 'PENDING_MODERATION',
+              boardId,
+              kind,
+              metadata: body.metadata === undefined ? undefined : sanitizePostMetadata(body.metadata),
+              publishedAt: null,
+            },
+            select: detailSelect,
+          });
+        } else {
+          visiblePost = await tx.post.findUniqueOrThrow({ where: { id: current.id }, select: detailSelect });
+        }
+        const moderation = await queueModerationSubmission(tx, {
+          postId: current.id,
+          authorId: session.user.id,
+          basePostUpdatedAt: visiblePost.updatedAt,
+          title,
+          content,
+          contentText,
+          tags,
+          metadata: body.metadata === undefined
+            ? (current.metadata as Prisma.InputJsonValue | null)
+            : sanitizePostMetadata(body.metadata),
+          boardId,
+          kind,
+          attachmentIds: candidateAttachmentIds,
+          isNewPost,
+        });
+        return { post: visiblePost, moderation };
       }
       let status = current.status;
       if (requestedStatus && requestedStatus !== current.status) {
@@ -325,9 +405,34 @@ export async function PATCH(
           note: '게시글 작성 보상',
         });
       }
-      return updated;
+      let moderation = null;
+      if (status === 'PUBLISHED' && moderationMode === 'SHADOW') {
+        const currentAttachments = await tx.attachment.findMany({ where: { postId: current.id }, select: { id: true } });
+        moderation = await queueModerationSubmission(tx, {
+          postId: current.id,
+          authorId: session.user.id,
+          basePostUpdatedAt: updated.updatedAt,
+          title,
+          content,
+          contentText,
+          tags,
+          metadata: body.metadata === undefined
+            ? (current.metadata as Prisma.InputJsonValue | null)
+            : sanitizePostMetadata(body.metadata),
+          boardId,
+          kind,
+          attachmentIds: currentAttachments.map((attachment) => attachment.id),
+          isNewPost: false,
+        });
+      }
+      return { post: updated, moderation };
     });
-    return json({ post: await maskPublicIdentities(post, session.user.id) });
+    return json({
+      post: await maskPublicIdentities(result.post, session.user.id),
+      moderation: result.moderation
+        ? { ...publicModerationStatus(result.moderation), enforced: moderationMode === 'ENFORCE' }
+        : null,
+    }, result.moderation ? 202 : 200);
   } catch (error) {
     return jsonError(error);
   }

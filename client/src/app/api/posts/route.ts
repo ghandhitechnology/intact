@@ -16,6 +16,7 @@ import {
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 import { getPlatformMode, maskPublicIdentities, maskPublicIdentitiesWithMode } from '@/lib/server/platform-mode';
+import { getModerationMode, publicModerationStatus, queueModerationSubmission } from '@/lib/server/moderation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -113,7 +114,11 @@ export async function POST(request: Request) {
     });
     if (!board) throw new ApiError(404, 'BOARD_NOT_FOUND', '게시판을 찾을 수 없습니다.');
     const photoPost = board.slug === 'photos';
-    const status = body.status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED';
+    const requestedStatus = body.status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED';
+    const moderationMode = getModerationMode();
+    const status = requestedStatus === 'PUBLISHED' && moderationMode === 'ENFORCE'
+      ? 'PENDING_MODERATION'
+      : requestedStatus;
     const rawTitle = typeof body.title === 'string' ? body.title.trim() : '';
     const rawContent = typeof body.content === 'string' ? body.content.trim() : '';
     if (rawTitle.length > 180 || rawContent.length > 50_000) {
@@ -123,22 +128,22 @@ export async function POST(request: Request) {
     if (!attachmentIds) {
       throw new ApiError(400, 'INVALID_ATTACHMENTS', `첨부 파일은 최대 ${photoPost ? 12 : 5}개까지 올릴 수 있어요.`);
     }
-    if (status === 'DRAFT' && !rawTitle && !rawContent && attachmentIds.length === 0) {
+    if (requestedStatus === 'DRAFT' && !rawTitle && !rawContent && attachmentIds.length === 0) {
       throw new ApiError(400, 'EMPTY_DRAFT', '임시저장할 제목이나 내용을 입력해 주세요.');
     }
-    const title = status === 'DRAFT'
+    const title = requestedStatus === 'DRAFT'
       ? rawTitle
       : requiredString(body.title, '제목', { min: photoPost ? 2 : 5, max: 180 });
     const content = photoPost
       ? ''
-      : status === 'DRAFT'
+      : requestedStatus === 'DRAFT'
         ? rawContent
         : requiredString(body.content, '본문', { min: 1, max: 50_000, trim: false }).trim();
     const contentText = plainTextFromMarkup(content);
-    if (!photoPost && status === 'PUBLISHED' && contentText.length < 20) {
+    if (!photoPost && requestedStatus === 'PUBLISHED' && contentText.length < 20) {
       throw new ApiError(400, 'CONTENT_TOO_SHORT', '게시하려면 본문을 20자 이상 작성해 주세요.');
     }
-    if (photoPost && status === 'PUBLISHED' && attachmentIds.length === 0) {
+    if (photoPost && requestedStatus === 'PUBLISHED' && attachmentIds.length === 0) {
       throw new ApiError(400, 'PHOTO_REQUIRED', '사진을 한 장 이상 골라 주세요.');
     }
     const tags = !photoPost && Array.isArray(body.tags)
@@ -148,7 +153,7 @@ export async function POST(request: Request) {
       : [];
     const metadata = sanitizePostMetadata(body.metadata);
 
-    const post = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const created = await tx.post.create({
         data: {
           boardId: board.id,
@@ -193,6 +198,23 @@ export async function POST(request: Request) {
           throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않아요. 파일을 다시 선택해 주세요.');
         }
       }
+      let moderation = null;
+      if (requestedStatus === 'PUBLISHED' && moderationMode !== 'OFF') {
+        moderation = await queueModerationSubmission(tx, {
+          postId: created.id,
+          authorId: session.user.id,
+          basePostUpdatedAt: created.updatedAt,
+          title,
+          content,
+          contentText,
+          tags,
+          metadata,
+          boardId: board.id,
+          kind: board.kind,
+          attachmentIds,
+          isNewPost: moderationMode === 'ENFORCE',
+        });
+      }
       if (status === 'PUBLISHED') {
         await awardIgk(tx, {
           userId: session.user.id,
@@ -205,9 +227,14 @@ export async function POST(request: Request) {
           note: '게시글 작성 보상',
         });
       }
-      return created;
+      return { post: created, moderation };
     });
-    return json({ post: await maskPublicIdentities(post, session.user.id) }, 201);
+    return json({
+      post: await maskPublicIdentities(result.post, session.user.id),
+      moderation: result.moderation
+        ? { ...publicModerationStatus(result.moderation), enforced: moderationMode === 'ENFORCE' }
+        : null,
+    }, result.moderation ? 202 : 201);
   } catch (error) {
     return jsonError(error);
   }

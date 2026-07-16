@@ -20,11 +20,11 @@ import { formatNumber, getBoard } from "./demo-data";
 import { igkLevelLabel } from "@/lib/igk-levels";
 
 const avatarStyles: Record<Member["accent"], string> = {
-  emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  blue: "border-blue-200 bg-blue-50 text-blue-800",
-  slate: "border-slate-200 bg-slate-100 text-slate-700",
-  violet: "border-violet-200 bg-violet-50 text-violet-800",
-  amber: "border-amber-200 bg-amber-50 text-amber-800",
+  emerald: "border-emerald-300 bg-white text-emerald-800",
+  blue: "border-blue-300 bg-white text-blue-800",
+  slate: "border-slate-300 bg-white text-slate-700",
+  violet: "border-violet-300 bg-white text-violet-800",
+  amber: "border-amber-300 bg-white text-amber-800",
 };
 
 const boardStyles: Record<
@@ -69,7 +69,7 @@ export function Avatar({
   size?: "sm" | "md" | "lg";
 }) {
   const sizes = {
-    sm: "h-7 w-7 text-[11px]",
+    sm: "h-7 w-7 text-xs",
     md: "h-9 w-9 text-xs",
     lg: "h-12 w-12 text-sm",
   };
@@ -104,7 +104,7 @@ export function Avatar({
 
 export function LevelBadge({ level, jojolRank }: { level: number; jojolRank?: number | null }) {
   return (
-    <span className="inline-flex h-5 items-center  border border-emerald-200 bg-emerald-50 px-1.5 text-[10px] font-extrabold tracking-tight text-emerald-700">
+    <span className="inline-flex h-5 items-center border-l-2 border-emerald-700 pl-1.5 text-xs font-semibold text-emerald-800">
       {igkLevelLabel(level, jojolRank)}
     </span>
   );
@@ -122,7 +122,7 @@ export function MemberLine({
       {!compact && <Avatar member={member} size="sm" />}
       <span
         className={cx(
-          "truncate font-semibold text-slate-700",
+          "truncate font-medium text-slate-700",
           member.nickname.startsWith('#') && "font-mono tracking-wide",
         )}
         style={
@@ -139,14 +139,14 @@ export function MemberLine({
         </span>
       ) : null}
       {member.studentId === "ADMIN" ? (
-        <span className="inline-flex h-5 items-center bg-slate-900 px-1.5 text-[10px] font-extrabold text-white">
+        <span className="inline-flex h-5 items-center rounded-sm bg-slate-900 px-1.5 text-xs font-semibold text-white">
           운영자
         </span>
       ) : (
         <LevelBadge level={member.level} jojolRank={member.jojolRank} />
       )}
       {member.cosmetics?.title ? (
-        <span className="inline-flex h-5 shrink-0 items-center border border-amber-200 bg-amber-50 px-1.5 text-[10px] font-extrabold tracking-tight text-amber-700">
+        <span className="inline-flex h-5 shrink-0 items-center border-l-2 border-amber-500 pl-1.5 text-xs font-semibold text-amber-800">
           {member.cosmetics.title}
         </span>
       ) : null}
@@ -182,17 +182,16 @@ export function BoardMark({
   size?: "sm" | "md" | "lg";
 }) {
   const sizes = {
-    sm: "h-8 w-8",
-    md: "h-10 w-10",
-    lg: "h-12 w-12",
+    sm: "h-7 w-7",
+    md: "h-8 w-8",
+    lg: "h-10 w-10",
   };
 
   return (
     <span
       className={cx(
-        "inline-flex shrink-0 items-center justify-center  border",
+        "inline-flex shrink-0 items-center justify-center text-emerald-800",
         sizes[size],
-        boardStyles[board.accent].icon,
       )}
     >
       <BoardIcon
@@ -210,10 +209,7 @@ export function BoardBadge({ slug }: { slug: BoardSlug }) {
   return (
     <Link
       href={`/boards/${board.slug}`}
-      className={cx(
-        "inline-flex h-6 items-center  px-2 text-[11px] font-bold transition-opacity hover:opacity-70",
-        boardStyles[board.accent].soft,
-      )}
+      className="inline-flex h-6 items-center border-b border-slate-300 text-xs font-semibold text-slate-600 transition-colors hover:border-emerald-700 hover:text-emerald-800"
     >
       {board.shortTitle}
     </Link>
@@ -222,7 +218,7 @@ export function BoardBadge({ slug }: { slug: BoardSlug }) {
 
 export function PostMetrics({ post }: { post: PostSummary }) {
   return (
-    <span className="inline-flex items-center gap-3 text-[11px] tabular-nums text-slate-400">
+    <span className="inline-flex items-center gap-3 text-xs tabular-nums text-slate-400">
       <span className="inline-flex items-center gap-1" title="추천">
         <ThumbsUp className="h-3.5 w-3.5" aria-hidden="true" />
         {formatNumber(post.likes)}
@@ -247,11 +243,11 @@ export function PageHeading({
   return (
     <div className="flex flex-col gap-3 border-b border-slate-300 pb-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-xl font-black tracking-[-0.03em] text-slate-950 sm:text-2xl">
+        <h1 className="text-2xl font-bold tracking-[-0.025em] text-slate-950 sm:text-[28px]">
           {title}
         </h1>
         {description && (
-          <p className="mt-1.5 max-w-2xl text-xs leading-5 text-slate-500 sm:text-sm">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
             {description}
           </p>
         )}
@@ -273,11 +269,11 @@ export function SectionTitle({
   return (
     <div className="mb-3 flex items-end justify-between gap-4">
       <div>
-        <h2 className="text-sm font-black tracking-[-0.02em] text-slate-900 sm:text-base">
+        <h2 className="text-base font-bold tracking-[-0.015em] text-slate-900 sm:text-lg">
           {title}
         </h2>
         {description && (
-          <p className="mt-1 text-xs text-slate-500">{description}</p>
+          <p className="mt-1 text-sm text-slate-600">{description}</p>
         )}
       </div>
       {href && (
@@ -294,7 +290,7 @@ export function SectionTitle({
 
 export function DeadlineBadge({ deadline }: { deadline: string }) {
   return (
-    <span className="inline-flex items-center gap-1 bg-blue-50 px-2 py-1 text-[11px] font-extrabold text-blue-700">
+    <span className="inline-flex items-center gap-1 border-l-2 border-blue-600 pl-1.5 text-xs font-semibold text-blue-800">
       <CalendarDays className="h-3 w-3" aria-hidden="true" />
       {deadline}
     </span>
@@ -303,7 +299,7 @@ export function DeadlineBadge({ deadline }: { deadline: string }) {
 
 export function SolvedBadge() {
   return (
-    <span className="inline-flex items-center bg-emerald-50 px-2 py-1 text-[11px] font-extrabold text-emerald-700">
+    <span className="inline-flex items-center border-l-2 border-emerald-700 pl-1.5 text-xs font-semibold text-emerald-800">
       해결됨
     </span>
   );

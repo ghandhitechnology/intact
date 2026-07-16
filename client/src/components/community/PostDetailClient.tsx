@@ -83,7 +83,7 @@ function BodyContent({
           화면 밖에도 실제 학교생활이 이어진다는 점을 기억해 주세요.
         </p>
         <div className="border-y border-slate-300 py-4">
-          <p className="font-extrabold text-slate-900">
+          <p className="font-semibold text-slate-900">
             함께 지킬 네 가지 원칙
           </p>
           <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6">
@@ -138,13 +138,13 @@ function BodyContent({
         <div className="grid border border-slate-200 bg-slate-50 sm:grid-cols-2">
           <div className="border-b border-slate-200 p-4 sm:border-b-0 sm:border-r">
             <p className="text-xs font-bold text-slate-400">모집 분야</p>
-            <p className="mt-1 text-sm font-extrabold text-slate-800">
+            <p className="mt-1 text-sm font-semibold text-slate-800">
               데이터 분석 · 시각화
             </p>
           </div>
           <div className="p-4">
             <p className="text-xs font-bold text-slate-400">모집 마감</p>
-            <p className="mt-1 text-sm font-extrabold text-blue-700">
+            <p className="mt-1 text-sm font-semibold text-blue-700">
               {post.deadline ?? "협의"}
             </p>
           </div>
@@ -292,7 +292,7 @@ function CommentCard({
       )}
     >
       {comment.accepted && (
-        <div className="mb-4 inline-flex items-center gap-1.5 border border-emerald-200 bg-white px-2.5 py-1.5 text-[11px] font-extrabold text-emerald-700">
+        <div className="mb-4 inline-flex items-center gap-1.5 border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-emerald-700">
           <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
           채택된 답변
         </div>
@@ -301,7 +301,7 @@ function CommentCard({
         <Avatar member={comment.author} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-extrabold text-slate-800">
+            <span className="text-sm font-semibold text-slate-800">
               {comment.author.nickname}
             </span>
             {comment.author.studentId !== '------' ? (
@@ -310,7 +310,7 @@ function CommentCard({
               </span>
             ) : null}
             <LevelBadge level={comment.author.level} />
-            <span className="text-[11px] text-slate-400">
+            <span className="text-xs text-slate-400">
               {comment.createdAt}
             </span>
           </div>
@@ -333,7 +333,7 @@ function CommentCard({
                     setEditing(false);
                     setEditError("");
                   }}
-                  className="h-8 border border-slate-300 px-3 text-[11px] font-bold text-slate-500"
+                  className="h-8 border border-slate-300 px-3 text-xs font-bold text-slate-500"
                 >
                   취소
                 </button>
@@ -341,7 +341,7 @@ function CommentCard({
                   type="button"
                   disabled={pending || !content.trim()}
                   onClick={saveEdit}
-                  className="h-8 border border-emerald-700 bg-emerald-700 px-3 text-[11px] font-bold text-white"
+                  className="h-8 border border-emerald-700 bg-emerald-700 px-3 text-xs font-bold text-white"
                 >
                   수정 저장
                 </button>
@@ -400,7 +400,7 @@ function CommentCard({
                     setContent(savedContent);
                     setEditing(true);
                   }}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-blue-700"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-blue-700"
                 >
                   <Pencil className="h-3 w-3" />
                   수정
@@ -409,7 +409,7 @@ function CommentCard({
                   type="button"
                   disabled={pending}
                   onClick={deleteComment}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-rose-600"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-rose-600"
                 >
                   <Trash2 className="h-3 w-3" />
                   삭제
@@ -418,7 +418,7 @@ function CommentCard({
             )}
             <Link
               href={`/support?targetType=COMMENT&targetId=${encodeURIComponent(comment.id)}`}
-              className="ml-auto inline-flex items-center gap-1 text-[11px] font-bold text-slate-300 hover:text-rose-600"
+              className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-slate-300 hover:text-rose-600"
             >
               <Flag className="h-3.5 w-3.5" /> 신고
             </Link>
@@ -772,10 +772,10 @@ export default function PostDetailClient({
   }
 
   return (
-    <div className="min-h-screen px-4 py-2 sm:px-6 sm:py-4 lg:px-8">
-      <div className="mx-auto max-w-[1540px]">
+    <div className="px-4 py-3 sm:px-6 sm:py-5">
+      <div className="mx-auto max-w-[1180px]">
         <nav
-          className="mb-3 flex items-center gap-2 text-[11px] text-slate-400"
+          className="mb-3 flex items-center gap-2 text-xs text-slate-400"
           aria-label="현재 위치"
         >
           <Link
@@ -786,7 +786,7 @@ export default function PostDetailClient({
           </Link>
           <ChevronRight className="h-3 w-3" aria-hidden="true" />
           {isNotice ? (
-            <span className="bg-slate-900 px-2 py-1 text-[10px] font-extrabold text-white">
+            <span className="bg-slate-900 px-2 py-1 text-xs font-semibold text-white">
               관리자 공지
             </span>
           ) : (
@@ -798,11 +798,17 @@ export default function PostDetailClient({
 
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
           <div className="min-w-0">
-            <article className="border border-slate-200 bg-white ">
+            {post.moderation ? (
+              <div className="mb-3 border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                <p className="font-semibold">이중망 상태 · {post.moderation.state}</p>
+                <p className="mt-1 text-xs leading-5 text-amber-800">{post.moderation.message}</p>
+              </div>
+            ) : null}
+            <article className="border-t-2 border-slate-800 bg-white">
               <header className="border-b border-slate-200 px-4 py-4 sm:px-5 sm:py-5">
                 <div className="flex flex-wrap items-center gap-2">
                   {post.notice && (
-                    <span className="bg-slate-950 px-2.5 py-1.5 text-[10px] font-extrabold text-white">
+                    <span className="bg-slate-950 px-2.5 py-1.5 text-xs font-semibold text-white">
                       관리자 공지
                     </span>
                   )}
@@ -812,7 +818,7 @@ export default function PostDetailClient({
                     <Link
                       key={tag}
                       href={`/search?q=${encodeURIComponent(tag)}`}
-                      className="bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500 hover:bg-slate-200"
+                      className="bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-200"
                     >
                       #{tag}
                     </Link>
@@ -824,17 +830,17 @@ export default function PostDetailClient({
                     onChange={(event) =>
                       setEditTitle(event.target.value.slice(0, 180))
                     }
-                    className="mt-4 h-12 w-full border border-slate-300 px-3 text-xl font-black text-slate-950 focus:border-emerald-600"
+                    className="mt-4 h-12 w-full border border-slate-300 px-3 text-xl font-bold text-slate-950 focus:border-emerald-600"
                     aria-label="게시글 제목 수정"
                   />
                 ) : (
-                  <h1 className="mt-3 break-keep text-xl font-black leading-[1.4] tracking-[-0.035em] text-slate-950 sm:text-2xl">
+                  <h1 className="mt-3 break-keep text-2xl font-bold leading-[1.45] tracking-[-0.03em] text-slate-950 sm:text-[30px]">
                     {displayTitle}
                   </h1>
                 )}
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <MemberLine member={post.author} />
-                  <div className="flex flex-wrap items-center gap-3 text-[11px] tabular-nums text-slate-400">
+                  <div className="flex flex-wrap items-center gap-3 text-xs tabular-nums text-slate-500">
                     <span>{post.createdAt}</span>
                     <span className="inline-flex items-center gap-1">
                       <Eye className="h-3.5 w-3.5" aria-hidden="true" />
@@ -915,7 +921,7 @@ export default function PostDetailClient({
                     <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
                       <h2
                         id="attachments-heading"
-                        className="inline-flex items-center gap-2 text-xs font-extrabold text-slate-700"
+                        className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"
                       >
                         <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
                         첨부 파일 {post.attachmentCount}개
@@ -937,10 +943,10 @@ export default function PostDetailClient({
                               <FileText className="h-4 w-4" aria-hidden="true" />
                             </span>
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-xs font-extrabold text-slate-700">
+                              <span className="block truncate text-xs font-semibold text-slate-700">
                                 {attachment.originalName}
                               </span>
-                              <span className="mt-1 block text-[10px] text-slate-400">
+                              <span className="mt-1 block text-xs text-slate-400">
                                 {attachment.mimeType} · {(attachment.sizeBytes / 1024 / 1024).toFixed(1)} MB
                               </span>
                             </span>
@@ -982,7 +988,7 @@ export default function PostDetailClient({
                     disabled={actionPending}
                     aria-pressed={liked}
                     className={cx(
-                      "inline-flex h-9 items-center gap-2 border px-3 text-xs font-extrabold",
+                      "inline-flex h-9 items-center gap-2 border px-3 text-xs font-semibold",
                       liked
                         ? "border-emerald-700 bg-emerald-700 text-white"
                         : "border-slate-300 bg-white text-slate-600 hover:border-emerald-600 hover:text-emerald-700",
@@ -1069,14 +1075,14 @@ export default function PostDetailClient({
               <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-5">
                 <h2
                   id="comments-heading"
-                  className="text-base font-black text-slate-900"
+                  className="text-base font-bold text-slate-900"
                 >
                   댓글{" "}
                   <span className="text-emerald-700">
                     {commentItems.length}
                   </span>
                 </h2>
-                <div className="flex gap-3 text-[11px] font-bold">
+                <div className="flex gap-3 text-xs font-bold">
                   <button
                     type="button"
                     onClick={() => setCommentSort("recommended")}
@@ -1139,7 +1145,7 @@ export default function PostDetailClient({
                       계정 정보를 확인하는 중…
                     </span>
                   )}
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-xs text-slate-400">
                     {commentText.length} / 2,000
                   </span>
                 </div>
@@ -1168,14 +1174,14 @@ export default function PostDetailClient({
                   className="w-full resize-y border border-slate-300 bg-white p-3 text-sm leading-6 text-slate-800 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
                 />
                 <div className="mt-3 flex items-center justify-between gap-4">
-                  <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-400">
+                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
                     <Lock className="h-3 w-3" aria-hidden="true" />
                     댓글 작성 시 2 IGK
                   </span>
                   <button
                     type="submit"
                     disabled={actionPending || !commentText.trim()}
-                    className="inline-flex h-9 items-center gap-2 border border-emerald-700 bg-emerald-700 px-4 text-xs font-extrabold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
+                    className="inline-flex h-9 items-center gap-2 border border-emerald-700 bg-emerald-700 px-4 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
                   >
                     <Send className="h-3.5 w-3.5" aria-hidden="true" />
                     댓글 등록
@@ -1194,18 +1200,18 @@ export default function PostDetailClient({
                 <Avatar member={post.author} size="lg" />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-black text-slate-900">
+                    <p className="truncate text-sm font-bold text-slate-900">
                       {post.author.nickname}
                     </p>
                     {isNotice ? (
-                      <span className="bg-slate-900 px-2 py-1 text-[10px] font-extrabold text-white">
+                      <span className="bg-slate-900 px-2 py-1 text-xs font-semibold text-white">
                         운영자
                       </span>
                     ) : (
                       <LevelBadge level={post.author.level} />
                     )}
                   </div>
-                  {!isNotice && post.author.studentId !== '------' ? <p className="mt-1 text-[11px] tabular-nums text-slate-400">학번 {post.author.studentId}</p> : null}
+                  {!isNotice && post.author.studentId !== '------' ? <p className="mt-1 text-xs tabular-nums text-slate-400">학번 {post.author.studentId}</p> : null}
                 </div>
               </div>
               {isNotice ? (
@@ -1220,14 +1226,14 @@ export default function PostDetailClient({
                 <>
                   <dl className="mt-5 grid grid-cols-2 border-y border-slate-100 py-4 text-center">
                     <div className="border-r border-slate-100">
-                      <dt className="text-[10px] text-slate-400">받은 추천</dt>
-                      <dd className="mt-1 text-sm font-black tabular-nums text-slate-800">
+                      <dt className="text-xs text-slate-400">받은 추천</dt>
+                      <dd className="mt-1 text-sm font-bold tabular-nums text-slate-800">
                         1,248
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] text-slate-400">보유 IGK</dt>
-                      <dd className="mt-1 text-sm font-black tabular-nums text-blue-700">
+                      <dt className="text-xs text-slate-400">보유 IGK</dt>
+                      <dd className="mt-1 text-sm font-bold tabular-nums text-blue-700">
                         2,915
                       </dd>
                     </div>
@@ -1255,13 +1261,13 @@ export default function PostDetailClient({
             {relatedPosts.length > 0 && (
               <section className="border border-slate-200 bg-white p-4">
                 <div className="mb-4 flex items-center justify-between gap-3">
-                  <h2 className="text-sm font-black text-slate-900">
+                  <h2 className="text-sm font-bold text-slate-900">
                     같이 읽으면 좋은 글
                   </h2>
                   {board && (
                     <Link
                       href={`/boards/${board.slug}`}
-                      className="text-[10px] font-bold text-slate-400 hover:text-emerald-700"
+                      className="text-xs font-bold text-slate-400 hover:text-emerald-700"
                     >
                       더보기
                     </Link>
@@ -1277,7 +1283,7 @@ export default function PostDetailClient({
                       <p className="line-clamp-2 text-xs font-bold leading-5 text-slate-700 group-hover:text-emerald-700">
                         {item.title}
                       </p>
-                      <span className="mt-1.5 flex items-center gap-2 text-[10px] text-slate-400">
+                      <span className="mt-1.5 flex items-center gap-2 text-xs text-slate-400">
                         <MessageCircle className="h-3 w-3" aria-hidden="true" />
                         {item.comments}
                         <span>·</span>
@@ -1297,14 +1303,14 @@ export default function PostDetailClient({
                     aria-hidden="true"
                   />
                   <div>
-                    <h2 className="text-sm font-black text-slate-900">
+                    <h2 className="text-sm font-bold text-slate-900">
                       새 댓글 알림 받기
                     </h2>
                     <button
                       type="button"
                       onClick={() => setFollowing((value) => !value)}
                       className={cx(
-                        "mt-3 inline-flex h-8 items-center gap-1.5 border px-3 text-[11px] font-extrabold",
+                        "mt-3 inline-flex h-8 items-center gap-1.5 border px-3 text-xs font-semibold",
                         following
                           ? "border-emerald-700 bg-emerald-700 text-white"
                           : "border-emerald-700 bg-white text-emerald-800",

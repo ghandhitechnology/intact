@@ -226,6 +226,7 @@ export async function GET(request: Request) {
       platform: {
         bSideEnabled: platform.bSideEnabled,
         bSideEpoch: platform.bSideEpoch,
+        maintenanceEnabled: platform.maintenanceEnabled,
         updatedAt: platform.updatedAt,
       },
       users: safeUsers,

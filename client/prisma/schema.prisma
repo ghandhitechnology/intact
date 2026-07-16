@@ -39,9 +39,34 @@ enum PostKind {
 enum PostStatus {
   DRAFT
   SCHEDULED
+  PENDING_MODERATION
   PUBLISHED
   HIDDEN
   DELETED
+}
+
+enum ModerationState {
+  QUEUED
+  PROCESSING
+  NEEDS_REVIEW
+  ALLOWED
+  BLOCKED
+  FAILED
+  SUPERSEDED
+}
+
+enum ModerationDecision {
+  ALLOW
+  REVIEW
+  BLOCK
+}
+
+enum ModerationRuleKind {
+  TERM
+  REGEX
+  ALLOWLIST
+  TARGET_ALIAS
+  IMAGE_HASH
 }
 
 enum CommentStatus {
@@ -136,62 +161,65 @@ enum VerificationPurpose {
 }
 
 model User {
-  id                 String     @id @default(uuid()) @db.Uuid
-  createdAt          DateTime   @default(now()) @db.Timestamptz(6)
-  updatedAt          DateTime   @updatedAt @db.Timestamptz(6)
-  loginId            String     @unique @db.VarChar(32)
-  nickname           String     @unique @db.VarChar(32)
-  realName           String?    @db.VarChar(40)
-  passwordHash       String     @map("password_hash") @db.VarChar(255)
-  profileImage       String?    @db.VarChar(2048)
-  bio                String?    @db.VarChar(280)
-  interests          String[]   @default([])
-  role               Role       @default(USER)
-  status             UserStatus @default(ACTIVE)
-  currentIgk         Int        @default(0)
-  lifetimeIgk        Int        @default(0)
-  igkDebt            Int        @default(0)
-  level              Int        @default(1)
-  attendanceStreak     Int       @default(0)
-  bestAttendanceStreak Int       @default(0)
-  lastAttendanceDate   DateTime? @db.Date
-  mustChangePassword Boolean    @default(false)
-  lastLoginAt        DateTime?  @db.Timestamptz(6)
-  lastReverifiedAt   DateTime?  @db.Timestamptz(6)
-  reverifyDueAt      DateTime?  @db.Timestamptz(6)
-  withdrawnAt        DateTime?  @db.Timestamptz(6)
+  id                   String     @id @default(uuid()) @db.Uuid
+  createdAt            DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime   @updatedAt @db.Timestamptz(6)
+  loginId              String     @unique @db.VarChar(32)
+  nickname             String     @unique @db.VarChar(32)
+  realName             String?    @db.VarChar(40)
+  passwordHash         String     @map("password_hash") @db.VarChar(255)
+  profileImage         String?    @db.VarChar(2048)
+  bio                  String?    @db.VarChar(280)
+  interests            String[]   @default([])
+  role                 Role       @default(USER)
+  status               UserStatus @default(ACTIVE)
+  currentIgk           Int        @default(0)
+  lifetimeIgk          Int        @default(0)
+  igkDebt              Int        @default(0)
+  level                Int        @default(1)
+  attendanceStreak     Int        @default(0)
+  bestAttendanceStreak Int        @default(0)
+  lastAttendanceDate   DateTime?  @db.Date
+  mustChangePassword   Boolean    @default(false)
+  lastLoginAt          DateTime?  @db.Timestamptz(6)
+  lastReverifiedAt     DateTime?  @db.Timestamptz(6)
+  reverifyDueAt        DateTime?  @db.Timestamptz(6)
+  withdrawnAt          DateTime?  @db.Timestamptz(6)
 
   studentIdentity        StudentIdentity?
   sessions               Session[]
-  boardsCreated          Board[]          @relation("BoardCreator")
+  boardsCreated          Board[]                @relation("BoardCreator")
   posts                  Post[]
-  postRevisions          PostRevision[]   @relation("RevisionEditor")
-  attachments            Attachment[]     @relation("AttachmentUploader")
+  postRevisions          PostRevision[]         @relation("RevisionEditor")
+  attachments            Attachment[]           @relation("AttachmentUploader")
   comments               Comment[]
   recommendations        Recommendation[]
   bookmarks              Bookmark[]
-  reportsFiled           Report[]         @relation("ReportReporter")
-  reportsAgainst         Report[]         @relation("ReportTargetUser")
-  reportsResolved        Report[]         @relation("ReportResolver")
-  sanctionsReceived      Sanction[]       @relation("SanctionTarget")
-  sanctionsIssued        Sanction[]       @relation("SanctionIssuer")
-  sanctionsRevoked       Sanction[]       @relation("SanctionRevoker")
-  notifications          Notification[]   @relation("NotificationRecipient")
-  notificationActions    Notification[]   @relation("NotificationActor")
-  chatRoomsCreated       ChatRoom[]       @relation("ChatRoomCreator")
+  reportsFiled           Report[]               @relation("ReportReporter")
+  reportsAgainst         Report[]               @relation("ReportTargetUser")
+  reportsResolved        Report[]               @relation("ReportResolver")
+  sanctionsReceived      Sanction[]             @relation("SanctionTarget")
+  sanctionsIssued        Sanction[]             @relation("SanctionIssuer")
+  sanctionsRevoked       Sanction[]             @relation("SanctionRevoker")
+  notifications          Notification[]         @relation("NotificationRecipient")
+  notificationActions    Notification[]         @relation("NotificationActor")
+  chatRoomsCreated       ChatRoom[]             @relation("ChatRoomCreator")
   chatMemberships        ChatMember[]
   messages               Message[]
-  igkEntries             IgkLedger[]      @relation("IgkOwner")
-  igkCounterpartyEntries IgkLedger[]      @relation("IgkCounterparty")
+  igkEntries             IgkLedger[]            @relation("IgkOwner")
+  igkCounterpartyEntries IgkLedger[]            @relation("IgkCounterparty")
   notices                Notice[]
   adminAudits            AdminAuditLog[]
-  supportTickets         SupportTicket[]  @relation("SupportRequester")
-  assignedSupportTickets SupportTicket[]  @relation("SupportAssignee")
+  supportTickets         SupportTicket[]        @relation("SupportRequester")
+  assignedSupportTickets SupportTicket[]        @relation("SupportAssignee")
   levelRulesUpdated      LevelRule[]
-  studentInvitesCreated  StudentInvite[]  @relation("StudentInviteCreator")
-  studentInvitesUsed     StudentInvite[]  @relation("StudentInviteUser")
-  studentInvitesRevoked  StudentInvite[]  @relation("StudentInviteRevoker")
+  studentInvitesCreated  StudentInvite[]        @relation("StudentInviteCreator")
+  studentInvitesUsed     StudentInvite[]        @relation("StudentInviteUser")
+  studentInvitesRevoked  StudentInvite[]        @relation("StudentInviteRevoker")
   items                  UserItem[]
+  moderationSubmissions  ModerationSubmission[] @relation("ModerationAuthor")
+  moderationReviews      ModerationSubmission[] @relation("ModerationReviewer")
+  moderationRules        ModerationRule[]       @relation("ModerationRuleCreator")
 
   @@index([status, createdAt])
   @@index([role, status])
@@ -302,10 +330,11 @@ model Session {
 }
 
 model PlatformSetting {
-  id           String   @id @default("global") @db.VarChar(32)
-  bSideEnabled Boolean  @default(false)
-  bSideEpoch   Int      @default(0)
-  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+  id                 String   @id @default("global") @db.VarChar(32)
+  bSideEnabled       Boolean  @default(false)
+  bSideEpoch         Int      @default(0)
+  maintenanceEnabled Boolean  @default(false)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(6)
 }
 
 model Board {
@@ -354,15 +383,16 @@ model Post {
   isPinned            Boolean    @default(false)
   isLocked            Boolean    @default(false)
 
-  board           Board            @relation(fields: [boardId], references: [id], onDelete: Restrict)
-  author          User             @relation(fields: [authorId], references: [id], onDelete: Restrict)
-  acceptedComment Comment?         @relation("AcceptedAnswer", fields: [acceptedCommentId], references: [id], onDelete: SetNull)
-  revisions       PostRevision[]
-  attachments     Attachment[]
-  comments        Comment[]        @relation("PostComments")
-  recommendations Recommendation[]
-  bookmarks       Bookmark[]
-  reports         Report[]
+  board                 Board                  @relation(fields: [boardId], references: [id], onDelete: Restrict)
+  author                User                   @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  acceptedComment       Comment?               @relation("AcceptedAnswer", fields: [acceptedCommentId], references: [id], onDelete: SetNull)
+  revisions             PostRevision[]
+  attachments           Attachment[]
+  comments              Comment[]              @relation("PostComments")
+  recommendations       Recommendation[]
+  bookmarks             Bookmark[]
+  reports               Report[]
+  moderationSubmissions ModerationSubmission[]
 
   @@index([boardId, status, isPinned(sort: Desc), publishedAt(sort: Desc)])
   @@index([authorId, status, createdAt(sort: Desc)])
@@ -383,6 +413,96 @@ model PostRevision {
   editor User @relation("RevisionEditor", fields: [editorId], references: [id], onDelete: Restrict)
 
   @@index([postId, createdAt(sort: Desc)])
+}
+
+model ModerationSubmission {
+  id                     String              @id @default(uuid()) @db.Uuid
+  createdAt              DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime            @updatedAt @db.Timestamptz(6)
+  postId                 String              @db.Uuid
+  authorId               String              @db.Uuid
+  reviewedById           String?             @db.Uuid
+  basePostUpdatedAt      DateTime?           @db.Timestamptz(6)
+  inputHash              String              @db.Char(64)
+  state                  ModerationState     @default(QUEUED)
+  decision               ModerationDecision?
+  riskScore              Float?
+  categories             String[]            @default([])
+  targetSpans            Json?
+  evidence               Json?
+  safeContext            Boolean?
+  evasionDetected        Boolean             @default(false)
+  explanationKo          String?             @db.VarChar(1000)
+  normalizedText         String              @db.Text
+  ocrText                String?             @db.Text
+  localSignals           Json?
+  lunaResult             Json?
+  candidateTitle         String              @db.VarChar(180)
+  candidateContent       String              @db.Text
+  candidateContentText   String              @db.Text
+  candidateTags          String[]            @default([])
+  candidateMetadata      Json?
+  candidateBoardId       String              @db.Uuid
+  candidateKind          PostKind
+  candidateAttachmentIds String[]            @default([]) @db.Uuid
+  isNewPost              Boolean             @default(false)
+  policyVersion          String              @default("v1") @db.VarChar(32)
+  model                  String              @default("gpt-5.6-luna") @db.VarChar(80)
+  attemptCount           Int                 @default(0)
+  claimedAt              DateTime?           @db.Timestamptz(6)
+  leaseExpiresAt         DateTime?           @db.Timestamptz(6)
+  completedAt            DateTime?           @db.Timestamptz(6)
+  reviewedAt             DateTime?           @db.Timestamptz(6)
+  reviewerReason         String?             @db.VarChar(1000)
+
+  post       Post                @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author     User                @relation("ModerationAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  reviewedBy User?               @relation("ModerationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  attempts   ModerationAttempt[]
+
+  @@index([state, createdAt])
+  @@index([postId, createdAt(sort: Desc)])
+  @@index([authorId, createdAt(sort: Desc)])
+  @@index([inputHash])
+  @@index([leaseExpiresAt])
+}
+
+model ModerationAttempt {
+  id             String   @id @default(uuid()) @db.Uuid
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  submissionId   String   @db.Uuid
+  layer          String   @db.VarChar(32)
+  status         String   @db.VarChar(32)
+  latencyMs      Int?
+  providerRunId  String?  @db.VarChar(160)
+  tokenUsage     Json?
+  result         Json?
+  sanitizedError String?  @db.VarChar(1000)
+
+  submission ModerationSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId, createdAt])
+  @@index([status, createdAt])
+}
+
+model ModerationRule {
+  id            String             @id @default(uuid()) @db.Uuid
+  createdAt     DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime           @updatedAt @db.Timestamptz(6)
+  kind          ModerationRuleKind
+  pattern       String             @db.VarChar(500)
+  normalized    String             @db.VarChar(500)
+  severity      Int                @default(50)
+  enabled       Boolean            @default(false)
+  notes         String?            @db.VarChar(1000)
+  policyVersion String             @default("v1") @db.VarChar(32)
+  createdById   String             @db.Uuid
+
+  createdBy User @relation("ModerationRuleCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([kind, normalized, policyVersion])
+  @@index([enabled, kind])
+  @@index([createdById, createdAt(sort: Desc)])
 }
 
 model Attachment {

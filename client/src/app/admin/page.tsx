@@ -303,6 +303,7 @@ type DashboardPayload = {
   platform: {
     bSideEnabled: boolean;
     bSideEpoch: number;
+    maintenanceEnabled?: boolean;
     updatedAt: string;
   };
   users: DashboardUser[];
@@ -565,6 +566,8 @@ function auditActionLabel(action: string) {
     STUDENT_INVITE_REVOKE: "가입 초대 회수",
     B_SIDE_ENABLE: "B-side 활성화",
     B_SIDE_DISABLE: "B-side 비활성화",
+    MAINTENANCE_ENABLE: "점검 모드 활성화",
+    MAINTENANCE_DISABLE: "점검 모드 해제",
   };
   return labels[action] || action;
 }
@@ -668,6 +671,7 @@ export default function AdminPage() {
   const [applying, setApplying] = useState(false);
   const [bSideEnabled, setBSideEnabled] = useState(false);
   const [bSideEpoch, setBSideEpoch] = useState(0);
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
   const [platformApplying, setPlatformApplying] = useState(false);
 
   const showToast = useCallback(
@@ -892,6 +896,7 @@ export default function AdminPage() {
       setSummary(payload.data.summary);
       setBSideEnabled(payload.data.platform.bSideEnabled);
       setBSideEpoch(payload.data.platform.bSideEpoch);
+      setMaintenanceEnabled(Boolean(payload.data.platform.maintenanceEnabled));
       setAdminExpiresAt(payload.data.adminSession.expiresAt);
       setLastUpdated(new Date());
       setAccessState("ready");
@@ -953,6 +958,34 @@ export default function AdminPage() {
       await refreshPlatformMode();
     } catch (cause) {
       showToast(cause instanceof Error ? cause.message : "B-side 상태를 바꾸지 못했습니다.", "error");
+    } finally {
+      setPlatformApplying(false);
+    }
+  }
+
+  async function toggleMaintenance() {
+    const next = !maintenanceEnabled;
+    const confirmed = window.confirm(
+      next
+        ? "점검 모드를 켜면 관리자를 제외한 모든 사용자가 즉시 차단되고 점검 안내 페이지만 보게 됩니다. 계속할까요?"
+        : "점검 모드를 끄면 모든 사용자가 다시 정상적으로 이용할 수 있습니다. 계속할까요?",
+    );
+    if (!confirmed) return;
+    setPlatformApplying(true);
+    try {
+      const response = await fetch("/api/admin/platform", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maintenance: next }),
+      });
+      const payload = await readApiEnvelope<{ maintenanceEnabled: boolean }>(response);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(apiErrorMessage(payload, "점검 모드 상태를 바꾸지 못했습니다."));
+      }
+      setMaintenanceEnabled(Boolean(payload.data.maintenanceEnabled));
+      showToast(next ? "점검 모드를 켰습니다. 일반 사용자는 이제 차단됩니다." : "점검 모드를 해제했습니다.");
+    } catch (cause) {
+      showToast(cause instanceof Error ? cause.message : "점검 모드 상태를 바꾸지 못했습니다.", "error");
     } finally {
       setPlatformApplying(false);
     }
@@ -1455,15 +1488,12 @@ export default function AdminPage() {
               <Shield className="h-5 w-5" />
             </span>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-black tracking-[-0.02em]">
-                  인텍트 Admin Console
+              <div>
+                <h1 className="text-base font-bold tracking-[-0.02em]">
+                  인텍트 운영 도구
                 </h1>
-                <Badge tone="red">RESTRICTED</Badge>
+                <p className="mt-0.5 text-xs text-slate-400">관리자 전용 · 실제 운영 데이터</p>
               </div>
-              <p className="mt-0.5 text-[10px] font-bold tracking-[0.12em] text-slate-400">
-                PORTAL OPERATIONS · PRODUCTION
-              </p>
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-3">
@@ -1484,6 +1514,13 @@ export default function AdminPage() {
               <History className="h-4 w-4" />
               <span className="hidden sm:inline">감사 로그</span>
             </Button>
+            <Link
+              href="/admin/moderation"
+              className="inline-flex h-9 items-center gap-2 border border-emerald-500/40 px-3 text-xs font-bold text-emerald-200 hover:bg-emerald-500/10"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">이중망</span>
+            </Link>
             <button
               type="button"
               onClick={logoutAdmin}
@@ -1500,7 +1537,7 @@ export default function AdminPage() {
       <div className="mx-auto max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-xl font-black tracking-[-0.035em] text-slate-950">
+            <h2 className="text-xl font-bold tracking-[-0.035em] text-slate-950">
               운영 현황
             </h2>
             <p className="mt-1 text-xs text-slate-600">
@@ -1604,7 +1641,7 @@ export default function AdminPage() {
               </span>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-sm font-black">B-side 전역 모드</h3>
+                  <h3 className="text-sm font-bold">B-side 전역 모드</h3>
                   <Badge tone={bSideEnabled ? "green" : "slate"}>
                     {bSideEnabled ? "활성" : "비활성"}
                   </Badge>
@@ -1622,6 +1659,36 @@ export default function AdminPage() {
             >
               <Moon className="h-4 w-4" />
               {platformApplying ? "적용 중" : bSideEnabled ? "B-side 끄기" : "B-side 켜기"}
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="mt-5 overflow-hidden border-amber-300 bg-amber-50">
+          <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center bg-amber-200 text-amber-800">
+                <ShieldAlert className="h-5 w-5" />
+              </span>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-950">서버 점검 모드</h3>
+                  <Badge tone={maintenanceEnabled ? "red" : "slate"}>
+                    {maintenanceEnabled ? "점검 중" : "정상 운영"}
+                  </Badge>
+                </div>
+                <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-600">
+                  켜면 관리자를 제외한 전원이 차단되고 &ldquo;서버 점검중입니다 bb&rdquo; 페이지만 표시됩니다. 로그인·API·채팅까지 모두 막히며, 관리자 세션만 우회할 수 있습니다.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant={maintenanceEnabled ? "green" : "danger"}
+              className="h-10 shrink-0 text-xs"
+              onClick={() => void toggleMaintenance()}
+              disabled={platformApplying || demoMode}
+            >
+              <ShieldAlert className="h-4 w-4" />
+              {platformApplying ? "적용 중" : maintenanceEnabled ? "점검 끝내기" : "점검 시작"}
             </Button>
           </div>
         </Card>
@@ -1720,10 +1787,10 @@ export default function AdminPage() {
                   const stateAt = invite.revokedAt || invite.usedAt;
                   return (
                     <tr key={invite.id} className="border-t border-slate-100">
-                      <td className="px-4 py-3 font-extrabold text-slate-900">
+                      <td className="px-4 py-3 font-semibold text-slate-900">
                         {invite.realName}
                         {invite.purpose && invite.purpose !== "REGISTER" ? (
-                          <span className="mt-1 block text-[10px] font-medium text-slate-400">
+                          <span className="mt-1 block text-xs font-medium text-slate-400">
                             용도 {invite.purpose}
                           </span>
                         ) : null}
@@ -1740,7 +1807,7 @@ export default function AdminPage() {
                       <td className="px-4 py-3">
                         {inviteStateBadge(state)}
                         {stateAt ? (
-                          <span className="ml-2 text-[10px] text-slate-400">
+                          <span className="ml-2 text-xs text-slate-400">
                             {formatDateTime(stateAt)}
                           </span>
                         ) : null}
@@ -1758,7 +1825,7 @@ export default function AdminPage() {
                             회수
                           </Button>
                         ) : (
-                          <span className="text-[11px] text-slate-400">
+                          <span className="text-xs text-slate-400">
                             추가 조치 없음
                           </span>
                         )}
@@ -1800,7 +1867,7 @@ export default function AdminPage() {
                 type="button"
                 onClick={() => setMobileTab(item.value)}
                 className={cn(
-                  "flex h-12 flex-1 items-center justify-center gap-2 text-xs font-extrabold",
+                  "flex h-12 flex-1 items-center justify-center gap-2 text-xs font-semibold",
                   mobileTab === item.value
                     ? "bg-blue-700 text-white"
                     : "text-slate-500",
@@ -1894,10 +1961,10 @@ export default function AdminPage() {
                       </strong>
                       {statusBadge(user.status)}
                     </span>
-                    <span className="mt-1 block text-[11px] text-slate-500">
+                    <span className="mt-1 block text-xs text-slate-500">
                       {user.studentId} · {user.realName}
                     </span>
-                    <span className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
+                    <span className="mt-2 flex items-center justify-between text-xs text-slate-400">
                       <span>
                         {igkLevelLabel(user.level)} · {user.igk.toLocaleString()} IGK
                       </span>
@@ -1994,7 +2061,7 @@ export default function AdminPage() {
                       <Badge tone="red">신고 {item.reports}</Badge>
                     ) : null}
                     {item.isLocked ? <Badge tone="amber">잠금</Badge> : null}
-                    <span className="ml-auto text-[10px] text-slate-400">
+                    <span className="ml-auto text-xs text-slate-400">
                       {item.time}
                     </span>
                   </div>
@@ -2003,7 +2070,7 @@ export default function AdminPage() {
                     onClick={() => setSelectedContent(item)}
                     className="mt-2 block w-full text-left"
                   >
-                    <h3 className="line-clamp-2 text-sm font-extrabold leading-5 text-slate-900">
+                    <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-slate-900">
                       {item.title}
                     </h3>
                     <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
@@ -2011,7 +2078,7 @@ export default function AdminPage() {
                     </p>
                   </button>
                   <div className="mt-3 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium text-slate-500">
+                    <span className="text-xs font-medium text-slate-500">
                       {item.author} · {item.studentId}
                       {item.type === "post"
                         ? " · 댓글 " + item.comments.toLocaleString()
@@ -2059,10 +2126,10 @@ export default function AdminPage() {
               <div className="flex items-start gap-3">
                 <Bell className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
                 <div>
-                  <h3 className="text-xs font-extrabold text-blue-950">
+                  <h3 className="text-xs font-semibold text-blue-950">
                     공지 패널 상태
                   </h3>
-                  <p className="mt-1 text-[11px] leading-5 text-blue-800">
+                  <p className="mt-1 text-xs leading-5 text-blue-800">
                     중요·긴급 공지{" "}
                     {notices
                       .filter(
@@ -2103,13 +2170,13 @@ export default function AdminPage() {
                       <Pin className="h-3.5 w-3.5 text-blue-700" />
                     ) : null}
                   </div>
-                  <h3 className="mt-2 text-sm font-extrabold leading-5 text-slate-900">
+                  <h3 className="mt-2 text-sm font-semibold leading-5 text-slate-900">
                     {notice.title}
                   </h3>
                   <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
                     {notice.content}
                   </p>
-                  <p className="mt-2 text-[11px] text-slate-500">
+                  <p className="mt-2 text-xs text-slate-500">
                     {notice.audience} · {notice.publishedAt}
                   </p>
                   <div className="mt-3 flex gap-2">
@@ -2145,7 +2212,7 @@ export default function AdminPage() {
           </Card>
         </div>
 
-        <p className="mt-3 text-right text-[11px] text-slate-400">
+        <p className="mt-3 text-right text-xs text-slate-400">
           {lastUpdated
             ? "마지막 동기화 " + lastUpdated.toLocaleTimeString("ko-KR")
             : "아직 동기화되지 않음"}
@@ -2280,13 +2347,13 @@ export default function AdminPage() {
             <dl className="grid grid-cols-2 gap-px border border-slate-200 bg-slate-200 text-sm">
               <div className="bg-white p-3">
                 <dt className="text-xs text-slate-500">학생</dt>
-                <dd className="mt-1 font-extrabold text-slate-900">
+                <dd className="mt-1 font-semibold text-slate-900">
                   {createdInvite.invite.realName}
                 </dd>
               </div>
               <div className="bg-white p-3">
                 <dt className="text-xs text-slate-500">학번</dt>
-                <dd className="mt-1 font-mono font-black tracking-[0.08em] text-blue-700">
+                <dd className="mt-1 font-mono font-bold tracking-[0.08em] text-blue-700">
                   {createdInvite.invite.studentCode}
                 </dd>
               </div>
@@ -2300,9 +2367,9 @@ export default function AdminPage() {
               </div>
             </dl>
             <div>
-              <p className="mb-2 text-xs font-extrabold text-slate-500">일회용 초대 코드</p>
+              <p className="mb-2 text-xs font-semibold text-slate-500">일회용 초대 코드</p>
               <div
-                className="border-2 border-blue-700 bg-blue-50 px-4 py-5 text-center font-mono text-xl font-black tracking-[0.12em] text-blue-950 selection:bg-blue-700 selection:text-white"
+                className="border-2 border-blue-700 bg-blue-50 px-4 py-5 text-center font-mono text-xl font-bold tracking-[0.12em] text-blue-950 selection:bg-blue-700 selection:text-white"
                 aria-live="polite"
               >
                 {createdInvite.code}
@@ -2353,7 +2420,7 @@ export default function AdminPage() {
         <div className="space-y-5">
           {revokingInvite ? (
             <div className="border border-slate-200 bg-slate-50 p-4 text-sm">
-              <p className="font-extrabold text-slate-900">
+              <p className="font-semibold text-slate-900">
                 {revokingInvite.realName} · {revokingInvite.studentCode}
               </p>
               <p className="mt-1 text-xs text-slate-500">
@@ -2390,7 +2457,7 @@ export default function AdminPage() {
               />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-xl font-black text-slate-950">
+                  <h3 className="text-xl font-bold text-slate-950">
                     {selectedUser.nickname}
                   </h3>
                   {statusBadge(selectedUser.status)}
@@ -2417,10 +2484,10 @@ export default function AdminPage() {
                 ["활성 세션", selectedUser.activeSessions.toLocaleString()],
               ].map(([label, value]) => (
                 <div key={label} className="border border-slate-200 p-3">
-                  <p className="text-[11px] font-bold text-slate-500">
+                  <p className="text-xs font-bold text-slate-500">
                     {label}
                   </p>
-                  <p className="mt-2 text-lg font-black text-slate-900">
+                  <p className="mt-2 text-lg font-bold text-slate-900">
                     {value}
                   </p>
                 </div>
@@ -2429,7 +2496,7 @@ export default function AdminPage() {
             <div className="border border-emerald-300 bg-white p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="inline-flex items-center gap-2 text-sm font-black text-slate-900">
+                  <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-900">
                     <Coins className="h-4 w-4 text-emerald-700" /> IGK 관리
                   </p>
                   <p className="mt-1 text-xs text-slate-600">
@@ -2452,7 +2519,7 @@ export default function AdminPage() {
               </div>
             </div>
             <div className="border border-slate-200">
-              <div className="border-b border-slate-200 px-4 py-3 text-xs font-extrabold">
+              <div className="border-b border-slate-200 px-4 py-3 text-xs font-semibold">
                 계정 조치
               </div>
               <div className="flex flex-wrap gap-2 p-4">
@@ -2555,7 +2622,7 @@ export default function AdminPage() {
               </span>
             </div>
             <div>
-              <h3 className="text-xl font-black leading-8 text-slate-950">
+              <h3 className="text-xl font-bold leading-8 text-slate-950">
                 {selectedContent.title}
               </h3>
               <p className="mt-2 text-xs text-slate-500">
@@ -2568,7 +2635,7 @@ export default function AdminPage() {
             </div>
             <div className="flex items-center justify-between gap-4 border border-slate-200 bg-slate-50 p-4">
               <div>
-                <p className="text-xs font-extrabold text-slate-900">
+                <p className="text-xs font-semibold text-slate-900">
                   {selectedContent.type === "post"
                     ? "댓글 " + selectedContent.comments.toLocaleString() + "개"
                     : "원 게시글 · " + selectedContent.contextTitle}
@@ -2673,11 +2740,11 @@ export default function AdminPage() {
                   {report.status === "reviewing" ? "검토 중" : "접수"}
                 </Badge>
                 <Badge tone="slate">{report.targetType}</Badge>
-                <span className="ml-auto text-[11px] text-slate-400">
+                <span className="ml-auto text-xs text-slate-400">
                   {report.createdAt}
                 </span>
               </div>
-              <h3 className="mt-3 text-sm font-extrabold text-slate-900">
+              <h3 className="mt-3 text-sm font-semibold text-slate-900">
                 {report.targetLabel}
               </h3>
               <p className="mt-2 text-xs font-bold text-slate-600">
@@ -3046,7 +3113,7 @@ export default function AdminPage() {
                   <td className="whitespace-nowrap px-4 py-3 text-slate-500">
                     {entry.time}
                   </td>
-                  <td className="px-4 py-3 font-extrabold text-slate-900">
+                  <td className="px-4 py-3 font-semibold text-slate-900">
                     {entry.action}
                   </td>
                   <td className="px-4 py-3 text-slate-700">{entry.target}</td>
@@ -3056,7 +3123,7 @@ export default function AdminPage() {
                   <td className="px-4 py-3 text-slate-500">
                     {entry.admin}
                     <br />
-                    <span className="text-[10px]">{entry.ip}</span>
+                    <span className="text-xs">{entry.ip}</span>
                   </td>
                 </tr>
               ))}
@@ -3068,7 +3135,7 @@ export default function AdminPage() {
             </div>
           ) : null}
         </div>
-        <p className="mt-4 text-[11px] leading-5 text-slate-500">
+        <p className="mt-4 text-xs leading-5 text-slate-500">
           감사 로그는 변경하거나 삭제할 수 없습니다. 화면에는 최근 50건이
           표시됩니다.
         </p>

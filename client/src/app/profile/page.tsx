@@ -21,13 +21,11 @@ import {
   Award,
   CalendarDays,
   Edit3,
-  FileText,
   Gift,
   KeyRound,
   Loader2,
   LogIn,
   LogOut,
-  MessageCircle,
   MonitorSmartphone,
   RefreshCw,
   ShieldCheck,
@@ -435,9 +433,9 @@ export default function ProfilePage() {
       <div className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 lg:px-8">
         <PageHeading title="내 프로필" />
         <Card className="mt-4 p-8 text-center">
-          {loadState === 'loading' ? <><Loader2 className="mx-auto h-7 w-7 animate-spin text-blue-700" /><h2 className="mt-4 text-sm font-extrabold text-slate-900">프로필을 불러오는 중입니다.</h2></> : null}
-          {loadState === 'auth' ? <><LogIn className="mx-auto h-7 w-7 text-blue-700" /><h2 className="mt-4 text-sm font-extrabold text-slate-900">로그인이 필요합니다.</h2><Link href="/login" className="mt-5 inline-flex h-10 items-center bg-blue-700 px-4 text-sm font-bold text-white">로그인하기</Link></> : null}
-          {loadState === 'error' ? <><RefreshCw className="mx-auto h-7 w-7 text-red-600" /><h2 className="mt-4 text-sm font-extrabold text-slate-900">프로필을 표시할 수 없습니다.</h2><p className="mt-2 text-xs text-red-600">{loadError}</p><Button className="mt-5" onClick={() => setReloadKey((value) => value + 1)}><RefreshCw className="h-4 w-4" />다시 시도</Button></> : null}
+          {loadState === 'loading' ? <><Loader2 className="mx-auto h-7 w-7 animate-spin text-blue-700" /><h2 className="mt-4 text-sm font-semibold text-slate-900">프로필을 불러오는 중입니다.</h2></> : null}
+          {loadState === 'auth' ? <><LogIn className="mx-auto h-7 w-7 text-blue-700" /><h2 className="mt-4 text-sm font-semibold text-slate-900">로그인이 필요합니다.</h2><Link href="/login" className="mt-5 inline-flex h-10 items-center bg-blue-700 px-4 text-sm font-bold text-white">로그인하기</Link></> : null}
+          {loadState === 'error' ? <><RefreshCw className="mx-auto h-7 w-7 text-red-600" /><h2 className="mt-4 text-sm font-semibold text-slate-900">프로필을 표시할 수 없습니다.</h2><p className="mt-2 text-xs text-red-600">{loadError}</p><Button className="mt-5" onClick={() => setReloadKey((value) => value + 1)}><RefreshCw className="h-4 w-4" />다시 시도</Button></> : null}
         </Card>
       </div>
     );
@@ -453,7 +451,7 @@ export default function ProfilePage() {
   const otherSessionCount = sessions.filter((session) => !session.current).length;
 
   return (
-    <div className="mx-auto w-full max-w-[1540px] px-4 py-4 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 lg:px-8">
       <PageHeading title="내 프로필" actions={<Button variant="secondary" onClick={openEditor}><Edit3 className="h-4 w-4" />프로필 편집</Button>} />
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_280px]">
@@ -462,14 +460,13 @@ export default function ProfilePage() {
             <div className="h-1 bg-emerald-700" />
             <div className="p-4">
               <div className="flex items-end justify-between"><Avatar name={profile.realName || profile.nickname} imageUrl={profile.profileImage} size="xl" tone="blue" className={level >= 10 ? 'top-level-avatar' : undefined} /><Badge tone={profile.status === 'ACTIVE' ? 'green' : 'amber'} className="mb-1"><ShieldCheck className="mr-1 h-3 w-3" />{profile.status === 'ACTIVE' ? '재학생 인증' : profile.status}</Badge></div>
-              <h2 className="mt-4 text-xl font-black tracking-[-0.035em] text-slate-950">{profile.realName || profile.nickname}</h2>
+              <h2 className="mt-4 text-xl font-bold tracking-[-0.035em] text-slate-950">{profile.realName || profile.nickname}</h2>
               <p className="mt-1 text-xs font-bold text-slate-500">{identityLine}</p>
               <p className="mt-4 text-sm leading-6 text-slate-600">{profile.bio || '아직 소개가 없습니다.'}</p>
               {profile.interests.length ? <div className="mt-4 flex flex-wrap gap-1.5">{profile.interests.map((interest) => <Badge key={interest} tone="slate">#{interest}</Badge>)}</div> : null}
               <div className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500"><div className="flex items-center gap-2"><CalendarDays className="h-3.5 w-3.5" />{formatDate(profile.createdAt) ?? '날짜 정보 없음'} 가입</div>{profile.lastReverifiedAt ? <div className="mt-2 flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5" />{formatDate(profile.lastReverifiedAt)} 재인증</div> : null}</div>
             </div>
           </Card>
-          <Card className=""><CardHeader title="활동 통계" /><div className="grid grid-cols-2 gap-px bg-slate-200">{[['게시글', profile._count.posts], ['댓글', profile._count.comments], ['스크랩', profile._count.bookmarks], ['누적 IGK', lifetimeIgk]].map(([label, value]) => <div key={String(label)} className="bg-white p-4 text-center"><strong className="block text-xl font-black text-slate-950">{Number(value).toLocaleString()}</strong><span className="mt-1 block text-[11px] font-medium text-slate-500">{label}</span></div>)}</div></Card>
         </aside>
 
         <section className="min-w-0 space-y-4">
@@ -479,18 +476,17 @@ export default function ProfilePage() {
             <Stat label="작성한 글" value={profile._count.posts.toLocaleString()} detail="전체 게시판" icon={<Award className="h-4 w-4" />} />
             <Stat label="교내 랭킹" value={igk ? `#${igk.rank}` : '—'} detail={igk ? '보유 IGK 기준' : '랭킹 정보 없음'} icon={<Users className="h-4 w-4" />} tone="slate" />
           </div>
-          <Card className=""><CardHeader title="활동 요약" /><div className="grid gap-px bg-slate-200 sm:grid-cols-3"><div className="bg-white p-4"><FileText className="h-5 w-5 text-blue-700" /><strong className="mt-2 block text-xl font-black">{profile._count.posts.toLocaleString()}</strong><span className="text-xs text-slate-500">작성한 게시글</span></div><div className="bg-white p-4"><MessageCircle className="h-5 w-5 text-emerald-700" /><strong className="mt-2 block text-xl font-black">{profile._count.comments.toLocaleString()}</strong><span className="text-xs text-slate-500">작성한 댓글</span></div><div className="bg-white p-4"><Award className="h-5 w-5 text-amber-700" /><strong className="mt-2 block text-xl font-black">{profile._count.bookmarks.toLocaleString()}</strong><span className="text-xs text-slate-500">저장한 글</span></div></div></Card>
         </section>
 
         <aside className="space-y-4 lg:col-span-2 xl:col-span-1">
-          <Card className=""><CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-blue-700">전체 로드맵</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level, igk?.jojolRank)}</span><p className="mt-1 text-lg font-black text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : igkLevelLabel(level, igk?.jojolRank)}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{lifetimeIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div><p className="mt-3 text-xs leading-5 text-slate-500">{nextThreshold ? <>다음 등급까지 <strong className="text-slate-800">{Math.max(0, nextThreshold - lifetimeIgk).toLocaleString()} IGK</strong>가 필요합니다.</> : '조진 중 보유 IGK 상위 8명은 조졸 · N짱 호칭을 받습니다.'}</p>{typeof igk?.attendanceStreak === 'number' ? <p className="mt-3 border-t border-slate-100 pt-3 text-xs font-bold text-slate-600">출석 스트릭 <strong className="text-emerald-700">{igk.attendanceStreak}일 연속</strong> · 최고 {igk.bestAttendanceStreak ?? igk.attendanceStreak}일</p> : null}<Link href="/igk/roadmap" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-extrabold text-slate-700 hover:bg-slate-50">9등급부터 조진까지 보기</Link></div></Card>
-          <Card className=""><CardHeader title="재학생 인증" /><div className="p-5"><p className="flex items-center gap-2 text-sm font-extrabold text-slate-900"><ShieldCheck className="h-4 w-4 text-emerald-700" />{profile.status === 'ACTIVE' ? '정상 이용 가능' : profile.status}</p><p className="mt-2 text-xs leading-5 text-slate-500">{profile.reverifyDueAt ? `${formatDate(profile.reverifyDueAt)}까지 재인증이 유효합니다.` : '재인증 만료일이 등록되지 않았습니다.'}</p></div></Card>
+          <Card className=""><CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-blue-700">전체 로드맵</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level, igk?.jojolRank)}</span><p className="mt-1 text-lg font-bold text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : igkLevelLabel(level, igk?.jojolRank)}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{lifetimeIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div><p className="mt-3 text-xs leading-5 text-slate-500">{nextThreshold ? <>다음 등급까지 <strong className="text-slate-800">{Math.max(0, nextThreshold - lifetimeIgk).toLocaleString()} IGK</strong>가 필요합니다.</> : '조진 중 보유 IGK 상위 8명은 조졸 · N짱 호칭을 받습니다.'}</p>{typeof igk?.attendanceStreak === 'number' ? <p className="mt-3 border-t border-slate-100 pt-3 text-xs font-bold text-slate-600">출석 스트릭 <strong className="text-emerald-700">{igk.attendanceStreak}일 연속</strong> · 최고 {igk.bestAttendanceStreak ?? igk.attendanceStreak}일</p> : null}<Link href="/igk/roadmap" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">9등급부터 조진까지 보기</Link></div></Card>
+          <Card className=""><CardHeader title="재학생 인증" /><div className="p-5"><p className="flex items-center gap-2 text-sm font-semibold text-slate-900"><ShieldCheck className="h-4 w-4 text-emerald-700" />{profile.status === 'ACTIVE' ? '정상 이용 가능' : profile.status}</p><p className="mt-2 text-xs leading-5 text-slate-500">{profile.reverifyDueAt ? `${formatDate(profile.reverifyDueAt)}까지 재인증이 유효합니다.` : '재인증 만료일이 등록되지 않았습니다.'}</p></div></Card>
         </aside>
       </div>
 
       <section className="mt-6" aria-labelledby="account-security-title">
         <div className="mb-3 border-b border-slate-200 pb-3">
-          <h2 id="account-security-title" className="text-lg font-black tracking-[-0.03em] text-slate-950">계정 보안</h2>
+          <h2 id="account-security-title" className="text-lg font-bold tracking-[-0.03em] text-slate-950">계정 보안</h2>
         </div>
 
         <div className="grid items-start gap-4 lg:grid-cols-2">
@@ -599,13 +595,13 @@ export default function ProfilePage() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-sm font-extrabold text-slate-900">{session.current ? '현재 사용 중인 세션' : '다른 포털 세션'}</h3>
+                            <h3 className="text-sm font-semibold text-slate-900">{session.current ? '현재 사용 중인 세션' : '다른 포털 세션'}</h3>
                             {session.current && <Badge tone="green">현재 세션</Badge>}
                           </div>
-                          <p className="mt-1 line-clamp-2 break-all text-[11px] leading-5 text-slate-500" title={session.userAgent || undefined}>
+                          <p className="mt-1 line-clamp-2 break-all text-xs leading-5 text-slate-500" title={session.userAgent || undefined}>
                             {session.userAgent || '브라우저 정보가 제공되지 않았습니다.'}
                           </p>
-                          <dl className="mt-3 grid gap-1 text-[11px] leading-5 text-slate-500 sm:grid-cols-2">
+                          <dl className="mt-3 grid gap-1 text-xs leading-5 text-slate-500 sm:grid-cols-2">
                             <div><dt className="inline font-bold text-slate-600">최근 확인 </dt><dd className="inline">{formatDateTime(session.lastSeenAt)}</dd></div>
                             <div><dt className="inline font-bold text-slate-600">자동 만료 </dt><dd className="inline">{formatDateTime(session.expiresAt)}</dd></div>
                             <div className="sm:col-span-2"><dt className="inline font-bold text-slate-600">로그인 시작 </dt><dd className="inline">{formatDateTime(session.createdAt)}</dd></div>
@@ -632,7 +628,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="border-t border-slate-200 bg-slate-50 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-[11px] leading-5 text-slate-500">최근 확인 시간은 서버에서 최대 15분 단위로 갱신됩니다.</p>
+                    <p className="text-xs leading-5 text-slate-500">최근 확인 시간은 서버에서 최대 15분 단위로 갱신됩니다.</p>
                     <Button
                       type="button"
                       variant="danger"
@@ -651,7 +647,7 @@ export default function ProfilePage() {
       </section>
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="프로필 편집" description={bSideEnabled ? 'B-side에서는 다른 사용자에게 익명 해시로 표시됩니다.' : '학번과 학적은 재학생 인증 정보이므로 변경할 수 없습니다.'} footer={<><Button variant="secondary" onClick={() => setEditOpen(false)}>취소</Button><Button onClick={() => void saveProfile()} disabled={saving}>{saving ? '저장 중…' : '변경사항 저장'}</Button></>}>
-        <form onSubmit={(event) => { event.preventDefault(); void saveProfile(); }} className="space-y-5"><div className="flex items-center gap-4 border border-slate-200 bg-slate-50 p-4"><Avatar name={profile.realName || profile.nickname} imageUrl={draftProfileImage || null} size="lg" tone="blue" className={level >= 10 ? 'top-level-avatar' : undefined} /><div><p className="text-sm font-black text-slate-900">{profile.realName || profile.nickname}</p><p className="text-xs text-slate-500">인증된 실명</p></div></div><Field label="프로필 이미지 주소" hint="HTTPS 이미지"><Input type="url" value={draftProfileImage} onChange={(event) => setDraftProfileImage(event.target.value)} maxLength={2048} placeholder="https://example.com/profile.jpg" /></Field><Field label="소개" hint={`${draftBio.length}/280`}><Textarea rows={4} value={draftBio} onChange={(event) => setDraftBio(event.target.value)} maxLength={280} /></Field><Field label="관심 분야" hint="쉼표로 구분, 최대 5개"><Input value={interestDraft} onChange={(event) => setInterestDraft(event.target.value)} placeholder="물리, 천문, 과학대회" /></Field><div className="border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-bold text-slate-700">인증 정보</p><p className="mt-2 text-sm text-slate-900">{identityLine}</p><p className="mt-1 text-[11px] leading-5 text-slate-500">{bSideEnabled ? '본인에게만 실제 정보가 보입니다.' : '게시글과 댓글에 인증된 정보가 표시됩니다.'}</p></div><button type="submit" className="hidden">저장</button></form>
+        <form onSubmit={(event) => { event.preventDefault(); void saveProfile(); }} className="space-y-5"><div className="flex items-center gap-4 border border-slate-200 bg-slate-50 p-4"><Avatar name={profile.realName || profile.nickname} imageUrl={draftProfileImage || null} size="lg" tone="blue" className={level >= 10 ? 'top-level-avatar' : undefined} /><div><p className="text-sm font-bold text-slate-900">{profile.realName || profile.nickname}</p><p className="text-xs text-slate-500">인증된 실명</p></div></div><Field label="프로필 이미지 주소" hint="HTTPS 이미지"><Input type="url" value={draftProfileImage} onChange={(event) => setDraftProfileImage(event.target.value)} maxLength={2048} placeholder="https://example.com/profile.jpg" /></Field><Field label="소개" hint={`${draftBio.length}/280`}><Textarea rows={4} value={draftBio} onChange={(event) => setDraftBio(event.target.value)} maxLength={280} /></Field><Field label="관심 분야" hint="쉼표로 구분, 최대 5개"><Input value={interestDraft} onChange={(event) => setInterestDraft(event.target.value)} placeholder="물리, 천문, 과학대회" /></Field><div className="border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-bold text-slate-700">인증 정보</p><p className="mt-2 text-sm text-slate-900">{identityLine}</p><p className="mt-1 text-xs leading-5 text-slate-500">{bSideEnabled ? '본인에게만 실제 정보가 보입니다.' : '게시글과 댓글에 인증된 정보가 표시됩니다.'}</p></div><button type="submit" className="hidden">저장</button></form>
       </Modal>
       <Modal
         open={Boolean(pendingSessionAction)}

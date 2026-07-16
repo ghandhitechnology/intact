@@ -21,11 +21,14 @@ export async function PATCH(request: Request) {
   try {
     assertSameOrigin(request);
     const admin = await requireReadyAdmin(request);
-    const body = await readJson<{ enabled?: unknown }>(request, 4_096);
-    if (typeof body.enabled !== 'boolean') {
-      throw new ApiError(400, 'INVALID_B_SIDE_STATE', 'B-side 상태가 올바르지 않습니다.');
+    const body = await readJson<{ enabled?: unknown; maintenance?: unknown }>(request, 4_096);
+    const hasBSide = typeof body.enabled === 'boolean';
+    const hasMaintenance = typeof body.maintenance === 'boolean';
+    if (!hasBSide && !hasMaintenance) {
+      throw new ApiError(400, 'INVALID_PLATFORM_STATE', '변경할 플랫폼 상태가 올바르지 않습니다.');
     }
-    const enabled = body.enabled;
+    const enabled = body.enabled as boolean;
+    const maintenance = body.maintenance as boolean;
 
     const updated = await prisma.$transaction(async (tx) => {
       const current = await tx.platformSetting.upsert({
@@ -36,22 +39,36 @@ export async function PATCH(request: Request) {
       const next = await tx.platformSetting.update({
         where: { id: 'global' },
         data: {
-          bSideEnabled: enabled,
+          bSideEnabled: hasBSide ? enabled : undefined,
           bSideEpoch:
-            enabled && !current.bSideEnabled
+            hasBSide && enabled && !current.bSideEnabled
               ? { increment: 1 }
               : undefined,
+          maintenanceEnabled: hasMaintenance ? maintenance : undefined,
         },
       });
-      await writeAdminAudit(tx, request, {
-        adminId: admin.user.id,
-        action: enabled ? 'B_SIDE_ENABLE' : 'B_SIDE_DISABLE',
-        targetType: 'PLATFORM',
-        targetId: 'global',
-        reason: enabled ? '전역 B-side 활성화' : '전역 B-side 비활성화',
-        before: current,
-        after: next,
-      });
+      if (hasBSide) {
+        await writeAdminAudit(tx, request, {
+          adminId: admin.user.id,
+          action: enabled ? 'B_SIDE_ENABLE' : 'B_SIDE_DISABLE',
+          targetType: 'PLATFORM',
+          targetId: 'global',
+          reason: enabled ? '전역 B-side 활성화' : '전역 B-side 비활성화',
+          before: current,
+          after: next,
+        });
+      }
+      if (hasMaintenance) {
+        await writeAdminAudit(tx, request, {
+          adminId: admin.user.id,
+          action: maintenance ? 'MAINTENANCE_ENABLE' : 'MAINTENANCE_DISABLE',
+          targetType: 'PLATFORM',
+          targetId: 'global',
+          reason: maintenance ? '서버 점검 모드 활성화' : '서버 점검 모드 해제',
+          before: current,
+          after: next,
+        });
+      }
       return next;
     });
     primePlatformMode(updated);

@@ -46,7 +46,7 @@ export default function IgkRoadmapPage() {
         title="등급 로드맵"
         description="누적 IGK로 조진까지 올라가고, 조진 중 보유 IGK 상위 8명은 조졸 · N짱 호칭을 받습니다."
         actions={
-          <Link href="/igk" className="inline-flex h-9 items-center gap-2 border border-slate-300 bg-white px-4 text-xs font-extrabold text-slate-700 hover:bg-slate-50">
+          <Link href="/igk" className="inline-flex h-9 items-center gap-2 border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50">
             <ArrowLeft className="h-4 w-4" /> IGK 지갑
           </Link>
         }
@@ -73,16 +73,16 @@ export default function IgkRoadmapPage() {
           <section className="mt-4 grid gap-px overflow-hidden border border-slate-200 bg-slate-200 md:grid-cols-[1.1fr_1fr_1fr]">
             <div className="bg-emerald-800 p-4 text-white">
               <p className="text-xs font-bold text-emerald-100">현재 등급</p>
-              <p className="mt-2 text-2xl font-black">{igkLevelLabel(wallet.level, wallet.jojolRank)}</p>
+              <p className="mt-2 text-2xl font-bold">{igkLevelLabel(wallet.level, wallet.jojolRank)}</p>
             </div>
             <div className="bg-white p-4">
               <p className="text-xs font-bold text-slate-500">등급 누적 IGK</p>
-              <p className="mt-2 text-xl font-black text-slate-950">{wallet.lifetimeIgk.toLocaleString()}</p>
+              <p className="mt-2 text-xl font-bold text-slate-950">{wallet.lifetimeIgk.toLocaleString()}</p>
               <p className="mt-1 text-xs text-slate-500">활동 보상과 받은 선물</p>
             </div>
             <div className="bg-white p-4">
               <p className="text-xs font-bold text-slate-500">다음 목표</p>
-              <p className="mt-2 text-xl font-black text-slate-950">{nextRule?.label ?? (wallet.jojolRank ? `조졸 · ${wallet.jojolRank}짱` : '조졸 랭킹')}</p>
+              <p className="mt-2 text-xl font-bold text-slate-950">{nextRule?.label ?? (wallet.jojolRank ? `조졸 · ${wallet.jojolRank}짱` : '조졸 랭킹')}</p>
               <p className="mt-1 text-xs text-slate-500">
                 {nextRule ? `${Math.max(0, nextRule.minimumLifetimeIgk - wallet.lifetimeIgk).toLocaleString()} IGK 남음` : '최종 등급 도달'}
               </p>
@@ -98,9 +98,9 @@ export default function IgkRoadmapPage() {
           </Card>
 
           {wallet.level >= 10 ? (
-            <section className="mt-4 bg-blue-50 p-4">
-              <p className="text-xs font-extrabold text-blue-800">조진 · 조졸 랭킹</p>
-              <p className="mt-1 text-sm font-black text-slate-950">{igkLevelLabel(wallet.level, wallet.jojolRank)}</p>
+            <section className="mt-4 border-l-4 border-blue-700 bg-white px-4 py-3">
+              <p className="text-xs font-semibold text-blue-800">조진 · 조졸 랭킹</p>
+              <p className="mt-1 text-sm font-bold text-slate-950">{igkLevelLabel(wallet.level, wallet.jojolRank)}</p>
               <p className="mt-1 text-xs leading-5 text-slate-600">보유 IGK가 많은 조진 상위 8명을 조졸 · 1짱–8짱으로 표시하며, 9위부터는 조진으로 표시합니다.</p>
             </section>
           ) : null}
@@ -122,11 +122,11 @@ export default function IgkRoadmapPage() {
                   }`}
                 >
                   <span className={`grid h-10 w-10 place-items-center ${topTier ? 'bg-slate-950 text-white' : complete ? 'bg-emerald-700 text-white' : 'bg-white text-slate-400'}`}>
-                    {topTier ? <GraduationCap className="h-5 w-5" /> : complete ? <Check className="h-5 w-5" /> : <span className="text-sm font-black">{index + 1}</span>}
+                    {topTier ? <GraduationCap className="h-5 w-5" /> : complete ? <Check className="h-5 w-5" /> : <span className="text-sm font-bold">{index + 1}</span>}
                   </span>
                   <span className="min-w-0">
                     <span className="flex flex-wrap items-center gap-2">
-                      <strong className="text-base font-black text-slate-950">{rule.label}</strong>
+                      <strong className="text-base font-bold text-slate-950">{rule.label}</strong>
                       {current ? <Badge tone="green">현재</Badge> : null}
                       {topTier ? <Trophy className="h-4 w-4 text-amber-600" /> : null}
                     </span>

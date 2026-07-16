@@ -72,6 +72,7 @@ export type PostSummary = {
   viewer?: Member;
   viewerRecommended?: boolean;
   viewerBookmarked?: boolean;
+  moderation?: { state: string; message: string };
 };
 
 export type Notice = {

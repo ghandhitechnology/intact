@@ -53,7 +53,7 @@ export default function ReverifyPage() {
       {done ? (
         <div className="py-8 text-center">
           <CheckCircle2 className="mx-auto text-emerald-600" size={38} />
-          <h2 className="mt-4 text-lg font-black">재인증을 완료했습니다</h2>
+          <h2 className="mt-4 text-lg font-bold">재인증을 완료했습니다</h2>
         </div>
       ) : (
         <form onSubmit={submit} className="space-y-5">

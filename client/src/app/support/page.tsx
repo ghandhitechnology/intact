@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { CheckCircle2, Send } from "lucide-react";
+import { Send } from "lucide-react";
 
 export default function SupportPage() {
   const [sent, setSent] = useState(false);
@@ -71,27 +71,28 @@ export default function SupportPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <header className="border border-[var(--line-strong)] bg-white px-4 py-4 sm:px-5">
-        <p className="section-kicker">{reportTarget ? "REPORT" : "SUPPORT"}</p>
-        <h1 className="mt-2 text-xl font-black">
+      <header className="border-b-2 border-slate-800 bg-white px-1 pb-4 pt-2">
+        <h1 className="text-2xl font-bold tracking-[-0.03em] text-slate-950">
           {reportTarget ? "콘텐츠 신고" : "문의·신고"}
         </h1>
-        {reportTarget ? <p className="mt-2 text-sm text-[var(--ink-soft)]">운영자만 확인</p> : null}
+        <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">
+          {reportTarget ? "신고 내용은 운영자만 확인합니다." : "불편한 점이나 제안을 남기면 운영자가 확인합니다."}
+        </p>
       </header>
       {sent ? (
-        <div className="surface-card border-t-0 px-5 py-10 text-center">
-          <CheckCircle2 className="mx-auto text-[var(--green)]" size={38} />
-          <h2 className="mt-4 text-lg font-black">
+        <div className="border-l-4 border-[var(--green)] bg-white px-5 py-8">
+          <h2 className="text-lg font-bold">
             {reportTarget ? "신고를 접수했습니다" : "문의를 접수했습니다"}
           </h2>
+          <p className="mt-2 text-sm text-[var(--ink-soft)]">운영자가 확인한 뒤 필요한 조치를 진행하겠습니다.</p>
         </div>
       ) : (
         <form
           onSubmit={submit}
-          className="surface-card space-y-4 border-t-0 px-5 py-6"
+          className="space-y-5 bg-white px-1 py-6"
         >
           <label className="block">
-            <span className="mb-2 block text-xs font-black">
+            <span className="mb-2 block text-xs font-bold">
               {reportTarget ? "신고 사유" : "문의 유형"}
             </span>
             <select
@@ -122,7 +123,7 @@ export default function SupportPage() {
           {!reportTarget && (
             <>
               <label className="block">
-                <span className="mb-2 block text-xs font-black">제목</span>
+                <span className="mb-2 block text-xs font-bold">제목</span>
                 <input
                   name="subject"
                   required
@@ -133,7 +134,7 @@ export default function SupportPage() {
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-xs font-black">
+                <span className="mb-2 block text-xs font-bold">
                   관련 링크{" "}
                   <small className="font-medium text-[var(--ink-faint)]">
                     (선택)
@@ -149,7 +150,7 @@ export default function SupportPage() {
             </>
           )}
           <label className="block">
-            <span className="mb-2 block text-xs font-black">자세한 내용</span>
+            <span className="mb-2 block text-xs font-bold">자세한 내용</span>
             <textarea
               name="description"
               required

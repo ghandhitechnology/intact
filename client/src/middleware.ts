@@ -45,14 +45,120 @@ function redirectUrl(request: NextRequest, pathname: string) {
   return url;
 }
 
-export function middleware(request: NextRequest) {
+// Maintenance-mode gate ------------------------------------------------------
+// The flag lives in PlatformSetting and is read through the public
+// /api/platform endpoint (edge middleware cannot use Prisma directly).
+// Failures fail-open so a broken lookup never takes the whole site down.
+
+const MAINTENANCE_CACHE_TTL_MS = 5_000;
+const ADMIN_VERIFY_CACHE_TTL_MS = 10_000;
+
+let maintenanceCache: { enabled: boolean; expiresAt: number } | null = null;
+let pendingMaintenance: Promise<boolean> | null = null;
+const adminVerifyCache = new Map<string, { ok: boolean; expiresAt: number }>();
+
+function internalUrl(request: NextRequest, pathname: string) {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  url.search = '';
+  return url;
+}
+
+// Self-calls must hit this same Next.js process, not the public hostname the
+// proxy forwarded (which may not resolve from inside the container).
+function selfApiUrl(request: NextRequest, pathname: string) {
+  const base = process.env.INTERNAL_API_URL;
+  if (base) {
+    try {
+      return new URL(pathname, base);
+    } catch {
+      // Ignore a malformed value and fall back to the request origin.
+    }
+  }
+  return internalUrl(request, pathname);
+}
+
+async function maintenanceEnabled(request: NextRequest) {
+  if (maintenanceCache && Date.now() < maintenanceCache.expiresAt) {
+    return maintenanceCache.enabled;
+  }
+  if (pendingMaintenance) return pendingMaintenance;
+  pendingMaintenance = fetch(selfApiUrl(request, '/api/platform'), {
+    headers: { accept: 'application/json' },
+    cache: 'no-store',
+  })
+    .then(async (response) => {
+      if (!response.ok) return maintenanceCache?.enabled ?? false;
+      const payload = await response.json().catch(() => null);
+      const enabled = Boolean(payload?.data?.maintenanceEnabled ?? payload?.maintenanceEnabled);
+      maintenanceCache = { enabled, expiresAt: Date.now() + MAINTENANCE_CACHE_TTL_MS };
+      return enabled;
+    })
+    .catch(() => maintenanceCache?.enabled ?? false)
+    .finally(() => {
+      pendingMaintenance = null;
+    });
+  return pendingMaintenance;
+}
+
+async function verifiedAdmin(request: NextRequest) {
+  const token = request.cookies.get('igwak_admin_session')?.value;
+  if (!token) return false;
+  const cached = adminVerifyCache.get(token);
+  if (cached && Date.now() < cached.expiresAt) return cached.ok;
+  try {
+    const response = await fetch(selfApiUrl(request, '/api/admin/auth/verify'), {
+      headers: { cookie: `igwak_admin_session=${token}` },
+      cache: 'no-store',
+    });
+    const ok = response.status === 204;
+    adminVerifyCache.set(token, { ok, expiresAt: Date.now() + ADMIN_VERIFY_CACHE_TTL_MS });
+    if (adminVerifyCache.size > 100) {
+      const now = Date.now();
+      for (const [key, entry] of adminVerifyCache) {
+        if (entry.expiresAt <= now) adminVerifyCache.delete(key);
+      }
+    }
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+function maintenanceExempt(pathname: string) {
+  return (
+    pathname === '/maintenance' ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/api/admin/') ||
+    pathname === '/api/platform' ||
+    pathname === '/api/health'
+  );
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  if (
-    process.env.PORTAL_DEMO_MODE === 'true' ||
-    isPublicAsset(pathname) ||
-    PUBLIC_ROUTES.has(pathname) ||
-    pathname.startsWith('/api/')
-  ) {
+  if (process.env.PORTAL_DEMO_MODE === 'true' || isPublicAsset(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Exempt paths must never trigger the /api/platform self-fetch: the nested
+  // middleware run for that fetch would await the same in-flight promise and
+  // deadlock. They are checked before any maintenance lookup happens.
+  if (!maintenanceExempt(pathname)) {
+    if ((await maintenanceEnabled(request)) && !(await verifiedAdmin(request))) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json(
+          { ok: false, error: { code: 'MAINTENANCE', message: '서버 점검 중입니다. 잠시 후 다시 이용해 주세요.' } },
+          { status: 503, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      return NextResponse.rewrite(internalUrl(request, '/maintenance'));
+    }
+  } else if (pathname === '/maintenance' && !(await maintenanceEnabled(request))) {
+    return NextResponse.redirect(redirectUrl(request, '/'));
+  }
+
+  if (PUBLIC_ROUTES.has(pathname) || pathname === '/maintenance' || pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
 

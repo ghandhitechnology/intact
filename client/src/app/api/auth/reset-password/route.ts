@@ -10,6 +10,7 @@ import {
   readJson,
   requiredString,
 } from '@/lib/server/http';
+import { assertNotMaintenance } from '@/lib/server/platform-mode';
 import { parseStudentCode } from '@/lib/server/student-invites';
 import { withTransactionRetry } from '@/lib/server/transactions';
 
@@ -18,6 +19,7 @@ export const runtime = 'nodejs';
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
+    await assertNotMaintenance();
     enforceClientIpRateLimit(request, 'password-reset', {
       limit: 30,
       windowMs: 15 * 60 * 1_000,

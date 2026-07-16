@@ -1,15 +1,6 @@
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { ApiError } from './http';
-
-function riroOrigin() {
-  const configured = process.env.RIRO_BASE_URL || 'https://iscience.riroschool.kr';
-  const url = new URL(configured);
-  if (url.protocol !== 'https:' || url.hostname !== 'iscience.riroschool.kr') {
-    throw new Error('RIRO_BASE_URL must be https://iscience.riroschool.kr');
-  }
-  return url.origin;
-}
-const USER_AGENT =
-  'Mozilla/5.0 (compatible; InGwakPortal/1.0; +https://iscience.riroschool.kr)';
+import { currentKoreanSchoolYear } from './student-invites';
 
 export interface RiroProfile {
   name: string;
@@ -22,109 +13,64 @@ export interface RiroProfile {
   schoolYear: number;
 }
 
+interface BridgeProfile {
+  name?: unknown;
+  currentStudentNumber?: unknown;
+  generation?: unknown;
+  role?: unknown;
+}
+
+interface BridgePayload {
+  ok?: unknown;
+  profile?: BridgeProfile;
+  error?: { code?: unknown; message?: unknown };
+}
+
 class InvalidCredentialsError extends Error {}
 
-function decodeEntities(value: string) {
-  const named: Record<string, string> = {
-    amp: '&',
-    lt: '<',
-    gt: '>',
-    quot: '"',
-    apos: "'",
-    nbsp: ' ',
-  };
-  return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (_, entity: string) => {
-    if (entity.startsWith('#')) {
-      const hexadecimal = entity[1]?.toLowerCase() === 'x';
-      const number = Number.parseInt(entity.slice(hexadecimal ? 2 : 1), hexadecimal ? 16 : 10);
-      return Number.isFinite(number) ? String.fromCodePoint(number) : '';
-    }
-    return named[entity.toLowerCase()] ?? '';
-  });
-}
-
-function stripTags(value: string) {
-  return decodeEntities(
-    value
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<br\s*\/?>/gi, ' ')
-      .replace(/<[^>]+>/g, ' '),
-  )
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function textsForClass(html: string, className: string) {
-  const values: string[] = [];
-  const pattern = /<([a-z][a-z0-9:-]*)\b[^>]*\bclass\s*=\s*["']([^"']*)["'][^>]*>([\s\S]*?)<\/\1>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(html))) {
-    const classes = match[2]?.split(/\s+/) ?? [];
-    if (classes.includes(className)) values.push(stripTags(match[3] ?? ''));
+function bridgeConfiguration() {
+  if (process.env.RIRO_AUTH_MODE !== 'BRIDGE') {
+    throw new ApiError(503, 'RIRO_DISABLED', '리로스쿨 인증이 일시적으로 비활성화되어 있습니다.');
   }
-  return values;
-}
-
-function generationFromRiroId(riroId: string) {
-  const match = riroId.match(/^(\d{2})/);
-  if (!match) return null;
-  const twoDigitYear = Number(match[1]);
-  const entryYear = twoDigitYear >= 90 ? 1900 + twoDigitYear : 2000 + twoDigitYear;
-  const generation = entryYear - 1994 + 1;
-  return generation >= 1 && generation <= 99 ? generation : null;
-}
-
-function normalizeStudentNumber(raw: string) {
-  const separated = raw.match(/([1-3])\D+([1-9])\D+(\d{1,2})(?:\D|$)/);
-  let normalized: string;
-  if (separated) {
-    normalized = `${separated[1]}${separated[2]}${separated[3]?.padStart(2, '0')}`;
-  } else {
-    const digits = raw.replace(/\D/g, '');
-    normalized = digits.length === 3
-      ? `${digits.slice(0, 2)}0${digits.slice(2)}`
-      : digits;
+  const configuredUrl = process.env.RIRO_BRIDGE_URL ?? '';
+  const secret = process.env.RIRO_BRIDGE_SECRET ?? '';
+  if (secret.length < 32) throw new Error('RIRO_BRIDGE_SECRET must be at least 32 characters.');
+  const url = new URL(configuredUrl);
+  const tailscaleIpv4 = /^100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}$/.test(url.hostname);
+  const tailscaleDns = url.hostname.endsWith('.ts.net');
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && (tailscaleIpv4 || tailscaleDns))) {
+    throw new Error('RIRO_BRIDGE_URL must use HTTPS or a Tailscale address.');
   }
-
-  if (!/^[1-3][1-9]\d{2}$/.test(normalized)) return null;
-  const studentNumber = Number(normalized.slice(2));
-  if (studentNumber < 1 || studentNumber > 40) return null;
-  return normalized;
-}
-
-function currentKoreanSchoolYear(now = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: 'numeric',
-  }).formatToParts(now);
-  const year = Number(parts.find((part) => part.type === 'year')?.value);
-  const month = Number(parts.find((part) => part.type === 'month')?.value);
-  return month < 3 ? year - 1 : year;
-}
-
-function parseProfile(html: string, submittedRiroId: string): RiroProfile | null {
-  if (html.length > 2_000_000) return null;
-  const inputValues = textsForClass(html, 'input_disabled');
-  if (inputValues.length < 2) return null;
-
-  const integrated = textsForClass(html, 'td_title')[0] === '통합아이디';
-  const integratedIdentity = textsForClass(html, 'elem_fix')[0] ?? '';
-  const effectiveRiroId = integrated && /^\d{2}/.test(integratedIdentity)
-    ? integratedIdentity.slice(0, 8)
-    : submittedRiroId;
-  const generation = generationFromRiroId(effectiveRiroId);
-  const currentStudentNumber = normalizeStudentNumber(inputValues[1] ?? '');
-  const name = (inputValues[0] ?? '').normalize('NFKC').trim();
-
-  if (!generation || !currentStudentNumber || !/^[가-힣A-Za-z .'-]{2,40}$/.test(name)) {
-    return null;
+  if (url.username || url.password || url.search || url.hash) {
+    throw new Error('RIRO_BRIDGE_URL must not contain credentials, query parameters, or fragments.');
   }
+  return { url: new URL('/v1/verify', url), secret };
+}
 
+export function signRiroBridgeRequest(body: string, secret: string, timestamp: string, nonce: string) {
+  const bodyHash = createHash('sha256').update(body, 'utf8').digest('hex');
+  return createHmac('sha256', secret)
+    .update(`${timestamp}.${nonce}.${bodyHash}`, 'utf8')
+    .digest('hex');
+}
+
+function normalizeBridgeProfile(profile: BridgeProfile): RiroProfile {
+  const name = typeof profile.name === 'string' ? profile.name.normalize('NFKC').trim() : '';
+  const currentStudentNumber = typeof profile.currentStudentNumber === 'string'
+    ? profile.currentStudentNumber
+    : '';
+  const generation = Number(profile.generation);
+  if (!/^[\p{L} .'-]{2,40}$/u.test(name)) throw new Error('Invalid bridge student name.');
+  if (!/^[1-3][1-9]\d{2}$/.test(currentStudentNumber)) {
+    throw new Error('Invalid bridge student number.');
+  }
+  const studentNumber = Number(currentStudentNumber.slice(2));
+  if (studentNumber < 1 || studentNumber > 40) throw new Error('Invalid bridge student number.');
+  if (!Number.isSafeInteger(generation) || generation < 1 || generation > 99) {
+    throw new Error('Invalid bridge generation.');
+  }
   const grade = Number(currentStudentNumber[0]);
   const classNumber = Number(currentStudentNumber[1]);
-  const studentNumber = Number(currentStudentNumber.slice(2));
   return {
     name,
     currentStudentNumber,
@@ -137,82 +83,49 @@ function parseProfile(html: string, submittedRiroId: string): RiroProfile | null
   };
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
+async function authenticateOnce(riroId: string, password: string) {
+  const { url, secret } = bridgeConfiguration();
+  const body = JSON.stringify({ id: riroId, password });
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const nonce = randomBytes(24).toString('base64url');
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+  let response: Response;
   try {
-    return await fetch(url, { ...init, signal: controller.signal, cache: 'no-store' });
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Riro-Timestamp': timestamp,
+        'X-Riro-Nonce': nonce,
+        'X-Riro-Signature': signRiroBridgeRequest(body, secret, timestamp, nonce),
+      },
+      body,
+      cache: 'no-store',
+      signal: controller.signal,
+    });
   } finally {
     clearTimeout(timeout);
   }
-}
-
-async function authenticateOnce(riroId: string, password: string) {
-  if (process.env.RIRO_AUTH_ENABLED === 'false') {
-    throw new ApiError(503, 'RIRO_DISABLED', '리로스쿨 인증이 일시적으로 비활성화되어 있습니다.');
+  const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+  if (!contentType.includes('application/json')) throw new Error('Riro bridge returned non-JSON.');
+  const payload = await response.json() as BridgePayload;
+  if (response.status === 401 && payload.error?.code === 'RIRO_INVALID_CREDENTIALS') {
+    throw new InvalidCredentialsError();
   }
-  const origin = riroOrigin();
-  const headers = {
-    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-    'User-Agent': USER_AGENT,
-    Accept: 'application/json,text/html;q=0.9,*/*;q=0.8',
-  };
-  const loginResponse = await fetchWithTimeout(
-    `${origin}/ajax.php`,
-    {
-      method: 'POST',
-      headers,
-      body: new URLSearchParams({
-        app: 'user',
-        mode: 'login',
-        userType: '1',
-        id: riroId,
-        pw: password,
-        deeplink: '',
-        redirect_link: '',
-      }),
-      redirect: 'manual',
-    },
-    15_000,
-  );
-
-  if (!loginResponse.ok) throw new Error(`Riro login HTTP ${loginResponse.status}`);
-  const loginPayload = (await loginResponse.json()) as { code?: unknown; token?: unknown };
-  const code = String(loginPayload.code ?? '');
-  if (code === '902') throw new InvalidCredentialsError();
-  if (code !== '000' || typeof loginPayload.token !== 'string' || !loginPayload.token) {
-    throw new Error(`Unexpected Riro login code ${code}`);
+  if (!response.ok || payload.ok !== true || !payload.profile) {
+    throw new Error(`Riro bridge failure ${response.status}`);
   }
-
-  const profileResponse = await fetchWithTimeout(
-    `${origin}/user.php`,
-    {
-      method: 'POST',
-      headers: {
-        ...headers,
-        Cookie: `cookie_token=${encodeURIComponent(loginPayload.token)}`,
-      },
-      body: new URLSearchParams({ pw: password }),
-      redirect: 'manual',
-    },
-    15_000,
-  );
-  if (!profileResponse.ok && profileResponse.status !== 302) {
-    throw new Error(`Riro profile HTTP ${profileResponse.status}`);
-  }
-
-  const profile = parseProfile(await profileResponse.text(), riroId);
-  if (!profile) throw new Error('Riro profile format changed');
-  return profile;
+  return normalizeBridgeProfile(payload.profile);
 }
 
 /**
- * Verifies a Riro account without persisting or logging its credentials/token.
- * Only the normalized student profile returned by Riro leaves this function.
+ * Verifies a Riroschool account through the Korean Tailscale bridge. Credentials are never logged
+ * or persisted; only the normalized student profile leaves this function.
  */
 export async function verifyRiroAccount(riroId: string, password: string) {
   let lastError: unknown;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       return await authenticateOnce(riroId, password);
     } catch (error) {
@@ -225,11 +138,10 @@ export async function verifyRiroAccount(riroId: string, password: string) {
       }
       if (error instanceof ApiError) throw error;
       lastError = error;
-      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+      if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 350));
     }
   }
-
-  console.error('[riro] verification unavailable', lastError instanceof Error ? lastError.message : 'unknown');
+  console.error('[riro] bridge unavailable', lastError instanceof Error ? lastError.message : 'unknown');
   throw new ApiError(
     503,
     'RIRO_UNAVAILABLE',

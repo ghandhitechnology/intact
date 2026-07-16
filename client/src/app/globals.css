@@ -8,22 +8,22 @@
 }
 
 :root {
-  --green: #176b50;
-  --green-deep: #10503d;
-  --green-pale: #edf5f1;
-  --blue: #416c91;
-  --blue-deep: #31536f;
-  --blue-pale: #edf3f8;
-  --ink: #202a33;
-  --ink-soft: #596572;
-  --ink-faint: #8a96a3;
-  --line: transparent;
-  --line-strong: transparent;
+  --green: #1d5b46;
+  --green-deep: #143f32;
+  --green-pale: #e8f0ec;
+  --blue: #365f7a;
+  --blue-deep: #29495e;
+  --blue-pale: #e9eff3;
+  --ink: #202722;
+  --ink-soft: #5b655f;
+  --ink-faint: #7b857f;
+  --line: #dfe3df;
+  --line-strong: #c8cec9;
   --surface: #ffffff;
-  --surface-muted: #f4f6f8;
-  --surface-subtle: #f0f3f6;
-  --danger: #c43d3d;
-  --warning: #a46309;
+  --surface-muted: #f5f4ef;
+  --surface-subtle: #efeee8;
+  --danger: #b63b3b;
+  --warning: #98620b;
   color-scheme: light;
 }
 
@@ -37,8 +37,8 @@ html.b-side {
   --ink: #edf2f7;
   --ink-soft: #aab4c0;
   --ink-faint: #788493;
-  --line: transparent;
-  --line-strong: transparent;
+  --line: #2b333d;
+  --line-strong: #3a4652;
   --surface: #14181e;
   --surface-muted: #0b0e12;
   --surface-subtle: #1b2028;
@@ -52,8 +52,6 @@ html.b-side {
 *::before,
 *::after {
   box-sizing: border-box;
-  border-color: transparent !important;
-  border-radius: 4px !important;
 }
 
 .rounded-full {
@@ -92,7 +90,7 @@ body {
   font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
     "Noto Sans KR", "Segoe UI", sans-serif;
   font-feature-settings: "ss01" 1, "cv11" 1;
-  letter-spacing: -0.018em;
+  letter-spacing: -0.012em;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -207,6 +205,7 @@ textarea {
 input:not([type='checkbox']):not([type='radio']):not([type='file']),
 select,
 textarea {
+  border-radius: 4px;
   background-color: var(--surface-subtle) !important;
 }
 
@@ -238,12 +237,12 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 .portal-container {
-  width: min(100% - 32px, 1540px);
+  width: min(100% - 32px, 1320px);
   margin-inline: auto;
 }
 
 .portal-header-container {
-  width: min(100% - 40px, 1520px);
+  width: min(100% - 40px, 1320px);
 }
 
 .skip-link {
@@ -272,6 +271,7 @@ input[type='number']::-webkit-outer-spin-button {
   height: 42px;
   place-items: center;
   border: 1px solid transparent;
+  border-radius: 4px;
   color: var(--ink-soft);
   transition: 120ms ease;
 }
@@ -289,6 +289,7 @@ input[type='number']::-webkit-outer-spin-button {
   width: 6px;
   height: 6px;
   border: 1px solid white;
+  border-radius: 999px;
   background: #e34949;
 }
 
@@ -298,6 +299,7 @@ input[type='number']::-webkit-outer-spin-button {
   align-items: center;
   gap: 10px;
   border: 1px solid var(--line-strong);
+  border-radius: 4px;
   background: var(--surface-subtle);
   padding: 0 13px;
   color: var(--ink-faint);
@@ -327,6 +329,7 @@ input[type='number']::-webkit-outer-spin-button {
   border: 1px solid var(--line);
   border-bottom-color: var(--line-strong);
   background: white;
+  border-radius: 3px;
   padding: 2px 5px;
   font-family: inherit;
   font-size: 9px;
@@ -395,6 +398,7 @@ input[type='number']::-webkit-outer-spin-button {
   width: 31px;
   height: 25px;
   place-items: center;
+  border-radius: 3px;
   background: var(--green);
   color: white;
   font-size: 20px;
@@ -411,6 +415,7 @@ input[type='number']::-webkit-outer-spin-button {
   justify-content: center;
   gap: 7px;
   border: 1px solid transparent;
+  border-radius: 4px;
   padding: 0 14px;
   font-weight: 800;
   transition: 120ms ease;
@@ -445,17 +450,8 @@ input[type='number']::-webkit-outer-spin-button {
 
 .surface-card {
   border: 1px solid var(--line-strong);
+  border-radius: 2px;
   background: var(--surface);
-}
-
-.section-kicker {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--green-deep);
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: -0.01em;
 }
 
 .footer-links {
