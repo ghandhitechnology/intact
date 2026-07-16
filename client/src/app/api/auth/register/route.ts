@@ -4,6 +4,8 @@ import {
   ApiError,
   assertSameOrigin,
   enforceClientIpRateLimit,
+  enforceDistributedClientIpRateLimit,
+  enforceDistributedRateLimit,
   enforceRateLimit,
   isUniqueConstraintError,
   json,
@@ -44,14 +46,25 @@ export async function POST(request: Request) {
       limit: 60,
       windowMs: 15 * 60 * 1_000,
     });
+    await enforceDistributedClientIpRateLimit(request, 'register', {
+      limit: 60,
+      windowMs: 15 * 60 * 1_000,
+      failPolicy: 'closed',
+    });
     const body = await readJson<RegisterBody>(request, 16_384);
     const verificationTicket = requiredString(body.verificationTicket, '인증 티켓', {
       min: 32,
       max: 128,
     });
-    enforceRateLimit(`register-ticket:${hashToken(verificationTicket)}`, {
+    const verificationTokenHash = hashToken(verificationTicket);
+    enforceRateLimit(`register-ticket:${verificationTokenHash}`, {
       limit: 5,
       windowMs: 15 * 60 * 1_000,
+    });
+    await enforceDistributedRateLimit(`register-ticket:${verificationTokenHash}`, {
+      limit: 5,
+      windowMs: 15 * 60 * 1_000,
+      failPolicy: 'closed',
     });
     const submittedStudent = parseStudentCode(
       requiredString(body.studentCode, '학번', { min: 6, max: 6 }),
@@ -61,15 +74,52 @@ export async function POST(request: Request) {
       max: 128,
       trim: false,
     });
-    const now = new Date();
+    const checkedAt = new Date();
+    const preparedTicket = await prisma.verificationTicket.findUnique({
+      where: { tokenHash: verificationTokenHash },
+      include: { studentInvite: { select: { id: true } } },
+    });
+    if (
+      !preparedTicket ||
+      preparedTicket.purpose !== 'REGISTER' ||
+      preparedTicket.usedAt ||
+      preparedTicket.expiresAt <= checkedAt
+    ) {
+      throw new ApiError(400, 'INVALID_TICKET', '인증이 만료되었습니다. 다시 인증해 주세요.');
+    }
+    parseStudentCode(preparedTicket.studentCode);
+    if (preparedTicket.studentInvite) {
+      throw new ApiError(400, 'RIRO_REQUIRED', '회원가입 전에 리로스쿨 인증이 필요합니다.');
+    }
+    if (submittedStudent.studentCode !== preparedTicket.studentCode) {
+      throw new ApiError(
+        400,
+        'STUDENT_CODE_MISMATCH',
+        '입력한 학번이 리로스쿨 학적 정보와 일치하지 않습니다.',
+      );
+    }
+    const realName = decryptText(preparedTicket.encryptedName);
+    validatePassword(password, realName);
+    if (password.includes(preparedTicket.studentCode)) {
+      throw new ApiError(400, 'WEAK_PASSWORD', '비밀번호에 학번을 포함할 수 없습니다.');
+    }
+    const passwordHash = await hashPassword(password);
+    const internalNickname = `${preparedTicket.studentCode}-${realName}`.slice(0, 32);
 
     const user = await withTransactionRetry(() => prisma.$transaction(
       async (tx) => {
+        const registrationTime = new Date();
         const ticket = await tx.verificationTicket.findUnique({
-          where: { tokenHash: hashToken(verificationTicket) },
+          where: { tokenHash: verificationTokenHash },
           include: { studentInvite: { select: { id: true } } },
         });
-        if (!ticket || ticket.purpose !== 'REGISTER' || ticket.usedAt || ticket.expiresAt <= now) {
+        if (
+          !ticket ||
+          ticket.id !== preparedTicket.id ||
+          ticket.purpose !== 'REGISTER' ||
+          ticket.usedAt ||
+          ticket.expiresAt <= registrationTime
+        ) {
           throw new ApiError(400, 'INVALID_TICKET', '인증이 만료되었습니다. 다시 인증해 주세요.');
         }
         parseStudentCode(ticket.studentCode);
@@ -83,13 +133,17 @@ export async function POST(request: Request) {
             '입력한 학번이 리로스쿨 학적 정보와 일치하지 않습니다.',
           );
         }
-        const realName = decryptText(ticket.encryptedName);
-        validatePassword(password, realName);
-        if (password.includes(ticket.studentCode)) {
-          throw new ApiError(400, 'WEAK_PASSWORD', '비밀번호에 학번을 포함할 수 없습니다.');
+        const consumed = await tx.verificationTicket.updateMany({
+          where: {
+            id: ticket.id,
+            usedAt: null,
+            expiresAt: { gt: registrationTime },
+          },
+          data: { usedAt: registrationTime },
+        });
+        if (consumed.count !== 1) {
+          throw new ApiError(400, 'INVALID_TICKET', '인증이 만료되었습니다. 다시 인증해 주세요.');
         }
-        const passwordHash = await hashPassword(password);
-        const internalNickname = `${ticket.studentCode}-${realName}`.slice(0, 32);
 
         const [existingIdentity, existingLogin] = await Promise.all([
           tx.studentIdentity.findFirst({
@@ -119,7 +173,7 @@ export async function POST(request: Request) {
             passwordHash,
             role: 'USER',
             status: 'ACTIVE',
-            lastReverifiedAt: now,
+            lastReverifiedAt: registrationTime,
             reverifyDueAt: new Date(ticket.schoolYear + 1, 2, 31),
             studentIdentity: {
               create: {
@@ -133,15 +187,11 @@ export async function POST(request: Request) {
                 nameFingerprint: ticket.nameFingerprint,
                 riroAccountFingerprint: ticket.riroAccountFingerprint,
                 schoolYear: ticket.schoolYear,
-                verifiedAt: now,
+                verifiedAt: registrationTime,
               },
             },
           },
           include: { studentIdentity: true },
-        });
-        await tx.verificationTicket.update({
-          where: { id: ticket.id },
-          data: { usedAt: now },
         });
         return created;
       },

@@ -1,10 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import prisma from '@/lib/prisma';
 import { verifyPassword } from '@/lib/server/crypto';
+import {
+  matchesSentTransferReplay,
+  transferLedgerKeys,
+} from '@/lib/server/domain/igk-transfer';
 import { lockIgkAccounts, syncLevelForLifetime } from '@/lib/server/igk';
 import {
   ApiError,
   assertSameOrigin,
+  enforceDistributedRateLimit,
+  enforceRateLimit,
   json,
   jsonError,
   readJson,
@@ -14,6 +20,7 @@ import {
 import { requireUser } from '@/lib/server/session';
 import { isRetryableTransactionError } from '@/lib/server/transactions';
 import { anonymousNickname, getPlatformMode } from '@/lib/server/platform-mode';
+import { createNotificationWithDelivery } from '@/lib/server/notifications';
 
 export const runtime = 'nodejs';
 
@@ -34,6 +41,15 @@ export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
     const session = await requireUser(request);
+    enforceRateLimit(`igk-transfer:${session.user.id}`, {
+      limit: 20,
+      windowMs: 60 * 1_000,
+    });
+    await enforceDistributedRateLimit(`igk-transfer:${session.user.id}`, {
+      limit: 20,
+      windowMs: 60 * 1_000,
+      failPolicy: 'closed',
+    });
     const body = await readJson<TransferBody>(request, 8_192);
     const recipientIdentifier = requiredString(body.recipient, '받는 사람', { min: 2, max: 32 });
     const amount = requiredInteger(body.amount, '선물할 IGK', 1, 500);
@@ -70,11 +86,17 @@ export async function POST(request: Request) {
       ? anonymousNickname(recipient.id, platformMode.bSideEpoch)
       : recipient.nickname;
 
+    const ledgerKeys = transferLedgerKeys(session.user.id, recipient.id, requestKey);
+    const transferIdentity = {
+      senderId: session.user.id,
+      recipientId: recipient.id,
+      amount,
+    };
     const completed = await prisma.igkLedger.findUnique({
-      where: { idempotencyKey: `transfer:sent:${session.user.id}:${requestKey}` },
+      where: { idempotencyKey: ledgerKeys.sent },
     });
     if (completed) {
-      if (completed.counterpartyId !== recipient.id || completed.amount !== -amount) {
+      if (!matchesSentTransferReplay(completed, transferIdentity)) {
         throw new ApiError(409, 'IDEMPOTENCY_KEY_REUSED', '같은 요청 키를 다른 IGK 선물에 다시 사용할 수 없습니다.');
       }
       return json({
@@ -121,10 +143,10 @@ export async function POST(request: Request) {
           async (tx) => {
             await lockIgkAccounts(tx, [session.user.id, recipient.id]);
             const existing = await tx.igkLedger.findUnique({
-              where: { idempotencyKey: `transfer:sent:${session.user.id}:${requestKey}` },
+              where: { idempotencyKey: ledgerKeys.sent },
             });
             if (existing) {
-              if (existing.counterpartyId !== recipient.id || existing.amount !== -amount) {
+              if (!matchesSentTransferReplay(existing, transferIdentity)) {
                 throw new ApiError(
                   409,
                   'IDEMPOTENCY_KEY_REUSED',
@@ -132,10 +154,21 @@ export async function POST(request: Request) {
                 );
               }
               return {
-                transferId: existing.transferId ?? transferId,
+                transferId: existing.transferId ?? existing.id,
                 senderBalance: existing.balanceAfter,
                 recipientNickname: recipientPublicNickname,
               };
+            }
+            const receiveCollision = await tx.igkLedger.findUnique({
+              where: { idempotencyKey: ledgerKeys.received },
+              select: { id: true },
+            });
+            if (receiveCollision) {
+              throw new ApiError(
+                409,
+                'IDEMPOTENCY_KEY_REUSED',
+                '같은 요청 키를 다른 IGK 선물에 다시 사용할 수 없습니다.',
+              );
             }
             const concurrentTotal = await tx.igkLedger.aggregate({
               where: {
@@ -191,7 +224,7 @@ export async function POST(request: Request) {
                   balanceAfter: sender.currentIgk,
                   lifetimeAfter: sender.lifetimeIgk,
                   transferId,
-                  idempotencyKey: `transfer:sent:${sender.id}:${requestKey}`,
+                  idempotencyKey: ledgerKeys.sent,
                   note,
                 },
                 {
@@ -202,14 +235,13 @@ export async function POST(request: Request) {
                   balanceAfter: receiver.currentIgk,
                   lifetimeAfter: receiver.lifetimeIgk,
                   transferId,
-                  idempotencyKey: `transfer:received:${receiver.id}:${requestKey}`,
+                  idempotencyKey: ledgerKeys.received,
                   note,
                   metadata: receiverDebtPayment ? { debtPayment: receiverDebtPayment } : undefined,
                 },
               ],
             });
-            await tx.notification.create({
-              data: {
+            await createNotificationWithDelivery(tx, {
                 userId: receiver.id,
                 actorId: sender.id,
                 type: 'SYSTEM',
@@ -217,7 +249,6 @@ export async function POST(request: Request) {
                 body: note,
                 href: '/igk',
                 metadata: { transferId, amount },
-              },
             });
             return {
               transferId,

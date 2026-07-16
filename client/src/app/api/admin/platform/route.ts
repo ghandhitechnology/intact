@@ -1,7 +1,13 @@
 import prisma from '@/lib/prisma';
 import { writeAdminAudit } from '@/lib/server/audit';
 import { ApiError, assertSameOrigin, json, jsonError, readJson } from '@/lib/server/http';
-import { getPlatformMode, primePlatformMode } from '@/lib/server/platform-mode';
+import {
+  getPlatformMode,
+  materializePlatformAliases,
+  primePlatformMode,
+  queuePlatformModeInvalidation,
+} from '@/lib/server/platform-mode';
+import { outboxPublicationEnabled } from '@/lib/server/realtime';
 import { requireReadyAdmin } from '@/lib/server/session';
 
 export const runtime = 'nodejs';
@@ -47,6 +53,22 @@ export async function PATCH(request: Request) {
           maintenanceEnabled: hasMaintenance ? maintenance : undefined,
         },
       });
+      if (next.bSideEnabled && (next.bSideEpoch !== current.bSideEpoch || hasBSide)) {
+        const activeUsers = await tx.user.findMany({
+          where: { status: 'ACTIVE' },
+          select: { id: true },
+        });
+        if (activeUsers.length) {
+          await materializePlatformAliases(
+            tx,
+            next.bSideEpoch,
+            activeUsers.map(({ id }) => id),
+          );
+        }
+      }
+      if (outboxPublicationEnabled()) {
+        await queuePlatformModeInvalidation(tx, next);
+      }
       if (hasBSide) {
         await writeAdminAudit(tx, request, {
           adminId: admin.user.id,

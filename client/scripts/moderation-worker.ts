@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+import { randomUUID } from 'crypto';
 import { mkdtemp, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -7,8 +8,19 @@ import { Prisma, PrismaClient, type ModerationSubmission } from '@prisma/client'
 import sharp from 'sharp';
 import { awardIgk } from '../src/lib/server/igk';
 import { perceptualAverageHash, perceptualHashDistance, sampleFrameIndexes } from '../src/lib/server/image-forensics';
+import {
+  analyzeLocalText,
+  applyApprovedModerationCandidate,
+  getModerationMode,
+  validateModerationCandidateForApproval,
+  type LocalRule,
+} from '../src/lib/server/moderation';
+import {
+  claimNextModerationSubmission,
+  compareAndSwapModerationState,
+  lockModerationPostAndSubmission,
+} from '../src/lib/server/moderation-state';
 import { getObject } from '../src/lib/server/object-storage';
-import { analyzeLocalText, getModerationMode, type LocalRule } from '../src/lib/server/moderation';
 
 const prisma = new PrismaClient();
 const execFileAsync = promisify(execFile);
@@ -46,30 +58,27 @@ function safeError(error: unknown) {
   return message.replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]').slice(0, 1000);
 }
 
-async function claimNext() {
+type ClaimedModerationSubmission = ModerationSubmission & {
+  transitionVersion: number;
+  leaseToken: string;
+};
+
+async function claimNext(): Promise<ClaimedModerationSubmission | null> {
   return prisma.$transaction(async (tx) => {
-    const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-      SELECT "id" FROM "ModerationSubmission"
-      WHERE (
-        "state" = 'QUEUED'
-        OR ("state" = 'PROCESSING' AND "leaseExpiresAt" < NOW())
-      )
-      AND "attemptCount" < 3
-      ORDER BY "createdAt" ASC
-      FOR UPDATE SKIP LOCKED
-      LIMIT 1
-    `);
-    const id = rows[0]?.id;
-    if (!id) return null;
-    return tx.moderationSubmission.update({
-      where: { id },
-      data: {
-        state: 'PROCESSING',
-        claimedAt: new Date(),
-        leaseExpiresAt: new Date(Date.now() + 5 * 60_000),
-        attemptCount: { increment: 1 },
-      },
+    const now = new Date();
+    const claim = await claimNextModerationSubmission(tx, {
+      now,
+      leaseExpiresAt: new Date(now.getTime() + 5 * 60_000),
+      leaseToken: randomUUID(),
     });
+    if (!claim) return null;
+    if (!claim.leaseToken) throw new Error('Claimed moderation submission has no lease token');
+    const submission = await tx.moderationSubmission.findUniqueOrThrow({ where: { id: claim.id } });
+    return {
+      ...submission,
+      transitionVersion: claim.transitionVersion,
+      leaseToken: claim.leaseToken,
+    };
   });
 }
 
@@ -178,52 +187,56 @@ function chooseDecision(local: ReturnType<typeof analyzeLocalText>, luna: LunaVe
   return 'NEEDS_REVIEW' as const;
 }
 
-async function finish(submission: ModerationSubmission, input: {
+async function finish(submission: ClaimedModerationSubmission, input: {
   state: 'ALLOWED' | 'BLOCKED' | 'NEEDS_REVIEW';
   local: ReturnType<typeof analyzeLocalText>;
   luna: LunaVerdict;
   ocrText: string;
   imageSignals: Array<{ attachmentId: string; frame: number; perceptualHash: string; ocr: string }>;
 }) {
-  await prisma.$transaction(async (tx) => {
-    const latest = await tx.moderationSubmission.findFirst({ where: { postId: submission.postId }, orderBy: { createdAt: 'desc' } });
-    if (!latest || latest.id !== submission.id || latest.state === 'SUPERSEDED') return;
+  return prisma.$transaction(async (tx) => {
+    const control = await lockModerationPostAndSubmission(tx, submission.id);
+    if (
+      !control
+      || control.state !== 'PROCESSING'
+      || control.transitionVersion !== submission.transitionVersion
+      || control.leaseToken !== submission.leaseToken
+    ) {
+      return false;
+    }
+    const current = await tx.moderationSubmission.findUniqueOrThrow({ where: { id: submission.id } });
+    const post = await tx.post.findUniqueOrThrow({ where: { id: current.postId } });
+    const validation = await validateModerationCandidateForApproval(tx, current, post);
+    let finalState = input.state;
+    let explanationKo = input.luna.explanationKo.slice(0, 1000);
+    if (!validation.ok) {
+      finalState = 'NEEDS_REVIEW';
+      explanationKo = validation.conflict === 'POST_VERSION_CONFLICT'
+        ? '심사 중 게시물 버전이 변경되어 운영자 확인이 필요해요.'
+        : '심사 중 첨부 파일이 변경되어 운영자 확인이 필요해요.';
+    }
+
+    const transitioned = await compareAndSwapModerationState(
+      tx,
+      submission.id,
+      {
+        state: 'PROCESSING',
+        transitionVersion: submission.transitionVersion,
+        leaseToken: submission.leaseToken,
+      },
+      finalState,
+      'WORKER_RESULT',
+    );
+    if (transitioned === null) return false;
+
     const mode = getModerationMode();
-    if (mode === 'ENFORCE' && input.state === 'ALLOWED') {
-      const post = await tx.post.findUniqueOrThrow({ where: { id: submission.postId } });
-      const stagedAttachments = await tx.attachment.count({
-        where: {
-          id: { in: submission.candidateAttachmentIds }, uploaderId: submission.authorId, messageId: null,
-          OR: [{ postId: null }, { postId: post.id }],
-        },
+    if (mode === 'ENFORCE' && finalState === 'ALLOWED') {
+      const approval = await applyApprovedModerationCandidate(tx, current, post, {
+        revisionReason: '이중망 승인 전 버전',
       });
-      if (stagedAttachments !== submission.candidateAttachmentIds.length) throw new Error('A staged attachment changed before approval');
-      if (!submission.isNewPost && (post.title !== submission.candidateTitle || post.content !== submission.candidateContent)) {
-        await tx.postRevision.create({
-          data: { postId: post.id, editorId: submission.authorId, title: post.title, content: post.content, reason: '이중망 승인 전 버전' },
-        });
-      }
-      await tx.attachment.updateMany({
-        where: { id: { in: submission.candidateAttachmentIds }, uploaderId: submission.authorId, postId: null, messageId: null },
-        data: { postId: post.id },
-      });
-      await tx.post.update({
-        where: { id: post.id },
-        data: {
-          title: submission.candidateTitle,
-          content: submission.candidateContent,
-          contentText: submission.candidateContentText,
-          tags: submission.candidateTags,
-          metadata: submission.candidateMetadata === null ? Prisma.JsonNull : submission.candidateMetadata,
-          boardId: submission.candidateBoardId,
-          kind: submission.candidateKind,
-          status: 'PUBLISHED',
-          publishedAt: post.publishedAt ?? new Date(),
-          editedAt: submission.isNewPost ? post.editedAt : new Date(),
-        },
-      });
+      if (!approval.ok) throw new Error(`Moderation approval changed after validation: ${approval.conflict}`);
       await awardIgk(tx, {
-        userId: submission.authorId,
+        userId: current.authorId,
         amount: 10,
         type: 'POST_CREATED',
         idempotencyKey: `post:create:${post.id}`,
@@ -232,33 +245,68 @@ async function finish(submission: ModerationSubmission, input: {
         dailyCap: 100,
         note: '이중망 승인 게시글 작성 보상',
       });
-    } else if (mode === 'ENFORCE' && input.state === 'BLOCKED' && submission.isNewPost) {
-      await tx.post.update({ where: { id: submission.postId }, data: { status: 'HIDDEN' } });
+    } else if (mode === 'ENFORCE' && finalState === 'BLOCKED' && current.isNewPost) {
+      await tx.post.update({
+        where: { id: current.postId },
+        data: { status: 'HIDDEN', version: { increment: 1 } },
+      });
     }
     await tx.moderationSubmission.update({
       where: { id: submission.id },
       data: {
-        state: input.state,
-        decision: input.state === 'ALLOWED' ? 'ALLOW' : input.state === 'BLOCKED' ? 'BLOCK' : 'REVIEW',
+        decision: finalState === 'ALLOWED' ? 'ALLOW' : finalState === 'BLOCKED' ? 'BLOCK' : 'REVIEW',
         riskScore: Math.max(input.local.maxSeverity / 100, input.luna.confidence),
         categories: input.luna.categories,
         targetSpans: input.luna.targetSpans as Prisma.InputJsonValue,
         evidence: { luna: input.luna.evidence, images: input.imageSignals } as Prisma.InputJsonValue,
         safeContext: input.luna.safeContext,
         evasionDetected: input.local.evasionDetected || input.luna.evasionDetected,
-        explanationKo: input.luna.explanationKo.slice(0, 1000),
+        explanationKo,
         normalizedText: input.local.normalized,
         ocrText: input.ocrText,
         localSignals: input.local as unknown as Prisma.InputJsonValue,
         lunaResult: input.luna as unknown as Prisma.InputJsonValue,
-        completedAt: new Date(),
-        leaseExpiresAt: null,
       },
     });
+    return true;
   });
 }
 
-async function processSubmission(submission: ModerationSubmission) {
+async function markWorkerFailure(submission: ClaimedModerationSubmission) {
+  return prisma.$transaction(async (tx) => {
+    const control = await lockModerationPostAndSubmission(tx, submission.id);
+    if (
+      !control
+      || control.state !== 'PROCESSING'
+      || control.transitionVersion !== submission.transitionVersion
+      || control.leaseToken !== submission.leaseToken
+    ) {
+      return false;
+    }
+    const transitioned = await compareAndSwapModerationState(
+      tx,
+      submission.id,
+      {
+        state: 'PROCESSING',
+        transitionVersion: submission.transitionVersion,
+        leaseToken: submission.leaseToken,
+      },
+      'NEEDS_REVIEW',
+      'WORKER_RESULT',
+    );
+    if (transitioned === null) return false;
+    await tx.moderationSubmission.update({
+      where: { id: submission.id },
+      data: {
+        decision: 'REVIEW',
+        explanationKo: '자동 검사를 완료하지 못해 운영자 확인으로 전환했어요.',
+      },
+    });
+    return true;
+  });
+}
+
+async function processSubmission(submission: ClaimedModerationSubmission) {
   const startedAt = Date.now();
   const workDir = await mkdtemp(join(tmpdir(), 'intact-moderation-'));
   try {
@@ -289,13 +337,7 @@ async function processSubmission(submission: ModerationSubmission) {
     await prisma.moderationAttempt.create({
       data: { submissionId: submission.id, layer: 'WORKER', status: 'ERROR', latencyMs: Date.now() - startedAt, sanitizedError: safeError(error) },
     }).catch(() => undefined);
-    await prisma.moderationSubmission.update({
-      where: { id: submission.id },
-      data: {
-        state: 'NEEDS_REVIEW', decision: 'REVIEW', explanationKo: '자동 검사를 완료하지 못해 운영자 확인으로 전환했어요.',
-        completedAt: new Date(), leaseExpiresAt: null,
-      },
-    });
+    await markWorkerFailure(submission);
   } finally {
     await rm(workDir, { recursive: true, force: true });
   }

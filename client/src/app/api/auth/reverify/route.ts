@@ -4,6 +4,8 @@ import {
   ApiError,
   assertSameOrigin,
   enforceClientIpRateLimit,
+  enforceDistributedClientIpRateLimit,
+  enforceDistributedRateLimit,
   enforceRateLimit,
   json,
   jsonError,
@@ -23,6 +25,11 @@ export async function POST(request: Request) {
       limit: 60,
       windowMs: 15 * 60 * 1_000,
     });
+    await enforceDistributedClientIpRateLimit(request, 'reverify', {
+      limit: 60,
+      windowMs: 15 * 60 * 1_000,
+      failPolicy: 'closed',
+    });
     const session = await resolveSession(request);
     if (!session || !['ACTIVE', 'PENDING_REVERIFICATION'].includes(session.user.status)) {
       throw new ApiError(401, 'AUTH_REQUIRED', '재인증할 계정으로 로그인해 주세요.');
@@ -30,6 +37,11 @@ export async function POST(request: Request) {
     enforceRateLimit(`reverify-account:${session.user.id}`, {
       limit: 6,
       windowMs: 15 * 60 * 1_000,
+    });
+    await enforceDistributedRateLimit(`reverify-account:${session.user.id}`, {
+      limit: 6,
+      windowMs: 15 * 60 * 1_000,
+      failPolicy: 'closed',
     });
     const body = await readJson<{ verificationTicket?: unknown }>(request, 8_192);
     const verificationTicket = requiredString(body.verificationTicket, '인증 티켓', {

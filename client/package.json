@@ -3,13 +3,22 @@
   "description": "Intact school community web application and API",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "packageManager": "yarn@1.22.22",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit --incremental false",
+    "prisma:validate": "prisma validate",
+    "test": "tsx --test tests/*.test.ts",
     "test:moderation": "tsx --test tests/moderation.test.ts",
     "test:riro": "tsx --test tests/riro.test.ts",
+    "platform-aliases:backfill": "tsx scripts/platform-alias-backfill.ts",
+    "verify": "bash ../scripts/verify.sh",
     "push": "prisma db push",
     "postpush": "prisma generate"
   },
@@ -19,14 +28,17 @@
     "next": "15.5.18",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "redis": "4.7.0",
     "sharp": "^0.34.5",
     "socket.io-client": "^4.8.3",
-    "tsx": "^4.20.6"
+    "tsx": "^4.20.6",
+    "web-push": "3.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
+    "@types/web-push": "3.6.4",
     "autoprefixer": "^10.4.21",
     "dotenv": "^16.3.1",
     "eslint": "^8.57.1",

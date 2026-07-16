@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import {
   ApiError,
   assertSameOrigin,
+  enforceDistributedRateLimit,
   enforceRateLimit,
   json,
   jsonError,
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
     const [tickets, total] = await prisma.$transaction([
       prisma.supportTicket.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { updatedAt: 'desc' },
         skip,
         take: pageSize,
         select: {
@@ -38,6 +39,15 @@ export async function GET(request: Request) {
           description: true,
           resolution: true,
           resolvedAt: true,
+          _count: {
+            select: { messages: { where: { isInternal: false } } },
+          },
+          messages: {
+            where: { isInternal: false },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: 1,
+            select: { id: true, createdAt: true, body: true },
+          },
         },
       }),
       prisma.supportTicket.count({ where }),
@@ -53,6 +63,11 @@ export async function POST(request: Request) {
     assertSameOrigin(request);
     const session = await requireUser(request);
     enforceRateLimit(`support:${session.user.id}`, { limit: 10, windowMs: 24 * 60 * 60 * 1_000 });
+    await enforceDistributedRateLimit(`support:${session.user.id}`, {
+      limit: 10,
+      windowMs: 24 * 60 * 60 * 1_000,
+      failPolicy: 'open',
+    });
     const body = await readJson<Record<string, unknown>>(request, 32 * 1024);
     const categories: SupportCategory[] = ['BUG', 'FEATURE', 'ACCOUNT', 'CONTENT', 'OTHER'];
     const legacyCategoryMap: Record<string, SupportCategory> = {
@@ -70,25 +85,42 @@ export async function POST(request: Request) {
     if (!category) {
       throw new ApiError(400, 'INVALID_CATEGORY', '문의 유형이 올바르지 않습니다.');
     }
-    const subject =
-      body.subject === undefined
-        ? `${category} 문의`
-        : requiredString(body.subject, '문의 제목', { min: 2, max: 180 });
-    const description = requiredString(body.description, '문의 내용', { min: 10, max: 10_000, trim: false }).trim();
+    const subject = body.subject === undefined
+      ? `${category} 문의`
+      : requiredString(body.subject, '문의 제목', { min: 2, max: 180 });
+    const description = requiredString(body.description, '문의 내용', {
+      min: 10,
+      max: 10_000,
+      trim: false,
+    }).trim();
     const metadata: Prisma.InputJsonObject = {
       ...(typeof (body.pageUrl ?? body.targetUrl) === 'string'
         ? { pageUrl: String(body.pageUrl ?? body.targetUrl).slice(0, 2_048) }
         : {}),
       userAgent: request.headers.get('user-agent')?.slice(0, 512) ?? 'unknown',
     };
-    const ticket = await prisma.supportTicket.create({
-      data: {
-        requesterId: session.user.id,
-        category,
-        subject,
-        description,
-        metadata,
-      },
+    const ticket = await prisma.$transaction(async (tx) => {
+      const created = await tx.supportTicket.create({
+        data: { requesterId: session.user.id, category, subject, description, metadata },
+      });
+      await tx.supportMessage.create({
+        data: {
+          ticketId: created.id,
+          authorId: session.user.id,
+          body: description,
+          metadata: { kind: 'INITIAL_REQUEST' },
+        },
+      });
+      await tx.supportStatusEvent.create({
+        data: {
+          ticketId: created.id,
+          changedById: session.user.id,
+          fromStatus: null,
+          toStatus: 'OPEN',
+          note: '문의 접수',
+        },
+      });
+      return created;
     });
     return json({ ticket }, 201);
   } catch (error) {

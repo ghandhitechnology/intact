@@ -3,6 +3,17 @@ import crypto from 'crypto';
 import express from 'express';
 import cors from 'cors';
 import { Server, Socket } from 'socket.io';
+import {
+  abandonEventDelivery,
+  claimEventDelivery,
+  completeEventDelivery,
+  type DeliveryClaim,
+} from './event-dedupe';
+import {
+  closeGatewayRedis,
+  gatewayRedisStatus,
+  initializeGatewayRedis,
+} from './redis';
 
 type SessionUser = {
   id: string;
@@ -34,6 +45,7 @@ app.get('/health', (_request, response) => {
     ok: true,
     service: 'intact-realtime',
     connections: io.engine.clientsCount,
+    redis: gatewayRedisStatus(),
   });
 });
 
@@ -46,6 +58,26 @@ const io = new Server(server, {
   pingTimeout: 20_000,
 });
 
+const platformNamespace = io.of('/platform');
+
+function forwardPlatformInvalidation(raw: string) {
+  try {
+    const message = JSON.parse(raw) as {
+      version?: unknown;
+      bSideEnabled?: unknown;
+      maintenanceEnabled?: unknown;
+    };
+    if (
+      typeof message.version !== 'string'
+      || typeof message.bSideEnabled !== 'boolean'
+      || typeof message.maintenanceEnabled !== 'boolean'
+    ) return;
+    platformNamespace.emit('platform:invalidate', message);
+  } catch {
+    // Ignore malformed messages from the coordination channel.
+  }
+}
+
 function internalRequestAllowed(request: express.Request) {
   const expected = process.env.INTERNAL_API_SECRET || '';
   const supplied = request.headers['x-igwak-internal'];
@@ -56,6 +88,32 @@ function internalRequestAllowed(request: express.Request) {
 }
 
 app.use('/internal', express.json({ limit: '128kb' }));
+
+async function handleDedupedDelivery(
+  request: express.Request,
+  response: express.Response,
+  deliver: () => Promise<void>,
+) {
+  const eventIdHeader = request.headers['x-igwak-event-id'];
+  const eventId = typeof eventIdHeader === 'string' ? eventIdHeader : '';
+  let claim: DeliveryClaim | null = null;
+  try {
+    if (eventId) {
+      claim = await claimEventDelivery(eventId);
+      if (!claim) {
+        response.json({ ok: true, deduplicated: true });
+        return;
+      }
+    }
+    await deliver();
+    if (claim) await completeEventDelivery(claim);
+    response.json({ ok: true });
+  } catch {
+    if (claim) await abandonEventDelivery(claim).catch(() => undefined);
+    response.status(503).json({ ok: false });
+  }
+}
+
 type RealtimeMessage = {
   sender?: {
     id?: string;
@@ -106,14 +164,11 @@ app.post('/internal/message', async (request, response) => {
     response.status(400).json({ ok: false });
     return;
   }
-  try {
+  await handleDedupedDelivery(request, response, async () => {
     await emitMessageToRoom(roomId, message as RealtimeMessage);
-    response.json({ ok: true });
-  } catch {
-    response.status(503).json({ ok: false });
-  }
+  });
 });
-app.post('/internal/room-created', (request, response) => {
+app.post('/internal/room-created', async (request, response) => {
   if (!internalRequestAllowed(request)) {
     response.status(403).json({ ok: false });
     return;
@@ -126,10 +181,11 @@ app.post('/internal/room-created', (request, response) => {
     response.status(400).json({ ok: false });
     return;
   }
-  for (const memberId of memberIds) {
-    io.to(`user:${memberId}`).emit('room:created', { roomId });
-  }
-  response.json({ ok: true });
+  await handleDedupedDelivery(request, response, async () => {
+    for (const memberId of memberIds) {
+      io.to(`user:${memberId}`).emit('room:created', { roomId });
+    }
+  });
 });
 
 const attempts = new Map<string, number[]>();
@@ -263,8 +319,14 @@ io.on('connection', (socket) => {
         signal: AbortSignal.timeout(8_000),
       });
       if (!response.ok) throw new Error('PERSIST_FAILED');
-      const message = (await response.json()) as RealtimeMessage;
-      await emitMessageToRoom(input.roomId, message);
+      const body = (await response.json()) as RealtimeMessage & {
+        message?: RealtimeMessage;
+        data?: { message?: RealtimeMessage };
+      };
+      const message = body.data?.message ?? body.message ?? body;
+      if (typeof message.id !== 'string') throw new Error('INVALID_PERSIST_RESPONSE');
+      const queuedForOutbox = response.headers.get('x-realtime-delivery') === 'outbox';
+      if (!queuedForOutbox) await emitMessageToRoom(input.roomId, message);
       ack?.({ ok: true, message: messageForViewer(message, user.id) });
     } catch {
       ack?.({ ok: false, error: 'DELIVERY_FAILED' });
@@ -326,10 +388,13 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(port, () => {
-  const instanceId = crypto.randomBytes(3).toString('hex');
-  process.stdout.write(`intact-realtime:${instanceId} listening on ${port}\n`);
-});
+async function start() {
+  await initializeGatewayRedis(io, forwardPlatformInvalidation);
+  server.listen(port, () => {
+    const instanceId = crypto.randomBytes(3).toString('hex');
+    process.stdout.write(`intact-realtime:${instanceId} listening on ${port}\n`);
+  });
+}
 
 let shuttingDown = false;
 function shutdown(signal: string) {
@@ -337,10 +402,18 @@ function shutdown(signal: string) {
   shuttingDown = true;
   process.stdout.write(`intact-realtime shutting down after ${signal}\n`);
   io.close(() => {
-    server.close(() => process.exit(0));
+    void closeGatewayRedis().finally(() => {
+      server.close(() => process.exit(0));
+    });
   });
   setTimeout(() => process.exit(1), 10_000).unref();
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+
+start().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`intact-realtime failed to start: ${message.slice(0, 500)}\n`);
+  process.exit(1);
+});

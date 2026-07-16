@@ -162,8 +162,10 @@ export default function SearchClient({
       params.set("board", boardFilter);
     if (!trimmedQuery)
       params.set("sort", sort === "popular" ? "recommended" : "latest");
+    const searchParams = new URLSearchParams({ q: trimmedQuery, sort });
+    if (boardFilter !== "all") searchParams.set("board", boardFilter);
     const endpoint = trimmedQuery
-      ? `/api/search?q=${encodeURIComponent(trimmedQuery)}`
+      ? `/api/search?${searchParams.toString()}`
       : `/api/posts?${params.toString()}`;
 
     setIsSearching(true);

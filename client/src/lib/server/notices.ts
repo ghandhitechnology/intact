@@ -1,11 +1,21 @@
 import prisma from '@/lib/prisma';
+import { createNotificationsWithDelivery } from './notifications';
 
 /**
- * Lightweight scheduler fallback. A dedicated worker can call the same state
- * transition later; guarded updateMany makes fanout exactly-once per notice.
+ * Materializes notice state from a worker. Request-path execution is disabled by
+ * default; NOTICE_REQUEST_SCHEDULER_FALLBACK=true is an explicit compatibility
+ * escape hatch for deployments that have not started the outbox worker yet.
  */
-export async function materializeDueNotices(now = new Date()) {
-  await prisma.notice.updateMany({
+export async function materializeDueNotices(
+  now = new Date(),
+  options: { source?: 'request' | 'worker' } = {},
+) {
+  const source = options.source ?? 'request';
+  if (source === 'request' && process.env.NOTICE_REQUEST_SCHEDULER_FALLBACK !== 'true') {
+    return { expired: 0, published: 0, skipped: true };
+  }
+
+  const expired = await prisma.notice.updateMany({
     where: {
       status: { in: ['PUBLISHED', 'SCHEDULED'] },
       expiresAt: { lte: now },
@@ -13,6 +23,7 @@ export async function materializeDueNotices(now = new Date()) {
     data: { status: 'EXPIRED' },
   });
 
+  let publishedCount = 0;
   const due = await prisma.notice.findMany({
     where: { status: 'SCHEDULED', scheduledFor: { lte: now } },
     orderBy: { scheduledFor: 'asc' },
@@ -29,6 +40,7 @@ export async function materializeDueNotices(now = new Date()) {
         data: { status: 'PUBLISHED', publishedAt: candidate.scheduledFor ?? now },
       });
       if (published.count !== 1) return;
+      publishedCount += 1;
       const grade = candidate.targetAudience === 'ALL'
         ? null
         : Number.parseInt(candidate.targetAudience, 10);
@@ -40,8 +52,9 @@ export async function materializeDueNotices(now = new Date()) {
         select: { id: true },
       });
       if (!recipients.length) return;
-      await tx.notification.createMany({
-        data: recipients.map(({ id }) => ({
+      await createNotificationsWithDelivery(
+        tx,
+        recipients.map(({ id }) => ({
           userId: id,
           actorId: candidate.authorId,
           type: 'NOTICE',
@@ -50,7 +63,8 @@ export async function materializeDueNotices(now = new Date()) {
           href: `/notices#notice-${candidate.id}`,
           metadata: { noticeId: candidate.id },
         })),
-      });
+      );
     });
   }
+  return { expired: expired.count, published: publishedCount, skipped: false };
 }

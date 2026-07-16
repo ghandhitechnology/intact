@@ -5,6 +5,8 @@ import {
   ApiError,
   assertSameOrigin,
   enforceClientIpRateLimit,
+  enforceDistributedClientIpRateLimit,
+  enforceDistributedRateLimit,
   enforceRateLimit,
   json,
   jsonError,
@@ -34,6 +36,11 @@ export async function POST(request: Request) {
       limit: 100,
       windowMs: 15 * 60 * 1000,
     });
+    await enforceDistributedClientIpRateLimit(request, 'login', {
+      limit: 100,
+      windowMs: 15 * 60 * 1000,
+      failPolicy: 'closed',
+    });
     const body = await readJson<LoginBody>(request, 8_192);
     const student = parseStudentCode(
       requiredString(body.identifier ?? body.studentId, '학번', {
@@ -44,6 +51,11 @@ export async function POST(request: Request) {
     enforceRateLimit(`login-account:${privateFingerprint(student.studentCode)}`, {
       limit: 12,
       windowMs: 15 * 60 * 1_000,
+    });
+    await enforceDistributedRateLimit(`login-account:${privateFingerprint(student.studentCode)}`, {
+      limit: 12,
+      windowMs: 15 * 60 * 1_000,
+      failPolicy: 'closed',
     });
     const password = requiredString(body.password, '비밀번호', {
       min: 1,

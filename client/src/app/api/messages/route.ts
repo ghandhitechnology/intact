@@ -1,8 +1,18 @@
 import prisma from '@/lib/prisma';
-import { parseAttachmentIds, publicAuthorSelect } from '@/lib/server/content';
+import { bindEligibleAttachments } from '@/lib/server/attachment-state';
+import { attachmentSelect, parseAttachmentIds, publicAuthorSelect } from '@/lib/server/content';
+import {
+  chatMessageEnvelope,
+  compoundTimeCursor,
+  messageRequestHash,
+  parseChatCursor,
+  sequenceCursor,
+  serializeChatMessage,
+} from '@/lib/server/chat';
 import {
   ApiError,
   assertSameOrigin,
+  enforceDistributedRateLimit,
   enforceRateLimit,
   isUniqueConstraintError,
   json,
@@ -10,8 +20,15 @@ import {
   readJson,
   requiredString,
 } from '@/lib/server/http';
+import { toOutboxJson } from '@/lib/server/outbox';
+import { createNotificationsWithDelivery } from '@/lib/server/notifications';
 import { requireUser } from '@/lib/server/session';
-import { isRealtimeGatewayRequest, publishRealtimeEvent } from '@/lib/server/realtime';
+import {
+  isRealtimeGatewayRequest,
+  outboxPublicationEnabled,
+  publishRealtimeEvent,
+  queueRealtimeEvent,
+} from '@/lib/server/realtime';
 import {
   anonymousNickname,
   getPlatformMode,
@@ -37,56 +54,83 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const roomId = requiredString(url.searchParams.get('roomId'), 'roomId', { max: 64 });
     await requireMembership(roomId, session.user.id);
+
+    const beforeSequence = url.searchParams.get('beforeSequence');
     const before = url.searchParams.get('before');
-    const beforeDate = before ? new Date(before) : null;
-    if (beforeDate && Number.isNaN(beforeDate.getTime())) {
-      throw new ApiError(400, 'INVALID_CURSOR', '메시지 페이지 기준 시간이 올바르지 않습니다.');
+    const cursor = parseChatCursor(beforeSequence ?? before);
+    if ((beforeSequence ?? before) && !cursor) {
+      throw new ApiError(400, 'INVALID_CURSOR', '메시지 페이지 기준이 올바르지 않습니다.');
     }
+    if (beforeSequence && cursor?.kind !== 'sequence') {
+      throw new ApiError(400, 'INVALID_CURSOR', '메시지 순서 기준이 올바르지 않습니다.');
+    }
+
+    const cursorWhere =
+      cursor?.kind === 'sequence'
+        ? { sequence: { lt: cursor.sequence } }
+        : cursor?.kind === 'compound'
+          ? {
+              OR: [
+                { createdAt: { lt: cursor.createdAt } },
+                { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+              ],
+            }
+          : cursor?.kind === 'legacy-time'
+            ? { createdAt: { lt: cursor.createdAt } }
+            : {};
+    const legacyTimestampOrder =
+      cursor?.kind === 'compound' || cursor?.kind === 'legacy-time';
+
     const [messages, otherMemberships] = await prisma.$transaction([
       prisma.message.findMany({
-      where: {
-        roomId,
-        ...(beforeDate ? { createdAt: { lt: beforeDate } } : {}),
-      },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: 101,
-      select: {
-        id: true,
-        createdAt: true,
-        editedAt: true,
-        deletedAt: true,
-        replyToId: true,
-        content: true,
-        sender: { select: publicAuthorSelect },
-        attachments: {
-          where: { scanStatus: 'CLEAN' },
-          select: { id: true, originalName: true, mimeType: true, sizeBytes: true },
+        where: { roomId, ...cursorWhere },
+        orderBy: legacyTimestampOrder
+          ? [{ createdAt: 'desc' }, { id: 'desc' }]
+          : [{ sequence: 'desc' }],
+        take: 101,
+        select: {
+          id: true,
+          roomId: true,
+          sequence: true,
+          createdAt: true,
+          editedAt: true,
+          deletedAt: true,
+          replyToId: true,
+          content: true,
+          sender: { select: publicAuthorSelect },
+          attachments: {
+            where: { scanStatus: 'CLEAN' },
+            orderBy: { createdAt: 'asc' },
+            select: attachmentSelect,
+          },
         },
-      },
       }),
       prisma.chatMember.findMany({
         where: { roomId, userId: { not: session.user.id }, leftAt: null },
-        select: { lastReadMessage: { select: { createdAt: true } } },
+        select: { lastReadSequence: true },
       }),
     ]);
     const hasMore = messages.length > 100;
     const page = messages.slice(0, 100);
-    const chronological = page.reverse().map((message) => ({
-      ...(message.deletedAt ? { ...message, content: '삭제된 메시지입니다.', attachments: [] } : message),
-      readByAll:
-        message.sender.id === session.user.id &&
-        otherMemberships.length > 0 &&
-        otherMemberships.every((member) =>
-          Boolean(member.lastReadMessage && member.lastReadMessage.createdAt >= message.createdAt),
-        ),
-    }));
+    const oldest = page[page.length - 1];
+    const chronological = page.reverse().map((message) =>
+      serializeChatMessage({
+        ...(message.deletedAt
+          ? { ...message, content: '삭제된 메시지입니다.', attachments: [] }
+          : message),
+        readByAll:
+          message.sender.id === session.user.id &&
+          otherMemberships.length > 0 &&
+          otherMemberships.every((member) => member.lastReadSequence >= message.sequence),
+      }),
+    );
+    const platformMode = await getPlatformMode();
     return json({
-      messages: await (async () => {
-        const platformMode = await getPlatformMode();
-        return maskPublicIdentitiesWithMode(chronological, session.user.id, platformMode);
-      })(),
+      messages: maskPublicIdentitiesWithMode(chronological, session.user.id, platformMode),
       hasMore,
-      nextCursor: hasMore ? chronological[0]?.createdAt.toISOString() ?? null : null,
+      nextCursor: hasMore && oldest ? sequenceCursor(oldest.sequence) : null,
+      legacyNextCursor:
+        hasMore && oldest ? compoundTimeCursor(oldest.createdAt, oldest.id) : null,
     });
   } catch (error) {
     return jsonError(error);
@@ -108,6 +152,11 @@ export async function POST(request: Request) {
       limit: 90,
       windowMs: 60 * 1_000,
     });
+    await enforceDistributedRateLimit(`message-create:${session.user.id}`, {
+      limit: 90,
+      windowMs: 60 * 1_000,
+      failPolicy: 'open',
+    });
     const body = await readJson<MessageBody>(request, 16_384);
     const roomId = requiredString(body.roomId, 'roomId', { max: 64 });
     const content = requiredString(body.content, '메시지', { min: 1, max: 5_000 });
@@ -115,57 +164,122 @@ export async function POST(request: Request) {
     if (!attachmentIds || attachmentIds.length > 1) {
       throw new ApiError(400, 'INVALID_ATTACHMENTS', '메시지에는 파일을 하나만 첨부할 수 있습니다.');
     }
-    const membership = await requireMembership(roomId, session.user.id);
-    if (membership.mutedUntil && membership.mutedUntil > new Date()) {
-      throw new ApiError(403, 'ROOM_MUTED', '이 대화방에서 메시지 작성이 일시 제한되었습니다.');
-    }
     const replyToId = typeof body.replyToId === 'string' && body.replyToId ? body.replyToId : null;
     const clientKey = request.headers.get('idempotency-key')?.trim().slice(0, 100) || null;
     const clientId = clientKey ? `message:${session.user.id}:${clientKey}` : null;
-    if (replyToId) {
-      const reply = await prisma.message.findUnique({ where: { id: replyToId }, select: { roomId: true } });
-      if (!reply || reply.roomId !== roomId) {
-        throw new ApiError(400, 'INVALID_REPLY', '답장할 메시지를 찾을 수 없습니다.');
-      }
-    }
-
+    const requestHash = messageRequestHash({
+      roomId,
+      senderId: session.user.id,
+      content,
+      replyToId,
+      attachmentIds,
+    });
+    const platformMode = await getPlatformMode();
     const messageSelect = {
       id: true,
       roomId: true,
+      sequence: true,
+      requestHash: true,
       createdAt: true,
+      editedAt: true,
+      deletedAt: true,
       replyToId: true,
       content: true,
       sender: { select: publicAuthorSelect },
-      attachments: { select: { originalName: true } },
+      attachments: {
+        where: { scanStatus: 'CLEAN' },
+        orderBy: { createdAt: 'asc' as const },
+        select: attachmentSelect,
+      },
     } as const;
+
+    function assertMatchingReplay(existing: {
+      roomId: string;
+      requestHash: string | null;
+      content: string;
+      replyToId: string | null;
+      sender: { id: string };
+      attachments: Array<{ id: string }>;
+    }) {
+      const persistedHash =
+        existing.requestHash ??
+        messageRequestHash({
+          roomId: existing.roomId,
+          senderId: existing.sender.id,
+          content: existing.content,
+          replyToId: existing.replyToId,
+          attachmentIds: existing.attachments.map((attachment) => attachment.id),
+        });
+      if (persistedHash !== requestHash) {
+        throw new ApiError(
+          409,
+          'IDEMPOTENCY_KEY_REUSED',
+          '같은 요청 키를 다른 메시지에 다시 사용할 수 없습니다.',
+        );
+      }
+    }
+
+    const replayCandidate = clientId
+      ? await prisma.message.findUnique({
+          where: { clientId },
+          select: messageSelect,
+        })
+      : null;
+    if (replayCandidate) assertMatchingReplay(replayCandidate);
+
     let message;
-    try {
-      message = await prisma.$transaction(async (tx) => {
+    let replayed = false;
+    if (replayCandidate) {
+      message = replayCandidate;
+      replayed = true;
+    } else {
+      const membership = await requireMembership(roomId, session.user.id);
+      if (membership.mutedUntil && membership.mutedUntil > new Date()) {
+        throw new ApiError(403, 'ROOM_MUTED', '이 대화방에서 메시지 작성이 일시 제한되었습니다.');
+      }
+      if (replyToId) {
+        const reply = await prisma.message.findUnique({ where: { id: replyToId }, select: { roomId: true } });
+        if (!reply || reply.roomId !== roomId) {
+          throw new ApiError(400, 'INVALID_REPLY', '답장할 메시지를 찾을 수 없습니다.');
+        }
+      }
+
+      try {
+      const result = await prisma.$transaction(async (tx) => {
         if (clientId) {
           const existing = await tx.message.findUnique({
             where: { clientId },
             select: messageSelect,
           });
-          if (existing) return existing;
-        }
-        const created = await tx.message.create({
-          data: { roomId, senderId: session.user.id, content, replyToId, clientId },
-          select: messageSelect,
-        });
-        if (attachmentIds.length) {
-          const attached = await tx.attachment.updateMany({
-            where: {
-              id: { in: attachmentIds },
-              uploaderId: session.user.id,
-              postId: null,
-              messageId: null,
-            },
-            data: { messageId: created.id },
-          });
-          if (attached.count !== attachmentIds.length) {
-            throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않습니다. 파일을 다시 선택해 주세요.');
+          if (existing) {
+            assertMatchingReplay(existing);
+            return { message: existing, replayed: true };
           }
         }
+
+        const allocatedRoom = await tx.chatRoom.update({
+          where: { id: roomId },
+          data: { nextMessageSequence: { increment: BigInt(1) } },
+          select: { nextMessageSequence: true },
+        });
+        const sequence = allocatedRoom.nextMessageSequence - BigInt(1);
+        const created = await tx.message.create({
+          data: {
+            roomId,
+            senderId: session.user.id,
+            content,
+            replyToId,
+            clientId,
+            sequence,
+            requestHash: clientId ? requestHash : null,
+          },
+          select: messageSelect,
+        });
+        await bindEligibleAttachments(tx, {
+          attachmentIds,
+          uploaderId: session.user.id,
+          binding: { messageId: created.id },
+        });
         await tx.chatRoom.update({
           where: { id: roomId },
           data: { lastMessageAt: created.createdAt },
@@ -180,55 +294,87 @@ export async function POST(request: Request) {
           select: { userId: true },
         });
         if (recipients.length) {
-          await tx.notification.createMany({
-            data: recipients.map(({ userId }) => ({
+          await createNotificationsWithDelivery(
+            tx,
+            recipients.map(({ userId }) => ({
               userId,
               actorId: session.user.id,
               type: 'MESSAGE',
               title: '새 메시지가 도착했습니다.',
               body: content.slice(0, 120),
               href: `/messages?roomId=${encodeURIComponent(roomId)}`,
-              metadata: { roomId, messageId: created.id },
+              metadata: { roomId, messageId: created.id, sequence: sequence.toString() },
             })),
-          });
+          );
         }
-        return attachmentIds.length
-          ? tx.message.findUniqueOrThrow({ where: { id: created.id }, select: messageSelect })
+        const persistedMessage = attachmentIds.length
+          ? await tx.message.findUniqueOrThrow({ where: { id: created.id }, select: messageSelect })
           : created;
+        if (outboxPublicationEnabled()) {
+          const serialized = serializeChatMessage(persistedMessage);
+          await queueRealtimeEvent(
+            tx,
+            'message',
+            toOutboxJson({
+              roomId: persistedMessage.roomId,
+              message: {
+                ...serialized,
+                _bSide: {
+                  enabled: platformMode.bSideEnabled,
+                  anonymousNickname: anonymousNickname(
+                    persistedMessage.sender.id,
+                    platformMode.bSideEpoch,
+                  ),
+                },
+              },
+            }),
+            `realtime:message:${persistedMessage.id}`,
+          );
+        }
+        return { message: persistedMessage, replayed: false };
       });
+      message = result.message;
+      replayed = result.replayed;
     } catch (error) {
       if (!clientId || !isUniqueConstraintError(error)) throw error;
-      message = await prisma.message.findUniqueOrThrow({
+      const existing = await prisma.message.findUnique({
         where: { clientId },
         select: messageSelect,
       });
+      if (!existing) throw error;
+      assertMatchingReplay(existing);
+      message = existing;
+      replayed = true;
+      }
     }
-    const platformMode = await getPlatformMode();
+
+    const serializedMessage = serializeChatMessage(message);
     const realtimeMessage = {
-      ...message,
+      ...serializedMessage,
       _bSide: {
         enabled: platformMode.bSideEnabled,
         anonymousNickname: anonymousNickname(message.sender.id, platformMode.bSideEpoch),
       },
     };
     const fromRealtimeGateway = isRealtimeGatewayRequest(request);
-    if (!fromRealtimeGateway) {
-      await publishRealtimeEvent('message', { roomId, message: realtimeMessage });
+    if (!fromRealtimeGateway && !replayed) {
+      await publishRealtimeEvent('message', {
+        roomId: message.roomId,
+        message: realtimeMessage,
+      });
     }
+    const deliveryHeaders = {
+      'X-Realtime-Delivery': outboxPublicationEnabled() ? 'outbox' : 'direct',
+    };
     if (fromRealtimeGateway) {
-      return Response.json(realtimeMessage, {
-        status: 201,
-        headers: { 'Cache-Control': 'no-store' },
-      });
+      return json(chatMessageEnvelope(realtimeMessage, replayed), 201, deliveryHeaders);
     }
-    const publicMessage = maskPublicIdentitiesWithMode(message, session.user.id, platformMode);
-    if (clientId) {
-      return Response.json(publicMessage, {
-        status: 201,
-        headers: { 'Cache-Control': 'no-store' },
-      });
-    }
-    return json({ message: publicMessage }, 201);
+    const publicMessage = maskPublicIdentitiesWithMode(
+      serializedMessage,
+      session.user.id,
+      platformMode,
+    );
+    return json(chatMessageEnvelope(publicMessage, replayed), 201, deliveryHeaders);
   } catch (error) {
     return jsonError(error);
   }
@@ -244,14 +390,27 @@ export async function PATCH(request: Request) {
     await requireMembership(roomId, session.user.id);
     const message = await prisma.message.findFirst({
       where: { id: messageId, roomId },
-      select: { id: true },
+      select: { id: true, sequence: true },
     });
     if (!message) throw new ApiError(404, 'MESSAGE_NOT_FOUND', '메시지를 찾을 수 없습니다.');
-    await prisma.chatMember.update({
-      where: { roomId_userId: { roomId, userId: session.user.id } },
-      data: { lastReadMessageId: message.id },
+    await prisma.chatMember.updateMany({
+      where: {
+        roomId,
+        userId: session.user.id,
+        lastReadSequence: { lt: message.sequence },
+      },
+      data: { lastReadMessageId: message.id, lastReadSequence: message.sequence },
     });
-    return json({ read: true, roomId, messageId });
+    const membership = await prisma.chatMember.findUniqueOrThrow({
+      where: { roomId_userId: { roomId, userId: session.user.id } },
+      select: { lastReadMessageId: true, lastReadSequence: true },
+    });
+    return json({
+      read: true,
+      roomId,
+      messageId: membership.lastReadMessageId,
+      lastReadSequence: membership.lastReadSequence.toString(),
+    });
   } catch (error) {
     return jsonError(error);
   }

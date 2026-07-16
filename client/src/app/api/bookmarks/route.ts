@@ -1,14 +1,15 @@
 import prisma from '@/lib/prisma';
 import { postListSelect } from '@/lib/server/content';
+import { bookmarkLockKeys } from '@/lib/server/domain/concurrency';
 import {
   ApiError,
   assertSameOrigin,
-  isUniqueConstraintError,
   json,
   jsonError,
   readJson,
   requiredString,
 } from '@/lib/server/http';
+import { lockResources } from '@/lib/server/locks';
 import { requireUser } from '@/lib/server/session';
 import { maskPublicIdentities } from '@/lib/server/platform-mode';
 
@@ -35,29 +36,32 @@ export async function POST(request: Request) {
     const session = await requireUser(request);
     const body = await readJson<{ postId?: unknown; folder?: unknown }>(request);
     const postId = requiredString(body.postId, 'postId', { max: 64 });
-    const post = await prisma.post.findUnique({ where: { id: postId }, select: { status: true } });
-    if (!post || post.status !== 'PUBLISHED') throw new ApiError(404, 'POST_NOT_FOUND', '게시글을 찾을 수 없습니다.');
     const folder = typeof body.folder === 'string' ? body.folder.trim().slice(0, 60) || null : null;
-    let bookmark;
-    try {
-      bookmark = await prisma.$transaction(async (tx) => {
-        const created = await tx.bookmark.create({
-          data: {
-            userId: session.user.id,
-            postId,
-            folder,
-          },
-        });
-        await tx.post.update({ where: { id: postId }, data: { bookmarkCount: { increment: 1 } } });
-        return created;
-      });
-    } catch (error) {
-      if (!isUniqueConstraintError(error)) throw error;
-      bookmark = await prisma.bookmark.update({
+    const bookmark = await prisma.$transaction(async (tx) => {
+      await lockResources(tx, bookmarkLockKeys(session.user.id, postId));
+      const post = await tx.post.findUnique({ where: { id: postId }, select: { status: true } });
+      if (!post || post.status !== 'PUBLISHED') {
+        throw new ApiError(404, 'POST_NOT_FOUND', '게시글을 찾을 수 없습니다.');
+      }
+      const existing = await tx.bookmark.findUnique({
         where: { userId_postId: { userId: session.user.id, postId } },
-        data: { folder },
       });
-    }
+      if (existing) {
+        return tx.bookmark.update({
+          where: { id: existing.id },
+          data: { folder },
+        });
+      }
+      const created = await tx.bookmark.create({
+        data: {
+          userId: session.user.id,
+          postId,
+          folder,
+        },
+      });
+      await tx.post.update({ where: { id: postId }, data: { bookmarkCount: { increment: 1 } } });
+      return created;
+    });
     return json({ bookmark }, 201);
   } catch (error) {
     return jsonError(error);
@@ -70,14 +74,18 @@ export async function DELETE(request: Request) {
     const session = await requireUser(request);
     const body = await readJson<{ postId?: unknown }>(request);
     const postId = requiredString(body.postId, 'postId', { max: 64 });
-    const existing = await prisma.bookmark.findUnique({
-      where: { userId_postId: { userId: session.user.id, postId } },
+    await prisma.$transaction(async (tx) => {
+      await lockResources(tx, bookmarkLockKeys(session.user.id, postId));
+      const existing = await tx.bookmark.findUnique({
+        where: { userId_postId: { userId: session.user.id, postId } },
+      });
+      if (!existing) return;
+      await tx.bookmark.delete({ where: { id: existing.id } });
+      await tx.post.update({
+        where: { id: postId },
+        data: { bookmarkCount: { decrement: 1 } },
+      });
     });
-    if (!existing) return json({ removed: true });
-    await prisma.$transaction([
-      prisma.bookmark.delete({ where: { id: existing.id } }),
-      prisma.post.update({ where: { id: postId }, data: { bookmarkCount: { decrement: 1 } } }),
-    ]);
     return json({ removed: true });
   } catch (error) {
     return jsonError(error);

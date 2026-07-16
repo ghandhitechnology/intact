@@ -4,6 +4,8 @@ import {
   ApiError,
   assertSameOrigin,
   enforceClientIpRateLimit,
+  enforceDistributedClientIpRateLimit,
+  enforceDistributedRateLimit,
   enforceRateLimit,
   json,
   jsonError,
@@ -24,11 +26,21 @@ export async function POST(request: Request) {
       limit: 30,
       windowMs: 15 * 60 * 1_000,
     });
+    await enforceDistributedClientIpRateLimit(request, 'password-reset', {
+      limit: 30,
+      windowMs: 15 * 60 * 1_000,
+      failPolicy: 'closed',
+    });
     const body = await readJson<{ verificationTicket?: unknown; newPassword?: unknown }>(request, 8_192);
     const verificationTicket = requiredString(body.verificationTicket, '인증 티켓', { min: 20, max: 200 });
     enforceRateLimit(`password-reset-ticket:${privateFingerprint(verificationTicket)}`, {
       limit: 5,
       windowMs: 15 * 60 * 1_000,
+    });
+    await enforceDistributedRateLimit(`password-reset-ticket:${privateFingerprint(verificationTicket)}`, {
+      limit: 5,
+      windowMs: 15 * 60 * 1_000,
+      failPolicy: 'closed',
     });
     const newPassword = requiredString(body.newPassword, '새 비밀번호', {
       min: 10,

@@ -12,6 +12,7 @@ import {
   requiredString,
 } from '@/lib/server/http';
 import { requireReadyAdmin } from '@/lib/server/session';
+import { createNotificationWithDelivery } from '@/lib/server/notifications';
 
 export const runtime = 'nodejs';
 
@@ -101,15 +102,13 @@ export async function PATCH(
             reason,
           },
         });
-        await tx.notification.create({
-          data: {
-            userId: target.id,
-            actorId: admin.user.id,
-            type: 'SANCTION',
-            title: '관리자 경고가 등록되었습니다.',
-            body: reason,
-            href: '/notifications',
-          },
+        await createNotificationWithDelivery(tx, {
+          userId: target.id,
+          actorId: admin.user.id,
+          type: 'SANCTION',
+          title: '관리자 경고가 등록되었습니다.',
+          body: reason,
+          href: '/notifications',
         });
         after = sanction;
       } else if (action === 'SUSPEND') {
@@ -215,21 +214,19 @@ export async function PATCH(
             metadata: { requestedAmount, actualAmount, lifetimeAdjustment },
           },
         });
-        await tx.notification.create({
-          data: {
-            userId: target.id,
-            actorId: admin.user.id,
-            type: 'SYSTEM',
-            title: `관리자가 IGK를 ${actualAmount > 0 ? '지급' : '회수'}했습니다.`,
-            body: `${actualAmount > 0 ? '+' : ''}${actualAmount.toLocaleString('ko-KR')} IGK · ${reason}`,
-            href: '/igk',
-            metadata: {
-              requestedAmount,
-              actualAmount,
-              balanceAfter: updated.currentIgk,
-              lifetimeAfter: updated.lifetimeIgk,
-              level: updated.level,
-            },
+        await createNotificationWithDelivery(tx, {
+          userId: target.id,
+          actorId: admin.user.id,
+          type: 'SYSTEM',
+          title: `관리자가 IGK를 ${actualAmount > 0 ? '지급' : '회수'}했습니다.`,
+          body: `${actualAmount > 0 ? '+' : ''}${actualAmount.toLocaleString('ko-KR')} IGK · ${reason}`,
+          href: '/igk',
+          metadata: {
+            requestedAmount,
+            actualAmount,
+            balanceAfter: updated.currentIgk,
+            lifetimeAfter: updated.lifetimeIgk,
+            level: updated.level,
           },
         });
         after = updated;

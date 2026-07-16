@@ -24,11 +24,18 @@ export async function GET(request: Request) {
           requester: {
             select: {
               id: true,
-              nickname: true, realName: true,
+              nickname: true,
+              realName: true,
               studentIdentity: { select: { studentCode: true } },
             },
           },
           assignedTo: { select: { id: true, nickname: true } },
+          _count: { select: { messages: true } },
+          messages: {
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: 1,
+            select: { id: true, createdAt: true, body: true, isInternal: true },
+          },
         },
       }),
       prisma.supportTicket.count({ where }),

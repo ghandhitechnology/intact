@@ -60,6 +60,7 @@ type LocalDraft = {
 
 type ServerDraft = {
   id: string;
+  version?: number;
   updatedAt: string;
   title: string;
   content: string;
@@ -149,6 +150,7 @@ export default function PostComposer({
   const [publishedId, setPublishedId] = useState<string | null>(null);
   const [moderationPending, setModerationPending] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
+  const [draftVersion, setDraftVersion] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
@@ -217,6 +219,24 @@ export default function PostComposer({
         const serverDraft = draftResponse.ok
           ? (draftBody?.data?.drafts?.[0] as ServerDraft | undefined)
           : undefined;
+        let restoredDraftVersion = Number.isSafeInteger(serverDraft?.version)
+          ? Number(serverDraft?.version)
+          : null;
+        if (serverDraft && (!restoredDraftVersion || restoredDraftVersion < 1)) {
+          try {
+            const detailResponse = await fetch(
+              `/api/posts/${encodeURIComponent(serverDraft.id)}`,
+              { cache: "no-store", signal: controller.signal },
+            );
+            const detailBody = await detailResponse.json().catch(() => null);
+            const version = Number(detailBody?.data?.post?.version || detailBody?.post?.version);
+            if (detailResponse.ok && Number.isSafeInteger(version) && version > 0) {
+              restoredDraftVersion = version;
+            }
+          } catch {
+            // Legacy servers may not expose draft versions yet; PATCH remains compatible.
+          }
+        }
         if (!active) return;
 
         const localSavedAt =
@@ -251,6 +271,9 @@ export default function PostComposer({
         );
         if (serverDraft) {
           setDraftId(serverDraft.id);
+          if (restoredDraftVersion && restoredDraftVersion > 0) {
+            setDraftVersion(restoredDraftVersion);
+          }
           setAttachments(
             serverDraft.attachments.map((attachment) => ({
               key: `server-${attachment.id}`,
@@ -467,11 +490,13 @@ export default function PostComposer({
 
   async function persistPost(status: "DRAFT" | "PUBLISHED") {
     const attachmentIds = await uploadAttachments();
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    if (draftId && draftVersion) headers["If-Match"] = `"${draftVersion}"`;
     const response = await fetch(
       draftId ? `/api/posts/${encodeURIComponent(draftId)}` : "/api/posts",
       {
         method: draftId ? "PATCH" : "POST",
-        headers: { "content-type": "application/json" },
+        headers,
         body: JSON.stringify({
           board: selectedSlug,
           title: title.trim(),
@@ -479,17 +504,25 @@ export default function PostComposer({
           tags,
           status,
           attachmentIds,
+          ...(draftVersion ? { baseVersion: draftVersion } : {}),
         }),
       },
     );
     const body = await response.json().catch(() => null);
     if (!response.ok) {
+      const currentVersion = Number(body?.error?.details?.currentVersion);
+      if (response.status === 409 && Number.isSafeInteger(currentVersion) && currentVersion > 0) {
+        setDraftVersion(currentVersion);
+      }
       throw new Error(
         body?.error?.message || body?.message || "저장하지 못했습니다.",
       );
     }
     const post = body?.data?.post || body?.post;
     if (post?.id) setDraftId(post.id);
+    if (Number.isSafeInteger(post?.version) && Number(post.version) > 0) {
+      setDraftVersion(Number(post.version));
+    }
     return { post, moderation: body?.data?.moderation || body?.moderation || null };
   }
 

@@ -186,40 +186,46 @@ model User {
   reverifyDueAt        DateTime?  @db.Timestamptz(6)
   withdrawnAt          DateTime?  @db.Timestamptz(6)
 
-  studentIdentity        StudentIdentity?
-  sessions               Session[]
-  boardsCreated          Board[]                @relation("BoardCreator")
-  posts                  Post[]
-  postRevisions          PostRevision[]         @relation("RevisionEditor")
-  attachments            Attachment[]           @relation("AttachmentUploader")
-  comments               Comment[]
-  recommendations        Recommendation[]
-  bookmarks              Bookmark[]
-  reportsFiled           Report[]               @relation("ReportReporter")
-  reportsAgainst         Report[]               @relation("ReportTargetUser")
-  reportsResolved        Report[]               @relation("ReportResolver")
-  sanctionsReceived      Sanction[]             @relation("SanctionTarget")
-  sanctionsIssued        Sanction[]             @relation("SanctionIssuer")
-  sanctionsRevoked       Sanction[]             @relation("SanctionRevoker")
-  notifications          Notification[]         @relation("NotificationRecipient")
-  notificationActions    Notification[]         @relation("NotificationActor")
-  chatRoomsCreated       ChatRoom[]             @relation("ChatRoomCreator")
-  chatMemberships        ChatMember[]
-  messages               Message[]
-  igkEntries             IgkLedger[]            @relation("IgkOwner")
-  igkCounterpartyEntries IgkLedger[]            @relation("IgkCounterparty")
-  notices                Notice[]
-  adminAudits            AdminAuditLog[]
-  supportTickets         SupportTicket[]        @relation("SupportRequester")
-  assignedSupportTickets SupportTicket[]        @relation("SupportAssignee")
-  levelRulesUpdated      LevelRule[]
-  studentInvitesCreated  StudentInvite[]        @relation("StudentInviteCreator")
-  studentInvitesUsed     StudentInvite[]        @relation("StudentInviteUser")
-  studentInvitesRevoked  StudentInvite[]        @relation("StudentInviteRevoker")
-  items                  UserItem[]
-  moderationSubmissions  ModerationSubmission[] @relation("ModerationAuthor")
-  moderationReviews      ModerationSubmission[] @relation("ModerationReviewer")
-  moderationRules        ModerationRule[]       @relation("ModerationRuleCreator")
+  studentIdentity         StudentIdentity?
+  sessions                Session[]
+  boardsCreated           Board[]                  @relation("BoardCreator")
+  posts                   Post[]
+  postRevisions           PostRevision[]           @relation("RevisionEditor")
+  attachments             Attachment[]             @relation("AttachmentUploader")
+  comments                Comment[]
+  recommendations         Recommendation[]
+  bookmarks               Bookmark[]
+  reportsFiled            Report[]                 @relation("ReportReporter")
+  reportsAgainst          Report[]                 @relation("ReportTargetUser")
+  reportsResolved         Report[]                 @relation("ReportResolver")
+  sanctionsReceived       Sanction[]               @relation("SanctionTarget")
+  sanctionsIssued         Sanction[]               @relation("SanctionIssuer")
+  sanctionsRevoked        Sanction[]               @relation("SanctionRevoker")
+  notifications           Notification[]           @relation("NotificationRecipient")
+  notificationActions     Notification[]           @relation("NotificationActor")
+  chatRoomsCreated        ChatRoom[]               @relation("ChatRoomCreator")
+  chatMemberships         ChatMember[]
+  messages                Message[]
+  igkEntries              IgkLedger[]              @relation("IgkOwner")
+  igkCounterpartyEntries  IgkLedger[]              @relation("IgkCounterparty")
+  notices                 Notice[]
+  adminAudits             AdminAuditLog[]
+  supportTickets          SupportTicket[]          @relation("SupportRequester")
+  assignedSupportTickets  SupportTicket[]          @relation("SupportAssignee")
+  levelRulesUpdated       LevelRule[]
+  studentInvitesCreated   StudentInvite[]          @relation("StudentInviteCreator")
+  studentInvitesUsed      StudentInvite[]          @relation("StudentInviteUser")
+  studentInvitesRevoked   StudentInvite[]          @relation("StudentInviteRevoker")
+  items                   UserItem[]
+  moderationSubmissions   ModerationSubmission[]   @relation("ModerationAuthor")
+  moderationReviews       ModerationSubmission[]   @relation("ModerationReviewer")
+  moderationRules         ModerationRule[]         @relation("ModerationRuleCreator")
+  platformAliases         PlatformAlias[]
+  notificationSetting     NotificationSetting?
+  notificationPreferences NotificationPreference[]
+  pushSubscriptions       PushSubscription[]
+  supportMessages         SupportMessage[]         @relation("SupportMessageAuthor")
+  supportStatusEvents     SupportStatusEvent[]     @relation("SupportStatusChangedBy")
 
   @@index([status, createdAt])
   @@index([role, status])
@@ -337,6 +343,20 @@ model PlatformSetting {
   updatedAt          DateTime @updatedAt @db.Timestamptz(6)
 }
 
+model PlatformAlias {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  epoch     Int
+  alias     String   @db.VarChar(64)
+  userId    String   @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([epoch, alias])
+  @@unique([epoch, userId])
+  @@index([userId, epoch(sort: Desc)])
+}
+
 model Board {
   id               String      @id @default(uuid()) @db.Uuid
   createdAt        DateTime    @default(now()) @db.Timestamptz(6)
@@ -362,6 +382,7 @@ model Post {
   id                  String     @id @default(uuid()) @db.Uuid
   createdAt           DateTime   @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime   @updatedAt @db.Timestamptz(6)
+  version             Int        @default(1)
   publishedAt         DateTime?  @db.Timestamptz(6)
   scheduledFor        DateTime?  @db.Timestamptz(6)
   editedAt            DateTime?  @db.Timestamptz(6)
@@ -449,6 +470,8 @@ model ModerationSubmission {
   policyVersion          String              @default("v1") @db.VarChar(32)
   model                  String              @default("gpt-5.6-luna") @db.VarChar(80)
   attemptCount           Int                 @default(0)
+  transitionVersion      Int                 @default(0)
+  leaseToken             String?             @db.Uuid
   claimedAt              DateTime?           @db.Timestamptz(6)
   leaseExpiresAt         DateTime?           @db.Timestamptz(6)
   completedAt            DateTime?           @db.Timestamptz(6)
@@ -465,6 +488,7 @@ model ModerationSubmission {
   @@index([authorId, createdAt(sort: Desc)])
   @@index([inputHash])
   @@index([leaseExpiresAt])
+  @@index([state, leaseExpiresAt])
 }
 
 model ModerationAttempt {
@@ -506,20 +530,22 @@ model ModerationRule {
 }
 
 model Attachment {
-  id           String   @id @default(uuid()) @db.Uuid
-  createdAt    DateTime @default(now()) @db.Timestamptz(6)
-  uploaderId   String   @db.Uuid
-  postId       String?  @db.Uuid
-  messageId    String?  @db.Uuid
-  storageKey   String   @unique @db.VarChar(512)
-  originalName String   @db.VarChar(255)
-  mimeType     String   @db.VarChar(127)
-  sizeBytes    BigInt
-  sha256       String   @db.Char(64)
-  scanStatus   String   @default("PENDING") @db.VarChar(32)
-  width        Int?
-  height       Int?
-  blurDataUrl  String?  @db.VarChar(1024)
+  id              String    @id @default(uuid()) @db.Uuid
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  uploaderId      String    @db.Uuid
+  postId          String?   @db.Uuid
+  messageId       String?   @db.Uuid
+  storageKey      String    @unique @db.VarChar(512)
+  originalName    String    @db.VarChar(255)
+  mimeType        String    @db.VarChar(127)
+  sizeBytes       BigInt
+  sha256          String    @db.Char(64)
+  scanStatus      String    @default("PENDING") @db.VarChar(32)
+  processingError String?   @db.VarChar(1000)
+  finalizedAt     DateTime? @db.Timestamptz(6)
+  width           Int?
+  height          Int?
+  blurDataUrl     String?   @db.VarChar(1024)
 
   uploader User     @relation("AttachmentUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
   post     Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
@@ -528,6 +554,8 @@ model Attachment {
   @@index([postId])
   @@index([messageId])
   @@index([uploaderId, createdAt(sort: Desc)])
+  @@index([scanStatus, createdAt])
+  @@index([finalizedAt])
 }
 
 model Comment {
@@ -654,15 +682,65 @@ model Notification {
   @@index([userId, readAt, createdAt(sort: Desc)])
 }
 
+model NotificationPreference {
+  id           String           @id @default(uuid()) @db.Uuid
+  createdAt    DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(6)
+  userId       String           @db.Uuid
+  type         NotificationType
+  inAppEnabled Boolean          @default(true)
+  pushEnabled  Boolean          @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId, pushEnabled])
+}
+
+model NotificationSetting {
+  id                String   @id @default(uuid()) @db.Uuid
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(6)
+  userId            String   @unique @db.Uuid
+  quietHoursEnabled Boolean  @default(false)
+  quietHoursStart   String   @default("22:00") @db.Char(5)
+  quietHoursEnd     String   @default("07:00") @db.Char(5)
+  timeZone          String   @default("Asia/Seoul") @db.VarChar(64)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id            String    @id @default(uuid()) @db.Uuid
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+  userId        String    @db.Uuid
+  endpoint      String    @db.Text
+  endpointHash  String    @unique @db.Char(64)
+  p256dh        String    @db.Text
+  auth          String    @db.Text
+  userAgent     String?   @db.VarChar(512)
+  expiresAt     DateTime? @db.Timestamptz(6)
+  revokedAt     DateTime? @db.Timestamptz(6)
+  failureCount  Int       @default(0)
+  lastFailureAt DateTime? @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([revokedAt, expiresAt])
+}
+
 model ChatRoom {
-  id            String       @id @default(uuid()) @db.Uuid
-  createdAt     DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime     @updatedAt @db.Timestamptz(6)
-  type          ChatRoomType @default(GROUP)
-  title         String?      @db.VarChar(120)
-  createdById   String?      @db.Uuid
-  directKey     String?      @unique @db.VarChar(80)
-  lastMessageAt DateTime?    @db.Timestamptz(6)
+  id                  String       @id @default(uuid()) @db.Uuid
+  createdAt           DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime     @updatedAt @db.Timestamptz(6)
+  type                ChatRoomType @default(GROUP)
+  title               String?      @db.VarChar(120)
+  createdById         String?      @db.Uuid
+  directKey           String?      @unique @db.VarChar(80)
+  lastMessageAt       DateTime?    @db.Timestamptz(6)
+  nextMessageSequence BigInt       @default(1)
 
   createdBy User?        @relation("ChatRoomCreator", fields: [createdById], references: [id], onDelete: SetNull)
   members   ChatMember[]
@@ -678,6 +756,7 @@ model ChatMember {
   leftAt            DateTime?      @db.Timestamptz(6)
   role              ChatMemberRole @default(MEMBER)
   lastReadMessageId String?        @db.Uuid
+  lastReadSequence  BigInt         @default(0)
   mutedUntil        DateTime?      @db.Timestamptz(6)
 
   room            ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
@@ -689,15 +768,17 @@ model ChatMember {
 }
 
 model Message {
-  id        String    @id @default(uuid()) @db.Uuid
-  createdAt DateTime  @default(now()) @db.Timestamptz(6)
-  editedAt  DateTime? @db.Timestamptz(6)
-  deletedAt DateTime? @db.Timestamptz(6)
-  roomId    String    @db.Uuid
-  senderId  String    @db.Uuid
-  replyToId String?   @db.Uuid
-  clientId  String?   @unique @db.VarChar(160)
-  content   String    @db.Text
+  id          String    @id @default(uuid()) @db.Uuid
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  editedAt    DateTime? @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+  roomId      String    @db.Uuid
+  senderId    String    @db.Uuid
+  replyToId   String?   @db.Uuid
+  clientId    String?   @unique @db.VarChar(160)
+  sequence    BigInt
+  requestHash String?   @db.Char(64)
+  content     String    @db.Text
 
   room          ChatRoom     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   sender        User         @relation(fields: [senderId], references: [id], onDelete: Restrict)
@@ -707,6 +788,8 @@ model Message {
   reports       Report[]
   readByMembers ChatMember[] @relation("LastReadMessage")
 
+  @@unique([roomId, sequence])
+  @@index([roomId, senderId, requestHash])
   @@index([roomId, createdAt])
   @@index([senderId, createdAt(sort: Desc)])
 }
@@ -796,12 +879,46 @@ model SupportTicket {
   resolvedAt   DateTime?       @db.Timestamptz(6)
   metadata     Json?
 
-  requester  User  @relation("SupportRequester", fields: [requesterId], references: [id], onDelete: Restrict)
-  assignedTo User? @relation("SupportAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  requester    User                 @relation("SupportRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  assignedTo   User?                @relation("SupportAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  messages     SupportMessage[]
+  statusEvents SupportStatusEvent[]
 
   @@index([requesterId, createdAt(sort: Desc)])
   @@index([status, createdAt])
   @@index([assignedToId, status])
+}
+
+model SupportMessage {
+  id         String   @id @default(uuid()) @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  ticketId   String   @db.Uuid
+  authorId   String?  @db.Uuid
+  body       String   @db.Text
+  isInternal Boolean  @default(false)
+  metadata   Json?
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User?         @relation("SupportMessageAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@index([authorId, createdAt(sort: Desc)])
+}
+
+model SupportStatusEvent {
+  id          String         @id @default(uuid()) @db.Uuid
+  createdAt   DateTime       @default(now()) @db.Timestamptz(6)
+  ticketId    String         @db.Uuid
+  changedById String?        @db.Uuid
+  fromStatus  SupportStatus?
+  toStatus    SupportStatus
+  note        String?        @db.VarChar(1000)
+
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  changedBy User?         @relation("SupportStatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@index([changedById, createdAt(sort: Desc)])
 }
 
 model AdminAuditLog {
@@ -821,4 +938,27 @@ model AdminAuditLog {
   @@index([adminId, createdAt(sort: Desc)])
   @@index([targetType, targetId, createdAt(sort: Desc)])
   @@index([action, createdAt])
+}
+
+model OutboxEvent {
+  id             String    @id @default(uuid()) @db.Uuid
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
+  eventType      String    @db.VarChar(100)
+  aggregateType  String?   @db.VarChar(80)
+  aggregateId    String?   @db.VarChar(100)
+  payload        Json
+  headers        Json?
+  dedupeKey      String?   @unique @db.VarChar(160)
+  availableAt    DateTime  @default(now()) @db.Timestamptz(6)
+  attemptCount   Int       @default(0)
+  maxAttempts    Int       @default(10)
+  leaseToken     String?   @db.Uuid
+  leaseExpiresAt DateTime? @db.Timestamptz(6)
+  publishedAt    DateTime? @db.Timestamptz(6)
+  lastError      String?   @db.VarChar(2000)
+
+  @@index([publishedAt, availableAt])
+  @@index([leaseExpiresAt])
+  @@index([eventType, createdAt])
 }

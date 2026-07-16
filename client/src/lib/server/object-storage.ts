@@ -85,3 +85,7 @@ export async function deleteObject(key: string) {
     throw new Error(`Object deletion failed with HTTP ${response.status}.`);
   }
 }
+
+export async function deleteObjects(keys: Iterable<string>) {
+  await Promise.all([...new Set(keys)].map((key) => deleteObject(key)));
+}

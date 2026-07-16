@@ -1,6 +1,15 @@
 const CACHE_NAME = 'intact-static-v2';
 const STATIC_ROUTES = ['/offline'];
 
+function safeNotificationPath(value) {
+  try {
+    const url = new URL(typeof value === 'string' ? value : '/notifications', self.location.origin);
+    return url.origin === self.location.origin ? `${url.pathname}${url.search}${url.hash}` : '/notifications';
+  } catch {
+    return '/notifications';
+  }
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ROUTES)));
   self.skipWaiting();
@@ -29,13 +38,18 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  const payload = event.data ? event.data.json() : {};
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = {};
+  }
   event.waitUntil(
     self.registration.showNotification(payload.title || '인텍트 새 알림', {
       body: payload.body || '새로운 활동이 있습니다.',
       icon: '/favicon.ico',
       badge: '/favicon.ico',
-      data: { url: payload.url || '/notifications' },
+      data: { url: safeNotificationPath(payload.url) },
       tag: payload.tag || 'igwak-notification',
     }),
   );
@@ -43,5 +57,17 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(self.clients.openWindow(event.notification.data?.url || '/notifications'));
+  const path = safeNotificationPath(event.notification.data?.url);
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
+      const target = new URL(path, self.location.origin).href;
+      for (const client of clients) {
+        if ('focus' in client) {
+          if ('navigate' in client && client.url !== target) await client.navigate(target);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(path);
+    }),
+  );
 });

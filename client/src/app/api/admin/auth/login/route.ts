@@ -5,6 +5,8 @@ import {
   ApiError,
   assertSameOrigin,
   enforceClientIpRateLimit,
+  enforceDistributedClientIpRateLimit,
+  enforceDistributedRateLimit,
   enforceRateLimit,
   json,
   jsonError,
@@ -27,6 +29,11 @@ export async function POST(request: Request) {
       limit: 30,
       windowMs: 15 * 60 * 1000,
     });
+    await enforceDistributedClientIpRateLimit(request, 'admin-login', {
+      limit: 30,
+      windowMs: 15 * 60 * 1000,
+      failPolicy: 'closed',
+    });
     const body = await readJson<AdminLoginBody>(request, 8_192);
     const identifier = requiredString(body.identifier ?? 'admin', '관리자 아이디', {
       min: 2,
@@ -35,6 +42,11 @@ export async function POST(request: Request) {
     enforceRateLimit(`admin-login-account:${privateFingerprint(identifier)}`, {
       limit: 8,
       windowMs: 15 * 60 * 1_000,
+    });
+    await enforceDistributedRateLimit(`admin-login-account:${privateFingerprint(identifier)}`, {
+      limit: 8,
+      windowMs: 15 * 60 * 1_000,
+      failPolicy: 'closed',
     });
     const password = requiredString(body.password, '비밀번호', {
       min: 1,

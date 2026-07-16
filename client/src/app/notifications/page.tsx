@@ -80,6 +80,25 @@ type NotificationGroup = {
   unreadCount: number;
 };
 
+type NotificationPreference = {
+  type: ServerNotification["type"];
+  inAppEnabled: boolean;
+  pushEnabled: boolean;
+};
+
+type QuietHours = {
+  enabled: boolean;
+  start: string;
+  end: string;
+  timeZone: string;
+};
+
+type PushConfig = {
+  configured: boolean;
+  publicKey: string | null;
+  subscribed: boolean;
+};
+
 type ServerNotification = {
   id: string;
   createdAt: string;
@@ -380,6 +399,17 @@ function mapNotification(item: ServerNotification): NotificationItem {
   };
 }
 
+function applicationServerKey(value: string) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  const bytes = atob(padded);
+  return Uint8Array.from(bytes, (character) => character.charCodeAt(0));
+}
+
+function preferenceEnabled(preferences: NotificationPreference[], types: ServerNotification["type"][]) {
+  return types.every((type) => preferences.find((item) => item.type === type)?.inAppEnabled !== false);
+}
+
 function notificationTarget(item: NotificationItem) {
   if (item.sourceType === "MESSAGE" && item.metadata.roomId) {
     return `/messages?roomId=${encodeURIComponent(item.metadata.roomId)}`;
@@ -412,7 +442,21 @@ export default function NotificationsPage() {
     rewards: true,
     messages: true,
     notices: true,
+    system: true,
     push: false,
+  });
+  const [settingsLoading, setSettingsLoading] = useState(!DEMO_MODE);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [quietHours, setQuietHours] = useState<QuietHours>({
+    enabled: false,
+    start: "22:00",
+    end: "07:00",
+    timeZone: "Asia/Seoul",
+  });
+  const [pushConfig, setPushConfig] = useState<PushConfig>({
+    configured: false,
+    publicKey: null,
+    subscribed: false,
   });
   const [toast, setToast] = useState<string | null>(null);
   const [toastTone, setToastTone] = useState<"success" | "error">("success");
@@ -456,6 +500,58 @@ export default function NotificationsPage() {
       controller.abort();
     };
   }, [reloadKey]);
+
+  useEffect(() => {
+    if (DEMO_MODE) return undefined;
+    const controller = new AbortController();
+    async function loadSettings() {
+      setSettingsLoading(true);
+      try {
+        const [preferenceResponse, pushResponse] = await Promise.all([
+          fetchWithTimeout("/api/notifications/preferences", {
+            cache: "no-store",
+            signal: controller.signal,
+          }),
+          fetchWithTimeout("/api/notifications/push-subscriptions", {
+            cache: "no-store",
+            signal: controller.signal,
+          }),
+        ]);
+        const preferencePayload = await readApiEnvelope<{
+          preferences: NotificationPreference[];
+          quietHours: QuietHours;
+        }>(preferenceResponse);
+        const pushPayload = await readApiEnvelope<PushConfig>(pushResponse);
+        if (!preferenceResponse.ok || !preferencePayload?.ok) {
+          throw new Error(apiErrorMessage(preferencePayload, "알림 설정을 불러오지 못했습니다."));
+        }
+        if (!pushResponse.ok || !pushPayload?.ok) {
+          throw new Error(apiErrorMessage(pushPayload, "푸시 설정을 불러오지 못했습니다."));
+        }
+        const preferences = preferencePayload.data.preferences;
+        setSettings({
+          comments: preferenceEnabled(preferences, ["COMMENT", "REPLY"]),
+          mentions: preferenceEnabled(preferences, ["MENTION"]),
+          rewards: preferenceEnabled(preferences, ["RECOMMENDATION", "ANSWER_ACCEPTED"]),
+          messages: preferenceEnabled(preferences, ["MESSAGE"]),
+          notices: preferenceEnabled(preferences, ["NOTICE"]),
+          system: preferenceEnabled(preferences, ["SYSTEM"]),
+          push: preferences.some((item) => item.pushEnabled),
+        });
+        setQuietHours(preferencePayload.data.quietHours);
+        setPushConfig(pushPayload.data);
+      } catch (cause) {
+        if (!isAbortError(cause)) {
+          setToastTone("error");
+          setToast(requestErrorMessage(cause, "알림 설정을 불러오지 못했습니다."));
+        }
+      } finally {
+        setSettingsLoading(false);
+      }
+    }
+    void loadSettings();
+    return () => controller.abort();
+  }, []);
 
   const unreadCount = notifications.filter((item) => item.unread).length;
   const visible = useMemo(
@@ -549,6 +645,100 @@ export default function NotificationsPage() {
     }
   }
 
+  async function syncPushSubscription(enabled: boolean) {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      throw new Error("이 브라우저는 웹 푸시를 지원하지 않습니다.");
+    }
+    const registration = await navigator.serviceWorker.register("/sw.js");
+    const existing = await registration.pushManager.getSubscription();
+    if (!enabled) {
+      if (existing) {
+        const response = await fetchWithTimeout("/api/notifications/push-subscriptions", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: existing.endpoint }),
+        });
+        const payload = await readApiEnvelope<{ unsubscribed: boolean }>(response);
+        if (!response.ok || !payload?.ok) {
+          throw new Error(apiErrorMessage(payload, "푸시 구독을 해제하지 못했습니다."));
+        }
+        await existing.unsubscribe();
+      }
+      setPushConfig((current) => ({ ...current, subscribed: false }));
+      return;
+    }
+    if (!pushConfig.configured || !pushConfig.publicKey) {
+      throw new Error("웹 푸시 공개 키가 설정되지 않았습니다.");
+    }
+    const permission = Notification.permission === "granted"
+      ? "granted"
+      : await Notification.requestPermission();
+    if (permission !== "granted") throw new Error("브라우저 알림 권한이 필요합니다.");
+    const subscription = existing ?? await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: applicationServerKey(pushConfig.publicKey),
+    });
+    const response = await fetchWithTimeout("/api/notifications/push-subscriptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(subscription.toJSON()),
+    });
+    const payload = await readApiEnvelope<{ subscription: { id: string } }>(response);
+    if (!response.ok || !payload?.ok) {
+      if (!existing) await subscription.unsubscribe();
+      throw new Error(apiErrorMessage(payload, "푸시 구독을 저장하지 못했습니다."));
+    }
+    setPushConfig((current) => ({ ...current, subscribed: true }));
+  }
+
+  async function saveSettings() {
+    if (DEMO_MODE) {
+      setSettingsOpen(false);
+      setToastTone("success");
+      setToast("데모 알림 설정을 반영했습니다.");
+      return;
+    }
+    setSettingsSaving(true);
+    try {
+      await syncPushSubscription(settings.push);
+      const enabledByType: Record<ServerNotification["type"], boolean> = {
+        COMMENT: settings.comments,
+        REPLY: settings.comments,
+        MENTION: settings.mentions,
+        RECOMMENDATION: settings.rewards,
+        ANSWER_ACCEPTED: settings.rewards,
+        MESSAGE: settings.messages,
+        NOTICE: settings.notices,
+        SANCTION: true,
+        SYSTEM: settings.system,
+      };
+      const response = await fetchWithTimeout("/api/notifications/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          preferences: Object.entries(enabledByType).map(([type, inAppEnabled]) => ({
+            type,
+            inAppEnabled,
+            pushEnabled: settings.push && inAppEnabled,
+          })),
+          quietHours,
+        }),
+      });
+      const payload = await readApiEnvelope<{ preferences: NotificationPreference[] }>(response);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(apiErrorMessage(payload, "알림 설정을 저장하지 못했습니다."));
+      }
+      setSettingsOpen(false);
+      setToastTone("success");
+      setToast("알림 설정을 저장했습니다.");
+    } catch (cause) {
+      setToastTone("error");
+      setToast(requestErrorMessage(cause, "알림 설정을 저장하지 못했습니다."));
+    } finally {
+      setSettingsSaving(false);
+    }
+  }
+
   function deleteRead() {
     if (!DEMO_MODE) return;
     setNotifications((current) => current.filter((item) => item.unread));
@@ -575,12 +765,14 @@ export default function NotificationsPage() {
       <PageHeading
         title="알림"
         actions={
-          DEMO_MODE ? (
-            <Button variant="secondary" onClick={() => setSettingsOpen(true)}>
-              <Settings2 className="h-4 w-4" />
-              데모 설정
-            </Button>
-          ) : undefined
+          <Button
+            variant="secondary"
+            onClick={() => setSettingsOpen(true)}
+            disabled={settingsLoading}
+          >
+            {settingsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings2 className="h-4 w-4" />}
+            알림 설정
+          </Button>
         }
       />
 
@@ -890,22 +1082,17 @@ export default function NotificationsPage() {
       </div>
 
       <Modal
-        open={DEMO_MODE && settingsOpen}
+        open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        title="데모 알림 설정"
+        title="알림 설정"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setSettingsOpen(false)}>
+            <Button variant="secondary" onClick={() => setSettingsOpen(false)} disabled={settingsSaving}>
               취소
             </Button>
-            <Button
-              onClick={() => {
-                setSettingsOpen(false);
-                setToastTone("success");
-                setToast("데모 알림 설정을 반영했습니다.");
-              }}
-            >
-              설정 반영
+            <Button onClick={() => void saveSettings()} disabled={settingsSaving || settingsLoading}>
+              {settingsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              설정 저장
             </Button>
           </>
         }
@@ -927,6 +1114,7 @@ export default function NotificationsPage() {
                   ["rewards", "추천·IGK", "추천, 채택, IGK 선물이 생길 때"],
                   ["messages", "메시지", "새 1:1 및 그룹 메시지가 도착할 때"],
                   ["notices", "학교·운영 공지", "중요 공지가 게시될 때"],
+                  ["system", "시스템", "계정과 서비스 상태가 변경될 때"],
                 ] as const
               ).map(([key, label, detail]) => (
                 <div
@@ -969,18 +1157,23 @@ export default function NotificationsPage() {
                 <BellRing className="h-4 w-4" />웹 푸시 알림
               </p>
               <p className="mt-1 text-xs text-emerald-800">
-                이 기기의 브라우저 알림으로 전달합니다.
+                {DEMO_MODE
+                  ? "이 기기의 브라우저 알림으로 전달합니다."
+                  : pushConfig.configured
+                    ? `${pushConfig.subscribed ? "이 기기가 구독 중입니다." : "이 기기에서 직접 동의해야 활성화됩니다."}`
+                    : "서버에 웹 푸시 공개 키가 설정되지 않았습니다."}
               </p>
             </div>
             <button
               type="button"
               role="switch"
               aria-checked={settings.push}
+              disabled={!DEMO_MODE && !pushConfig.configured}
               onClick={() =>
                 setSettings((current) => ({ ...current, push: !current.push }))
               }
               className={cn(
-                "relative h-6 w-11 shrink-0  transition",
+                "relative h-6 w-11 shrink-0 transition disabled:cursor-not-allowed disabled:opacity-50",
                 settings.push ? "bg-emerald-700" : "bg-slate-300",
               )}
             >
@@ -992,6 +1185,69 @@ export default function NotificationsPage() {
               />
             </button>
           </div>
+          <div className="space-y-3 border-t border-slate-200 pt-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">방해 금지 시간</p>
+                <p className="mt-1 text-xs text-slate-500">보안 및 제재 알림을 제외한 웹 푸시를 잠시 멈춥니다.</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={quietHours.enabled}
+                onClick={() => setQuietHours((current) => ({ ...current, enabled: !current.enabled }))}
+                className={cn(
+                  "relative h-6 w-11 shrink-0 transition",
+                  quietHours.enabled ? "bg-blue-700" : "bg-slate-300",
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute top-1 h-4 w-4 bg-white transition-all",
+                    quietHours.enabled ? "left-6" : "left-1",
+                  )}
+                />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <label className="text-xs font-semibold text-slate-600">
+                시작
+                <input
+                  type="time"
+                  value={quietHours.start}
+                  disabled={!quietHours.enabled}
+                  onChange={(event) => setQuietHours((current) => ({ ...current, start: event.target.value }))}
+                  className="mt-1 w-full border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100"
+                />
+              </label>
+              <label className="text-xs font-semibold text-slate-600">
+                종료
+                <input
+                  type="time"
+                  value={quietHours.end}
+                  disabled={!quietHours.enabled}
+                  onChange={(event) => setQuietHours((current) => ({ ...current, end: event.target.value }))}
+                  className="mt-1 w-full border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100"
+                />
+              </label>
+              <label className="text-xs font-semibold text-slate-600">
+                시간대
+                <select
+                  value={quietHours.timeZone}
+                  disabled={!quietHours.enabled}
+                  onChange={(event) => setQuietHours((current) => ({ ...current, timeZone: event.target.value }))}
+                  className="mt-1 w-full border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100"
+                >
+                  <option value="Asia/Seoul">서울 (KST)</option>
+                  <option value="Asia/Tokyo">도쿄 (JST)</option>
+                  <option value="UTC">UTC</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <p className="border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+            보안 및 제재 알림은 계정 보호와 운영 정책 안내를 위해 유형 설정과 관계없이 인앱으로 전달됩니다. 웹 푸시는 이 기기에서 동의한 경우에만 전달됩니다.
+          </p>
         </div>
       </Modal>
       <Toast message={toast} tone={toastTone} onClose={() => setToast(null)} />

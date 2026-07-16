@@ -1,5 +1,11 @@
 import { createHash } from 'crypto';
-import { Prisma, type PostKind } from '@prisma/client';
+import { Prisma, type ModerationSubmission, type Post, type PostKind } from '@prisma/client';
+import {
+  compareAndSwapModerationState,
+  isNonterminalModerationState,
+  lockModerationPost,
+  readLatestModerationControl,
+} from './moderation-state';
 
 export type ModerationMode = 'OFF' | 'SHADOW' | 'ENFORCE';
 
@@ -157,15 +163,28 @@ export async function queueModerationSubmission(tx: Tx, input: {
   isNewPost: boolean;
 }) {
   const inputHash = moderationInputHash(input);
-  const duplicate = await tx.moderationSubmission.findFirst({
-    where: { postId: input.postId, inputHash, state: { in: ['QUEUED', 'PROCESSING', 'NEEDS_REVIEW'] } },
-    orderBy: { createdAt: 'desc' },
-  });
-  if (duplicate) return duplicate;
-  await tx.moderationSubmission.updateMany({
-    where: { postId: input.postId, state: { in: ['QUEUED', 'PROCESSING'] } },
-    data: { state: 'SUPERSEDED', completedAt: new Date(), leaseExpiresAt: null },
-  });
+  if (!await lockModerationPost(tx, input.postId)) {
+    throw new Error('Moderation post disappeared while queuing');
+  }
+
+  while (true) {
+    const latestControl = await readLatestModerationControl(tx, input.postId);
+    if (!latestControl) break;
+    const latest = await tx.moderationSubmission.findUniqueOrThrow({ where: { id: latestControl.id } });
+    if (latest.inputHash === inputHash && isNonterminalModerationState(latestControl.state)) {
+      return latest;
+    }
+    if (!isNonterminalModerationState(latestControl.state)) break;
+    const supersededVersion = await compareAndSwapModerationState(
+      tx,
+      latestControl.id,
+      latestControl,
+      'SUPERSEDED',
+      'SYSTEM_SUPERSEDE',
+    );
+    if (supersededVersion !== null) break;
+  }
+
   return tx.moderationSubmission.create({
     data: {
       postId: input.postId,
@@ -184,6 +203,116 @@ export async function queueModerationSubmission(tx: Tx, input: {
       isNewPost: input.isNewPost,
     },
   });
+}
+
+type ModerationCandidate = Pick<
+  ModerationSubmission,
+  | 'postId'
+  | 'authorId'
+  | 'basePostUpdatedAt'
+  | 'candidateTitle'
+  | 'candidateContent'
+  | 'candidateContentText'
+  | 'candidateTags'
+  | 'candidateMetadata'
+  | 'candidateBoardId'
+  | 'candidateKind'
+  | 'candidateAttachmentIds'
+  | 'isNewPost'
+>;
+
+type ModerationPost = Pick<Post, 'id' | 'updatedAt' | 'title' | 'content' | 'publishedAt' | 'editedAt'>;
+
+export type ModerationApprovalConflict = 'POST_VERSION_CONFLICT' | 'STAGED_ATTACHMENT_CHANGED';
+
+export function moderationBaseMatchesPost(submission: ModerationCandidate, post: ModerationPost) {
+  return submission.postId === post.id
+    && submission.basePostUpdatedAt !== null
+    && submission.basePostUpdatedAt.getTime() === post.updatedAt.getTime();
+}
+
+async function lockAndValidateCandidateAttachments(tx: Tx, submission: ModerationCandidate) {
+  const attachmentIds = [...new Set(submission.candidateAttachmentIds)];
+  if (attachmentIds.length !== submission.candidateAttachmentIds.length) return false;
+  if (attachmentIds.length === 0) return true;
+  const ids = Prisma.join(attachmentIds.map((id) => Prisma.sql`${id}::uuid`));
+  await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT "id"
+    FROM "Attachment"
+    WHERE "id" IN (${ids})
+    ORDER BY "id"
+    FOR UPDATE
+  `);
+  const stagedAttachments = await tx.attachment.count({
+    where: {
+      id: { in: attachmentIds },
+      uploaderId: submission.authorId,
+      messageId: null,
+      OR: [{ postId: null }, { postId: submission.postId }],
+    },
+  });
+  return stagedAttachments === attachmentIds.length;
+}
+
+export async function validateModerationCandidateForApproval(
+  tx: Tx,
+  submission: ModerationCandidate,
+  post: ModerationPost,
+): Promise<{ ok: true } | { ok: false; conflict: ModerationApprovalConflict }> {
+  if (!moderationBaseMatchesPost(submission, post)) {
+    return { ok: false, conflict: 'POST_VERSION_CONFLICT' };
+  }
+  if (!await lockAndValidateCandidateAttachments(tx, submission)) {
+    return { ok: false, conflict: 'STAGED_ATTACHMENT_CHANGED' };
+  }
+  return { ok: true };
+}
+
+export async function applyApprovedModerationCandidate(
+  tx: Tx,
+  submission: ModerationCandidate,
+  post: ModerationPost,
+  options: { revisionReason: string },
+): Promise<{ ok: true } | { ok: false; conflict: ModerationApprovalConflict }> {
+  const validation = await validateModerationCandidateForApproval(tx, submission, post);
+  if (!validation.ok) return validation;
+  if (!submission.isNewPost && (post.title !== submission.candidateTitle || post.content !== submission.candidateContent)) {
+    await tx.postRevision.create({
+      data: {
+        postId: post.id,
+        editorId: submission.authorId,
+        title: post.title,
+        content: post.content,
+        reason: options.revisionReason.slice(0, 300),
+      },
+    });
+  }
+  await tx.attachment.updateMany({
+    where: {
+      id: { in: submission.candidateAttachmentIds },
+      uploaderId: submission.authorId,
+      postId: null,
+      messageId: null,
+    },
+    data: { postId: post.id },
+  });
+  await tx.post.update({
+    where: { id: post.id },
+    data: {
+      title: submission.candidateTitle,
+      content: submission.candidateContent,
+      contentText: submission.candidateContentText,
+      tags: submission.candidateTags,
+      metadata: submission.candidateMetadata === null ? Prisma.JsonNull : submission.candidateMetadata,
+      boardId: submission.candidateBoardId,
+      kind: submission.candidateKind,
+      status: 'PUBLISHED',
+      version: { increment: 1 },
+      publishedAt: post.publishedAt ?? new Date(),
+      editedAt: submission.isNewPost ? post.editedAt : new Date(),
+    },
+  });
+  return { ok: true };
 }
 
 export function publicModerationStatus(submission: {

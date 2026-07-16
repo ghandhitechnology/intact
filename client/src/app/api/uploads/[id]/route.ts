@@ -1,7 +1,6 @@
 import prisma from '@/lib/prisma';
-import { deleteObject, getObject } from '@/lib/server/object-storage';
-import { putObject } from '@/lib/server/object-storage';
-import sharp from 'sharp';
+import { attachmentObjectKeys, assertDeleteEligibleAttachment, ATTACHMENT_STATUS } from '@/lib/server/attachment-state';
+import { deleteObjects, getObject } from '@/lib/server/object-storage';
 import { ApiError, assertSameOrigin, json, jsonError } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 
@@ -44,10 +43,17 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         },
       },
     });
-    if (!attachment) throw new ApiError(404, 'FILE_NOT_FOUND', '파일을 찾을 수 없어요.');
+    if (
+      !attachment
+      || attachment.scanStatus !== ATTACHMENT_STATUS.CLEAN
+      || attachment.finalizedAt == null
+      || !attachment.storageKey.startsWith('clean/')
+    ) {
+      throw new ApiError(404, 'FILE_NOT_FOUND', '파일을 찾을 수 없어요.');
+    }
     const canReadPost = Boolean(
-      attachment.post &&
-        (attachment.post.status === 'PUBLISHED' || attachment.post.authorId === session.user.id),
+      attachment.post
+        && (attachment.post.status === 'PUBLISHED' || attachment.post.authorId === session.user.id),
     );
     const canReadMessage = Boolean(attachment.message?.room.members.length);
     const canReadUnattached = !attachment.postId && !attachment.messageId && attachment.uploaderId === session.user.id;
@@ -62,38 +68,22 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       throw new ApiError(400, 'INVALID_IMAGE_VARIANT', '지원하지 않는 이미지 크기입니다.');
     }
     if (thumbnail && !attachment.mimeType.startsWith('image/')) {
-      throw new ApiError(400, 'NOT_AN_IMAGE', '이미지 파일만 썸네일을 만들 수 있습니다.');
+      throw new ApiError(400, 'NOT_AN_IMAGE', '이미지 파일만 썸네일을 사용할 수 있습니다.');
     }
     const etag = `"${attachment.sha256}${thumbnail ? `-thumb-${requestedWidth}` : ''}"`;
     if (request.headers.get('if-none-match') === etag) {
       return new Response(null, { status: 304, headers: { ETag: etag } });
     }
-    let object;
-    let thumbnailBytes: Buffer | null = null;
-    if (thumbnail) {
-      const derivativeKey = `${attachment.storageKey}.thumb-${requestedWidth}.webp`;
-      try {
-        object = await getObject(derivativeKey);
-      } catch {
-        const original = await getObject(attachment.storageKey);
-        const originalBytes = Buffer.from(await original.arrayBuffer());
-        thumbnailBytes = await sharp(originalBytes, { animated: false })
-          .rotate()
-          .resize({ width: requestedWidth, withoutEnlargement: true })
-          .webp({ quality: 78 })
-          .toBuffer();
-        await putObject(derivativeKey, thumbnailBytes, 'image/webp');
-        object = null;
-      }
-    } else {
-      object = await getObject(attachment.storageKey);
-    }
+
+    const object = await getObject(
+      thumbnail ? `${attachment.storageKey}.thumb-${requestedWidth}.webp` : attachment.storageKey,
+    );
     const asciiName = attachment.originalName.replace(/[^A-Za-z0-9._-]/g, '_') || 'download';
     const inline = url.searchParams.get('download') !== '1' && INLINE_MIME_TYPES.has(attachment.mimeType);
-    return new Response(thumbnailBytes ? new Uint8Array(thumbnailBytes) : object?.body, {
+    return new Response(object.body, {
       headers: {
         'Content-Type': thumbnail ? 'image/webp' : attachment.mimeType || 'application/octet-stream',
-        ...(thumbnailBytes ? { 'Content-Length': String(thumbnailBytes.byteLength) } : !thumbnail ? { 'Content-Length': String(attachment.sizeBytes) } : {}),
+        ...(!thumbnail ? { 'Content-Length': String(attachment.sizeBytes) } : {}),
         'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(attachment.originalName)}`,
         'Cache-Control': thumbnail ? 'private, max-age=86400, must-revalidate' : 'private, max-age=300, must-revalidate',
         'Cross-Origin-Resource-Policy': 'same-origin',
@@ -111,18 +101,50 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     assertSameOrigin(request);
     const session = await requireUser(request);
     const { id } = await context.params;
-    const attachment = await prisma.attachment.findUnique({
-      where: { id },
-      select: { id: true, uploaderId: true, storageKey: true },
+    const attachment = await prisma.$transaction(async (tx) => {
+      const current = await tx.attachment.findUnique({
+        where: { id },
+        select: { id: true, uploaderId: true, storageKey: true, postId: true, messageId: true, scanStatus: true },
+      });
+      if (!current || current.uploaderId !== session.user.id) {
+        throw new ApiError(404, 'FILE_NOT_FOUND', '파일을 찾을 수 없어요.');
+      }
+      assertDeleteEligibleAttachment(current);
+      if (current.scanStatus === ATTACHMENT_STATUS.DELETING) return current;
+      const claimed = await tx.attachment.updateMany({
+        where: {
+          id: current.id,
+          uploaderId: session.user.id,
+          postId: null,
+          messageId: null,
+          scanStatus: { not: ATTACHMENT_STATUS.DELETING },
+        },
+        data: { scanStatus: ATTACHMENT_STATUS.DELETING, processingError: null },
+      });
+      if (claimed.count !== 1) {
+        const raced = await tx.attachment.findUnique({
+          where: { id },
+          select: { postId: true, messageId: true },
+        });
+        if (raced) assertDeleteEligibleAttachment(raced);
+        throw new ApiError(409, 'ATTACHMENT_STATE_CONFLICT', '파일 상태가 변경되었습니다. 다시 시도해 주세요.');
+      }
+      return { ...current, scanStatus: ATTACHMENT_STATUS.DELETING };
     });
-    if (!attachment || attachment.uploaderId !== session.user.id) {
-      throw new ApiError(404, 'FILE_NOT_FOUND', '파일을 찾을 수 없어요.');
+
+    await deleteObjects(attachmentObjectKeys(attachment.storageKey));
+    const deleted = await prisma.attachment.deleteMany({
+      where: {
+        id: attachment.id,
+        uploaderId: session.user.id,
+        postId: null,
+        messageId: null,
+        scanStatus: ATTACHMENT_STATUS.DELETING,
+      },
+    });
+    if (deleted.count !== 1) {
+      throw new ApiError(409, 'ATTACHMENT_STATE_CONFLICT', '파일 상태가 변경되었습니다. 다시 시도해 주세요.');
     }
-    await Promise.all([
-      deleteObject(attachment.storageKey),
-      ...[320, 640, 1280].map((width) => deleteObject(`${attachment.storageKey}.thumb-${width}.webp`).catch(() => undefined)),
-    ]);
-    await prisma.attachment.delete({ where: { id: attachment.id } });
     return json({ deleted: true });
   } catch (error) {
     return jsonError(error);

@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS dependencies
+FROM node:22-bookworm-slim AS dependencies
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
@@ -10,14 +10,22 @@ WORKDIR /app
 COPY prisma ./prisma
 CMD ["yarn", "prisma", "migrate", "deploy"]
 
-FROM dependencies AS moderation-worker
+FROM dependencies AS worker
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor && rm -rf /var/lib/apt/lists/*
 COPY . .
 RUN yarn prisma generate
+
+FROM worker AS moderation-worker
+RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor && rm -rf /var/lib/apt/lists/*
 CMD ["./node_modules/.bin/tsx", "scripts/moderation-worker.ts"]
 
-FROM node:20-bookworm-slim AS builder
+FROM worker AS outbox-worker
+CMD ["./node_modules/.bin/tsx", "scripts/outbox-worker.ts"]
+
+FROM worker AS attachment-worker
+CMD ["./node_modules/.bin/tsx", "scripts/attachment-worker.ts"]
+
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
@@ -33,7 +41,7 @@ COPY . .
 RUN yarn prisma generate
 RUN yarn build
 
-FROM node:20-bookworm-slim AS runner
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

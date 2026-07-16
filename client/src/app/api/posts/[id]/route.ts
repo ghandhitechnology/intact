@@ -1,6 +1,8 @@
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
+import { bindEligibleAttachments } from '@/lib/server/attachment-state';
 import { commentSelect, isPhotoMimeType, parseAttachmentIds, publicAuthorSelect, sanitizePostMetadata } from '@/lib/server/content';
+import { cursorScope, encodeCursor } from '@/lib/server/cursor';
 import { awardIgk, reverseReward } from '@/lib/server/igk';
 import { lockResources } from '@/lib/server/locks';
 import {
@@ -14,13 +16,21 @@ import {
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 import { maskPublicIdentities } from '@/lib/server/platform-mode';
+import {
+  assertPostVersion,
+  postVersionEtag,
+  requestedPostVersion,
+} from '@/lib/server/post-version';
 import { getModerationMode, publicModerationStatus, queueModerationSubmission } from '@/lib/server/moderation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const DETAIL_COMMENT_LIMIT = 30;
+
 const detailSelect = {
   id: true,
+  version: true,
   createdAt: true,
   updatedAt: true,
   publishedAt: true,
@@ -44,7 +54,8 @@ const detailSelect = {
   acceptedComment: { select: commentSelect },
   comments: {
     where: { status: 'PUBLISHED' as const },
-    orderBy: { createdAt: 'asc' as const },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] as Prisma.CommentOrderByWithRelationInput[],
+    take: DETAIL_COMMENT_LIMIT + 1,
     select: commentSelect,
   },
   attachments: {
@@ -61,6 +72,27 @@ const detailSelect = {
     },
   },
 } as const;
+
+async function updatePostAtVersion(
+  tx: Prisma.TransactionClient,
+  id: string,
+  baseVersion: number,
+  data: Prisma.PostUncheckedUpdateManyInput,
+) {
+  const updated = await tx.post.updateMany({
+    where: { id, version: baseVersion },
+    data: { ...data, version: { increment: 1 } },
+  });
+  if (updated.count !== 1) {
+    const current = await tx.post.findUnique({ where: { id } });
+    if (!current || current.status === 'DELETED') {
+      throw new ApiError(404, 'POST_NOT_FOUND', '게시글을 찾을 수 없습니다.');
+    }
+    assertPostVersion(current, baseVersion);
+    throw new ApiError(409, 'STALE_POST', '게시글 상태가 변경되었습니다. 다시 시도해 주세요.');
+  }
+  return tx.post.findUniqueOrThrow({ where: { id }, select: detailSelect });
+}
 
 export async function GET(
   request: Request,
@@ -89,6 +121,13 @@ export async function GET(
           where: { id },
           select: detailSelect,
         });
+    const comments = post.comments.slice(0, DETAIL_COMMENT_LIMIT);
+    const hasMoreComments = post.comments.length > DETAIL_COMMENT_LIMIT;
+    const lastComment = comments.at(-1);
+    const commentScope = cursorScope('post-comments', { postId: post.id });
+    const nextCommentCursor = hasMoreComments && lastComment
+      ? encodeCursor(commentScope, [lastComment.createdAt.toISOString(), lastComment.id])
+      : null;
     const [viewerRecommendation, viewerBookmark, viewerCommentRecommendations] = await prisma.$transaction([
       prisma.recommendation.findFirst({
         where: { userId: viewer.user.id, postId: post.id },
@@ -101,7 +140,7 @@ export async function GET(
       prisma.recommendation.findMany({
         where: {
           userId: viewer.user.id,
-          commentId: { in: post.comments.map((comment) => comment.id) },
+          commentId: { in: comments.map((comment) => comment.id) },
         },
         select: { commentId: true },
       }),
@@ -109,19 +148,27 @@ export async function GET(
     const recommendedCommentIds = new Set(
       viewerCommentRecommendations.flatMap((item) => item.commentId ? [item.commentId] : []),
     );
+    const publicPost = await maskPublicIdentities({
+      ...post,
+      comments: comments.map((comment) => ({
+        ...comment,
+        viewerRecommended: recommendedCommentIds.has(comment.id),
+      })),
+      commentPagination: {
+        pageSize: DETAIL_COMMENT_LIMIT,
+        total: post.commentCount,
+        nextCursor: nextCommentCursor,
+        hasMore: hasMoreComments,
+      },
+      viewerState: {
+        recommended: Boolean(viewerRecommendation),
+        bookmarked: Boolean(viewerBookmark),
+      },
+    }, viewer.user.id);
     return json({
-      post: await maskPublicIdentities({
-        ...post,
-        comments: post.comments.map((comment) => ({
-          ...comment,
-          viewerRecommended: recommendedCommentIds.has(comment.id),
-        })),
-        viewerState: {
-          recommended: Boolean(viewerRecommendation),
-          bookmarked: Boolean(viewerBookmark),
-        },
-      }, viewer.user.id),
-    });
+      post: publicPost,
+      commentPagination: publicPost.commentPagination,
+    }, 200, { ETag: postVersionEtag(post) });
   } catch (error) {
     return jsonError(error);
   }
@@ -136,6 +183,7 @@ interface UpdateBody {
   board?: unknown;
   editReason?: unknown;
   attachmentIds?: unknown;
+  baseVersion?: unknown;
 }
 
 export async function PATCH(
@@ -154,6 +202,7 @@ export async function PATCH(
     if (old.authorId !== session.user.id) {
       throw new ApiError(403, 'NOT_POST_OWNER', '게시글을 수정할 권한이 없습니다.');
     }
+    const baseVersion = requestedPostVersion(request, body.baseVersion) ?? old.version;
 
     let targetBoard = old.board;
     if (body.board !== undefined) {
@@ -227,9 +276,7 @@ export async function PATCH(
       if (current.status === 'HIDDEN') {
         throw new ApiError(403, 'POST_MODERATED', '관리자에 의해 숨겨진 게시글은 수정하거나 재게시할 수 없습니다.');
       }
-      if (current.updatedAt.getTime() !== old.updatedAt.getTime()) {
-        throw new ApiError(409, 'STALE_POST', '게시글 상태가 변경되었습니다. 새로고침 후 다시 시도해 주세요.');
-      }
+      assertPostVersion(current, baseVersion);
       if (targetStatus === 'PUBLISHED' && moderationMode === 'ENFORCE') {
         if (!['DRAFT', 'PUBLISHED', 'PENDING_MODERATION'].includes(current.status)) {
           throw new ApiError(409, 'INVALID_STATUS_TRANSITION', '현재 상태에서는 게시 검사를 요청할 수 없습니다.');
@@ -249,7 +296,7 @@ export async function PATCH(
             messageId: null,
             OR: [{ postId: null }, { postId: current.id }],
           },
-          select: { id: true, mimeType: true },
+          select: { id: true, mimeType: true, postId: true },
         });
         if (candidateAttachments.length !== candidateAttachmentIds.length) {
           throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않아요. 파일을 다시 선택해 주세요.');
@@ -265,26 +312,24 @@ export async function PATCH(
         let visiblePost;
         const isNewPost = current.status !== 'PUBLISHED';
         if (isNewPost) {
-          if (attachmentIds.length) {
-            await tx.attachment.updateMany({
-              where: { id: { in: attachmentIds }, uploaderId: session.user.id, postId: null, messageId: null },
-              data: { postId: current.id },
-            });
-          }
-          visiblePost = await tx.post.update({
-            where: { id: current.id },
-            data: {
-              title,
-              content,
-              contentText,
-              tags,
-              status: 'PENDING_MODERATION',
-              boardId,
-              kind,
-              metadata: body.metadata === undefined ? undefined : sanitizePostMetadata(body.metadata),
-              publishedAt: null,
-            },
-            select: detailSelect,
+          const stagedAttachmentIds = candidateAttachments
+            .filter((attachment) => attachment.postId === null && attachmentIds.includes(attachment.id))
+            .map((attachment) => attachment.id);
+          await bindEligibleAttachments(tx, {
+            attachmentIds: stagedAttachmentIds,
+            uploaderId: session.user.id,
+            binding: { postId: current.id },
+          });
+          visiblePost = await updatePostAtVersion(tx, current.id, baseVersion, {
+            title,
+            content,
+            contentText,
+            tags,
+            status: 'PENDING_MODERATION',
+            boardId,
+            kind,
+            metadata: body.metadata === undefined ? undefined : sanitizePostMetadata(body.metadata),
+            publishedAt: null,
           });
         } else {
           visiblePost = await tx.post.findUniqueOrThrow({ where: { id: current.id }, select: detailSelect });
@@ -338,7 +383,7 @@ export async function PATCH(
             messageId: null,
             OR: [{ postId: null }, { postId: current.id }],
           },
-          select: { id: true, mimeType: true },
+          select: { id: true, mimeType: true, postId: true },
         });
         if (candidateAttachments.length !== attachmentIds.length) {
           throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않아요. 파일을 다시 선택해 주세요.');
@@ -346,18 +391,14 @@ export async function PATCH(
         if (photoPost && candidateAttachments.some((attachment) => !isPhotoMimeType(attachment.mimeType))) {
           throw new ApiError(400, 'IMAGES_ONLY', '사진게시판에는 이미지만 올릴 수 있어요.');
         }
-        const attached = await tx.attachment.updateMany({
-          where: {
-            id: { in: attachmentIds },
-            uploaderId: session.user.id,
-            messageId: null,
-            OR: [{ postId: null }, { postId: current.id }],
-          },
-          data: { postId: current.id },
+        const newAttachmentIds = candidateAttachments
+          .filter((attachment) => attachment.postId === null)
+          .map((attachment) => attachment.id);
+        await bindEligibleAttachments(tx, {
+          attachmentIds: newAttachmentIds,
+          uploaderId: session.user.id,
+          binding: { postId: current.id },
         });
-        if (attached.count !== attachmentIds.length) {
-          throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않아요. 파일을 다시 선택해 주세요.');
-        }
       }
       if (photoPost) {
         const photos = await tx.attachment.findMany({
@@ -371,27 +412,23 @@ export async function PATCH(
           throw new ApiError(400, 'PHOTO_REQUIRED', '사진을 한 장 이상 골라 주세요.');
         }
       }
-      const updated = await tx.post.update({
-        where: { id: current.id },
-        data: {
-          title,
-          content,
-          contentText,
-          tags,
-          status,
-          boardId,
-          kind,
-          metadata: body.metadata === undefined ? undefined : sanitizePostMetadata(body.metadata),
-          editedAt:
-            title !== current.title || content !== current.content
-              ? new Date()
-              : current.editedAt,
-          publishedAt:
-            status === 'PUBLISHED' && current.status === 'DRAFT'
-              ? new Date()
-              : current.publishedAt,
-        },
-        select: detailSelect,
+      const updated = await updatePostAtVersion(tx, current.id, baseVersion, {
+        title,
+        content,
+        contentText,
+        tags,
+        status,
+        boardId,
+        kind,
+        metadata: body.metadata === undefined ? undefined : sanitizePostMetadata(body.metadata),
+        editedAt:
+          title !== current.title || content !== current.content
+            ? new Date()
+            : current.editedAt,
+        publishedAt:
+          status === 'PUBLISHED' && current.status === 'DRAFT'
+            ? new Date()
+            : current.publishedAt,
       });
       if (status === 'PUBLISHED' && current.status === 'DRAFT') {
         await awardIgk(tx, {
@@ -432,7 +469,7 @@ export async function PATCH(
       moderation: result.moderation
         ? { ...publicModerationStatus(result.moderation), enforced: moderationMode === 'ENFORCE' }
         : null,
-    }, result.moderation ? 202 : 200);
+    }, result.moderation ? 202 : 200, { ETag: postVersionEtag(result.post) });
   } catch (error) {
     return jsonError(error);
   }

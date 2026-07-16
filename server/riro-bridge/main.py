@@ -1,15 +1,18 @@
+import asyncio
 import hashlib
 import hmac
-import json
+import logging
+import math
 import os
 import re
 import threading
 import time
 import unicodedata
-from typing import Any, Optional
-from urllib.parse import urlparse
+from contextlib import asynccontextmanager
+from email.utils import parsedate_to_datetime
+from typing import Any, AsyncIterator, Optional
 
-import requests
+import httpx
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -22,16 +25,19 @@ USER_AGENT = "Mozilla/5.0 (compatible; IntactRiroBridge/1.0)"
 MAX_CLOCK_SKEW_SECONDS = 60
 NONCE_TTL_SECONDS = 180
 MAX_BODY_BYTES = 4096
-
-app = FastAPI(
-    title="Intact Riroschool Bridge",
-    docs_url=None,
-    redoc_url=None,
-    openapi_url=None,
-)
-
-_seen_nonces: dict[str, float] = {}
-_nonce_lock = threading.Lock()
+MAX_LOGIN_RESPONSE_BYTES = 64_000
+MAX_PROFILE_RESPONSE_BYTES = 2_000_000
+MAX_CONCURRENT_AUTHENTICATIONS = 8
+UPSTREAM_ATTEMPTS = 2
+UPSTREAM_DEADLINE_SECONDS = 18.0
+DEFAULT_RETRY_DELAY_SECONDS = 0.4
+MAX_RETRY_AFTER_SECONDS = 5.0
+CIRCUIT_FAILURE_THRESHOLD = 3
+CIRCUIT_RECOVERY_SECONDS = 15.0
+RETRYABLE_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
+HTTP_TIMEOUT = httpx.Timeout(connect=3.0, read=7.0, write=3.0, pool=2.0)
+HTTP_LIMITS = httpx.Limits(max_connections=16, max_keepalive_connections=8)
+logger = logging.getLogger("riro_bridge")
 
 
 class LoginRequest(BaseModel):
@@ -46,7 +52,113 @@ class InvalidCredentials(Exception):
 
 
 class UpstreamUnavailable(Exception):
-    pass
+    def __init__(
+        self,
+        category: str,
+        *,
+        retryable: bool = True,
+        status: Optional[int] = None,
+        retry_after: Optional[float] = None,
+    ) -> None:
+        super().__init__(category)
+        self.category = category
+        self.retryable = retryable
+        self.status = status
+        self.retry_after = retry_after
+
+
+class CircuitOpen(UpstreamUnavailable):
+    def __init__(self, retry_after: float) -> None:
+        super().__init__(
+            "circuit_open",
+            retryable=False,
+            retry_after=max(1.0, retry_after),
+        )
+
+
+class CircuitBreaker:
+    """A small lock-protected breaker with a single half-open probe."""
+
+    def __init__(self, failure_threshold: int, recovery_seconds: float) -> None:
+        self._failure_threshold = failure_threshold
+        self._recovery_seconds = recovery_seconds
+        self._failures = 0
+        self._opened_until = 0.0
+        self._probe_in_flight = False
+        self._lock = asyncio.Lock()
+
+    async def before_call(self, now: float) -> bool:
+        async with self._lock:
+            if self._opened_until <= 0:
+                return False
+            if now < self._opened_until:
+                raise CircuitOpen(self._opened_until - now)
+            if self._probe_in_flight:
+                raise CircuitOpen(1.0)
+            self._probe_in_flight = True
+            return True
+
+    async def record_success(self, was_probe: bool) -> None:
+        async with self._lock:
+            self._failures = 0
+            self._opened_until = 0.0
+            if was_probe:
+                self._probe_in_flight = False
+
+    async def record_failure(self, now: float, was_probe: bool) -> Optional[float]:
+        async with self._lock:
+            self._failures += 1
+            if was_probe or self._failures >= self._failure_threshold:
+                self._opened_until = now + self._recovery_seconds
+                self._probe_in_flight = False
+                return self._recovery_seconds
+            return None
+
+    async def cancel_probe(self, was_probe: bool) -> None:
+        if not was_probe:
+            return
+        async with self._lock:
+            self._probe_in_flight = False
+
+
+class StatelessCookies(httpx.Cookies):
+    """Prevent a shared client from retaining one student's upstream session."""
+
+    def extract_cookies(self, response: httpx.Response) -> None:
+        return None
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    async with httpx.AsyncClient(
+        timeout=HTTP_TIMEOUT,
+        limits=HTTP_LIMITS,
+        follow_redirects=False,
+        headers={"User-Agent": USER_AGENT},
+        trust_env=False,
+    ) as client:
+        client.cookies = StatelessCookies()
+        application.state.riro_client = client
+        application.state.riro_semaphore = asyncio.BoundedSemaphore(
+            MAX_CONCURRENT_AUTHENTICATIONS
+        )
+        application.state.riro_circuit = CircuitBreaker(
+            CIRCUIT_FAILURE_THRESHOLD,
+            CIRCUIT_RECOVERY_SECONDS,
+        )
+        yield
+
+
+app = FastAPI(
+    title="Intact Riroschool Bridge",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+    lifespan=lifespan,
+)
+
+_seen_nonces: dict[str, float] = {}
+_nonce_lock = threading.Lock()
 
 
 def _bridge_secret() -> bytes:
@@ -56,11 +168,17 @@ def _bridge_secret() -> bytes:
     return secret.encode("utf-8")
 
 
-def _json_error(status: int, code: str, message: str) -> JSONResponse:
+def _json_error(
+    status: int,
+    code: str,
+    message: str,
+    *,
+    headers: Optional[dict[str, str]] = None,
+) -> JSONResponse:
     return JSONResponse(
         status_code=status,
         content={"ok": False, "error": {"code": code, "message": message}},
-        headers={"Cache-Control": "no-store"},
+        headers={"Cache-Control": "no-store", **(headers or {})},
     )
 
 
@@ -205,133 +323,198 @@ def _parse_profile(html: str, submitted_id: str) -> Optional[dict[str, Any]]:
     }
 
 
-def _safe_json_shape(value: Any, depth: int = 0) -> Any:
-    if depth >= 3:
-        return type(value).__name__
-    if isinstance(value, dict):
-        return {str(key)[:80]: _safe_json_shape(item, depth + 1) for key, item in value.items()}
-    if isinstance(value, list):
-        return [(_safe_json_shape(value[0], depth + 1) if value else "empty")]
-    return type(value).__name__
+def _retry_after_seconds(response: httpx.Response) -> Optional[float]:
+    value = response.headers.get("retry-after", "").strip()
+    if not value:
+        return None
+    try:
+        delay = float(value)
+    except ValueError:
+        try:
+            retry_at = parsedate_to_datetime(value)
+            delay = retry_at.timestamp() - time.time()
+        except (TypeError, ValueError, OverflowError):
+            return None
+    if not math.isfinite(delay):
+        return None
+    return min(MAX_RETRY_AFTER_SECONDS, max(0.0, delay))
 
 
-def _safe_profile_metadata(
-    html: str,
-    status: int,
-    location: str,
-    login_payload: dict[str, Any],
-) -> str:
-    """Return structural diagnostics without user text, values, cookies, or query strings."""
-    soup = BeautifulSoup(html[:2_000_000], "html.parser")
-    classes = sorted({
-        class_name
-        for element in soup.find_all(True)
-        for class_name in (element.get("class") or [])
-        if re.search(r"user|member|profile|student|school|grade|class|name|level|info|elem|input", class_name, re.I)
-    })[:80]
-    ids = sorted({
-        str(element.get("id"))
-        for element in soup.find_all(True)
-        if element.get("id") and re.search(
-            r"user|member|profile|student|school|grade|class|name|level|info",
-            str(element.get("id")),
-            re.I,
-        )
-    })[:80]
-    input_names = sorted({
-        str(element.get("name"))
-        for element in soup.find_all(["input", "select"])
-        if element.get("name")
-    })[:80]
-    parsed_location = urlparse(location)
-    return json.dumps({
-        "status": status,
-        "locationPath": parsed_location.path[:160] if parsed_location.path else "",
-        "htmlBytes": len(html.encode("utf-8", errors="ignore")),
-        "titlePresent": bool(soup.title),
-        "classes": classes,
-        "ids": ids,
-        "inputNames": input_names,
-        "loginShape": _safe_json_shape(login_payload),
-    }, ensure_ascii=False, separators=(",", ":"))
+async def _post_with_deadline(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    deadline: float,
+    headers: dict[str, str],
+    data: dict[str, str],
+) -> httpx.Response:
+    remaining = deadline - asyncio.get_running_loop().time()
+    if remaining <= 0:
+        raise UpstreamUnavailable("deadline_exhausted")
+    try:
+        async with asyncio.timeout(remaining):
+            return await client.post(url, headers=headers, data=data)
+    except (TimeoutError, httpx.TimeoutException) as error:
+        raise UpstreamUnavailable("timeout") from error
+    except httpx.RequestError as error:
+        raise UpstreamUnavailable("network_error") from error
 
 
-def _authenticate_riro(user_id: str, password: str) -> dict[str, Any]:
+def _status_error(category: str, response: httpx.Response) -> UpstreamUnavailable:
+    return UpstreamUnavailable(
+        category,
+        retryable=response.status_code in RETRYABLE_HTTP_STATUSES,
+        status=response.status_code,
+        retry_after=_retry_after_seconds(response),
+    )
+
+
+async def _authenticate_attempt(
+    client: httpx.AsyncClient,
+    user_id: str,
+    password: str,
+    deadline: float,
+) -> dict[str, Any]:
     headers = {
         "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        "User-Agent": USER_AGENT,
         "Accept": "application/json,text/html;q=0.9,*/*;q=0.8",
     }
-    last_error: Optional[Exception] = None
-    for attempt in range(2):
-        try:
-            with requests.Session() as session:
-                try:
-                    session.post(f"{RIRO_ORIGIN}/user.php?action=user_logout", timeout=8)
-                except requests.RequestException:
-                    pass
-                login_response = session.post(
-                    f"{RIRO_ORIGIN}/ajax.php",
-                    headers=headers,
-                    data={
-                        "app": "user",
-                        "mode": "login",
-                        "userType": "1",
-                        "id": user_id,
-                        "pw": password,
-                        "deeplink": "",
-                        "redirect_link": "",
-                    },
-                    timeout=15,
-                )
-                if login_response.status_code != 200 or len(login_response.content) > 64_000:
-                    raise UpstreamUnavailable("Riroschool returned an invalid login response")
-                try:
-                    payload = login_response.json()
-                except (requests.JSONDecodeError, json.JSONDecodeError) as error:
-                    raise UpstreamUnavailable("Riroschool returned malformed JSON") from error
-                if not isinstance(payload, dict):
-                    raise UpstreamUnavailable("Riroschool returned an invalid JSON payload")
-                code = str(payload.get("code", ""))
-                if code in {"400", "902"}:
-                    raise InvalidCredentials()
-                token = payload.get("token")
-                if code != "000" or not isinstance(token, str) or not token:
-                    raise UpstreamUnavailable(f"Unexpected Riroschool login code {code}")
+    login_response = await _post_with_deadline(
+        client,
+        f"{RIRO_ORIGIN}/ajax.php",
+        deadline=deadline,
+        headers=headers,
+        data={
+            "app": "user",
+            "mode": "login",
+            "userType": "1",
+            "id": user_id,
+            "pw": password,
+            "deeplink": "",
+            "redirect_link": "",
+        },
+    )
+    if login_response.status_code != 200:
+        raise _status_error("login_http", login_response)
+    if len(login_response.content) > MAX_LOGIN_RESPONSE_BYTES:
+        raise UpstreamUnavailable("login_too_large")
+    try:
+        payload = login_response.json()
+    except ValueError as error:
+        raise UpstreamUnavailable("login_malformed_json") from error
+    if not isinstance(payload, dict):
+        raise UpstreamUnavailable("login_invalid_shape")
 
-                profile_response = session.post(
-                    f"{RIRO_ORIGIN}/user.php",
-                    headers=headers,
-                    data={"pw": password},
-                    cookies={"cookie_token": token},
-                    allow_redirects=False,
-                    timeout=15,
-                )
-                if profile_response.status_code not in {200, 302}:
-                    raise UpstreamUnavailable(
-                        f"Riroschool profile HTTP {profile_response.status_code}"
-                    )
-                profile = _parse_profile(profile_response.text, user_id)
-                if not profile:
-                    metadata = _safe_profile_metadata(
-                        profile_response.text,
-                        profile_response.status_code,
-                        profile_response.headers.get("location", ""),
-                        payload,
-                    )
-                    raise UpstreamUnavailable(f"Riroschool profile format changed {metadata}")
+    code = str(payload.get("code", ""))
+    if code in {"400", "902"}:
+        raise InvalidCredentials()
+    token = payload.get("token")
+    if code != "000" or not isinstance(token, str) or not token:
+        raise UpstreamUnavailable("login_unexpected_code")
+    if len(token) > 4096 or not re.fullmatch(
+        r"[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+",
+        token,
+    ):
+        raise UpstreamUnavailable("login_invalid_token")
+
+    profile_response = await _post_with_deadline(
+        client,
+        f"{RIRO_ORIGIN}/user.php",
+        deadline=deadline,
+        headers={**headers, "Cookie": f"cookie_token={token}"},
+        data={"pw": password},
+    )
+    if profile_response.status_code not in {200, 302}:
+        raise _status_error("profile_http", profile_response)
+    if len(profile_response.content) > MAX_PROFILE_RESPONSE_BYTES:
+        raise UpstreamUnavailable("profile_too_large")
+    try:
+        profile = _parse_profile(profile_response.text, user_id)
+    except Exception as error:
+        raise UpstreamUnavailable("profile_parse_error") from error
+    if not profile:
+        raise UpstreamUnavailable("profile_malformed")
+    return profile
+
+
+async def _authenticate_riro(
+    client: httpx.AsyncClient,
+    semaphore: asyncio.BoundedSemaphore,
+    circuit: CircuitBreaker,
+    user_id: str,
+    password: str,
+    *,
+    deadline_seconds: float = UPSTREAM_DEADLINE_SECONDS,
+) -> dict[str, Any]:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + deadline_seconds
+    was_probe = await circuit.before_call(loop.time())
+    circuit_finished = False
+    acquired = False
+    try:
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            raise TimeoutError
+        try:
+            await asyncio.wait_for(semaphore.acquire(), timeout=remaining)
+            acquired = True
+        except TimeoutError as error:
+            await circuit.cancel_probe(was_probe)
+            circuit_finished = True
+            raise UpstreamUnavailable(
+                "capacity_timeout",
+                retryable=False,
+                retry_after=1.0,
+            ) from error
+
+        last_error: Optional[UpstreamUnavailable] = None
+        for attempt in range(UPSTREAM_ATTEMPTS):
+            try:
+                profile = await _authenticate_attempt(client, user_id, password, deadline)
+                await circuit.record_success(was_probe)
+                circuit_finished = True
                 return profile
-        except InvalidCredentials:
-            raise
-        except (requests.RequestException, UpstreamUnavailable) as error:
-            last_error = error
-            if attempt == 0:
-                time.sleep(0.4)
-    raise UpstreamUnavailable(str(last_error or "Riroschool unavailable"))
+            except InvalidCredentials:
+                await circuit.record_success(was_probe)
+                circuit_finished = True
+                raise
+            except UpstreamUnavailable as error:
+                last_error = error
+                if not error.retryable or attempt + 1 >= UPSTREAM_ATTEMPTS:
+                    break
+                delay = (
+                    error.retry_after
+                    if error.retry_after is not None
+                    else DEFAULT_RETRY_DELAY_SECONDS
+                )
+                if delay >= deadline - loop.time():
+                    break
+                await asyncio.sleep(delay)
+
+        final_error = last_error or UpstreamUnavailable("unknown")
+        if final_error.retryable:
+            opened_for = await circuit.record_failure(loop.time(), was_probe)
+            if opened_for is not None and final_error.retry_after is None:
+                final_error.retry_after = opened_for
+        else:
+            # A definitive non-retryable upstream response proves the service is reachable.
+            await circuit.record_success(was_probe)
+        circuit_finished = True
+        raise final_error
+    finally:
+        if acquired:
+            semaphore.release()
+        if not circuit_finished:
+            cleanup = asyncio.create_task(circuit.cancel_probe(was_probe))
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                await cleanup
+                raise
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
+async def health() -> dict[str, str]:
     _bridge_secret()
     return {"status": "ok", "school": RIRO_SCHOOL_NAME, "tenant": "iscience"}
 
@@ -353,7 +536,13 @@ async def verify(request: Request) -> JSONResponse:
     except ValidationError:
         return _json_error(400, "INVALID_REQUEST", "Invalid authentication request.")
     try:
-        profile = _authenticate_riro(login.id, login.password)
+        profile = await _authenticate_riro(
+            request.app.state.riro_client,
+            request.app.state.riro_semaphore,
+            request.app.state.riro_circuit,
+            login.id,
+            login.password,
+        )
         return JSONResponse(
             content={"ok": True, "profile": profile},
             headers={"Cache-Control": "no-store"},
@@ -361,7 +550,19 @@ async def verify(request: Request) -> JSONResponse:
     except InvalidCredentials:
         return _json_error(401, "RIRO_INVALID_CREDENTIALS", "Invalid Riroschool credentials.")
     except UpstreamUnavailable as error:
-        # Messages are deliberately limited to status/contract failures and never include
-        # credentials, tokens, response bodies, names, or student numbers.
-        print(f"[riro] upstream unavailable: {error}", flush=True)
-        return _json_error(503, "RIRO_UNAVAILABLE", "Riroschool is unavailable.")
+        # Only allowlisted transport classifications are logged. Never log exception text,
+        # credentials, tokens, response bodies, profile fields, or request identifiers.
+        logger.warning(
+            "upstream unavailable category=%s status=%s",
+            error.category,
+            error.status if error.status is not None else "none",
+        )
+        headers = None
+        if error.retry_after is not None:
+            headers = {"Retry-After": str(max(1, math.ceil(error.retry_after)))}
+        return _json_error(
+            503,
+            "RIRO_UNAVAILABLE",
+            "Riroschool is unavailable.",
+            headers=headers,
+        )

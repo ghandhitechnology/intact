@@ -124,27 +124,23 @@ async function authenticateOnce(riroId: string, password: string) {
  * or persisted; only the normalized student profile leaves this function.
  */
 export async function verifyRiroAccount(riroId: string, password: string) {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      return await authenticateOnce(riroId, password);
-    } catch (error) {
-      if (error instanceof InvalidCredentialsError) {
-        throw new ApiError(
-          401,
-          'RIRO_INVALID_CREDENTIALS',
-          '리로스쿨 아이디 또는 비밀번호가 올바르지 않습니다.',
-        );
-      }
-      if (error instanceof ApiError) throw error;
-      lastError = error;
-      if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 350));
+  try {
+    return await authenticateOnce(riroId, password);
+  } catch (error) {
+    if (error instanceof InvalidCredentialsError) {
+      throw new ApiError(
+        401,
+        'RIRO_INVALID_CREDENTIALS',
+        '리로스쿨 아이디 또는 비밀번호가 올바르지 않습니다.',
+      );
     }
+    if (error instanceof ApiError) throw error;
+    // Do not log caught exception text: fetch/decoder errors can include upstream content.
+    console.error('[riro] bridge unavailable');
+    throw new ApiError(
+      503,
+      'RIRO_UNAVAILABLE',
+      '리로스쿨 인증 서버와 통신하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+    );
   }
-  console.error('[riro] bridge unavailable', lastError instanceof Error ? lastError.message : 'unknown');
-  throw new ApiError(
-    503,
-    'RIRO_UNAVAILABLE',
-    '리로스쿨 인증 서버와 통신하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-  );
 }

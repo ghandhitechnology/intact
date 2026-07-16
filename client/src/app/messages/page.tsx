@@ -90,6 +90,7 @@ type ChatMessage = {
   body: string;
   time: string;
   createdAt?: string;
+  sequence?: string;
   mine?: boolean;
   read?: boolean;
   failed?: boolean;
@@ -107,6 +108,7 @@ type ServerMessage = {
   id: string;
   roomId?: string;
   createdAt: string;
+  sequence?: string;
   content: string;
   sender: ServerAuthor;
   attachments?: Array<{ id: string; originalName: string; mimeType: string; sizeBytes?: number | string }>;
@@ -119,10 +121,12 @@ type ServerRoom = {
   title: string | null;
   members: Array<{
     user: ServerAuthor;
-    lastReadMessage?: { createdAt: string } | null;
+    lastReadSequence?: string;
+    lastReadMessage?: { createdAt: string; sequence?: string } | null;
   }>;
   messages: Array<{
     id: string;
+    sequence?: string;
     content: string;
     createdAt: string;
     sender: { id?: string; nickname: string; realName?: string | null };
@@ -185,6 +189,18 @@ function isServerMessage(value: unknown): value is ServerMessage {
   );
 }
 
+function messageFromContract(value: unknown): ServerMessage | null {
+  if (isServerMessage(value)) return value;
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as { message?: unknown; data?: unknown };
+  return messageFromContract(candidate.message) || messageFromContract(candidate.data);
+}
+
+function sequenceAtMost(value: string | undefined, upperBound: string | undefined) {
+  if (!value || !upperBound || !/^\d+$/.test(value) || !/^\d+$/.test(upperBound)) return false;
+  return BigInt(value) <= BigInt(upperBound);
+}
+
 function mapServerMessage(
   message: ServerMessage,
   currentUserId: string | null,
@@ -202,6 +218,7 @@ function mapServerMessage(
       minute: "2-digit",
     }).format(new Date(message.createdAt)),
     createdAt: message.createdAt,
+    sequence: message.sequence,
     mine: message.sender.id === currentUserId,
     read: Boolean(message.readByAll),
     file: message.attachments?.[0]
@@ -241,7 +258,6 @@ async function persistMessage(
     payload && typeof payload === "object" && "ok" in payload
       ? (payload as {
           ok: boolean;
-          data?: { message?: ServerMessage };
           error?: { message?: string };
         })
       : null;
@@ -249,8 +265,8 @@ async function persistMessage(
     throw new Error(
       envelope?.error?.message || "메시지를 서버에 저장하지 못했습니다.",
     );
-  const message = envelope?.ok ? envelope.data?.message : payload;
-  if (!isServerMessage(message))
+  const message = messageFromContract(payload);
+  if (!message)
     throw new Error("서버의 메시지 응답을 확인할 수 없습니다.");
   return message;
 }
@@ -269,10 +285,17 @@ function deliverRealtime(
     socket.emit(
       "chat:message",
       { clientId, roomId, content, type: "TEXT" },
-      (ack: { ok?: boolean; message?: unknown; error?: string }) => {
+      (ack: unknown) => {
         window.clearTimeout(timer);
-        if (ack?.ok && isServerMessage(ack.message)) resolve(ack.message);
-        else reject(new Error(ack?.error || "실시간 전송에 실패했습니다."));
+        const message = messageFromContract(ack);
+        if (message) resolve(message);
+        else {
+          const error =
+            ack && typeof ack === "object" && "error" in ack
+              ? String((ack as { error?: unknown }).error || "")
+              : "";
+          reject(new Error(error || "실시간 전송에 실패했습니다."));
+        }
       },
     );
   });
@@ -441,6 +464,9 @@ export default function MessagesPage() {
   const [messageHasMore, setMessageHasMore] = useState<Record<string, boolean>>(
     {},
   );
+  const [messageCursor, setMessageCursor] = useState<Record<string, string | null>>(
+    {},
+  );
   const [newMessagesBelow, setNewMessagesBelow] = useState(false);
   const [messagesError, setMessagesError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
@@ -488,6 +514,7 @@ export default function MessagesPage() {
     previousTop: number;
   } | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const socketHealthyRef = useRef(false);
   const selectedIdRef = useRef(selectedId);
   const roomsRef = useRef(rooms);
   const enteredParticipantCodes = useMemo(
@@ -551,21 +578,24 @@ export default function MessagesPage() {
     setNewMessagesBelow(false);
   }
 
-  async function markRoomRead(roomId: string, messageId: string) {
+  async function markRoomRead(roomId: string, messageId: string, sequence?: string) {
     if (!roomId || !messageId || messageId.startsWith("local-")) return;
     try {
-      const response = await fetchWithTimeout("/api/messages", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, messageId }),
-      });
+      const response = await fetchWithTimeout(
+        `/api/chat/rooms/${encodeURIComponent(roomId)}/read`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ roomId, messageId, sequence }),
+        },
+      );
       if (!response.ok) return;
       setRooms((current) =>
         current.map((item) =>
           item.id === roomId ? { ...item, unread: 0 } : item,
         ),
       );
-      socketRef.current?.emit("chat:read", { roomId, messageId });
+      socketRef.current?.emit("chat:read", { roomId, messageId, sequence });
     } catch {
       // The next focus, room selection, or polling pass retries the receipt.
     }
@@ -581,7 +611,10 @@ export default function MessagesPage() {
   useEffect(() => {
     if (DEMO_MODE) return undefined;
     const refresh = () => {
-      if (document.visibilityState === "visible")
+      if (
+        document.visibilityState === "visible" &&
+        !socketHealthyRef.current
+      )
         setReloadKey((value) => value + 1);
     };
     const timer = window.setInterval(refresh, 45_000);
@@ -667,23 +700,21 @@ export default function MessagesPage() {
             const otherMembers = serverRoom.members.filter(
               (member) => member.user.id !== userId,
             );
-            if (
-              !otherMembers.length ||
-              otherMembers.some((member) => !member.lastReadMessage)
-            )
-              continue;
-            const allReadThrough = Math.min(
-              ...otherMembers.map((member) =>
-                new Date(member.lastReadMessage!.createdAt).getTime(),
-              ),
-            );
-            next[serverRoom.id] = (next[serverRoom.id] ?? []).map((message) =>
-              message.mine &&
-              message.createdAt &&
-              new Date(message.createdAt).getTime() <= allReadThrough
-                ? { ...message, read: true }
-                : message,
-            );
+            if (!otherMembers.length) continue;
+            next[serverRoom.id] = (next[serverRoom.id] ?? []).map((message) => {
+              if (!message.mine) return message;
+              const readByEveryone = otherMembers.every((member) =>
+                message.sequence && member.lastReadSequence
+                  ? sequenceAtMost(message.sequence, member.lastReadSequence)
+                  : Boolean(
+                      message.createdAt &&
+                      member.lastReadMessage &&
+                      new Date(message.createdAt).getTime() <=
+                        new Date(member.lastReadMessage.createdAt).getTime(),
+                    ),
+              );
+              return readByEveryone ? { ...message, read: true } : message;
+            });
           }
           return next;
         });
@@ -752,9 +783,13 @@ export default function MessagesPage() {
           ...current,
           [selectedId]: payload.data.hasMore,
         }));
+        setMessageCursor((current) => ({
+          ...current,
+          [selectedId]: payload.data.nextCursor ?? null,
+        }));
         const latest = payload.data.messages[payload.data.messages.length - 1];
         if (latest) {
-          void markRoomRead(selectedId, latest.id);
+          void markRoomRead(selectedId, latest.id, latest.sequence);
         }
       } catch (cause) {
         if (active && !isAbortError(cause))
@@ -770,12 +805,13 @@ export default function MessagesPage() {
       active = false;
       controller.abort();
     };
-  }, [currentUserId, loadState, selectedId]);
+  }, [currentUserId, loadState, reloadKey, selectedId]);
 
   useEffect(() => {
     if (DEMO_MODE || !currentUserId || loadState !== "ready")
       return undefined;
     if (!REALTIME_URL) {
+      socketHealthyRef.current = false;
       setConnectionState("polling");
       return undefined;
     }
@@ -786,13 +822,26 @@ export default function MessagesPage() {
     });
     socketRef.current = socket;
     socket.on("connect", () => {
+      socketHealthyRef.current = true;
       setConnectionState("live");
       roomsRef.current.forEach((room) => socket.emit("room:join", room.id));
+      // Catch up once after every (re)connect, then rely on realtime delivery.
+      setReloadKey((value) => value + 1);
     });
-    socket.on("connect_error", () => setConnectionState("polling"));
-    socket.on("disconnect", () => setConnectionState("polling"));
+    socket.on("connect_error", () => {
+      socketHealthyRef.current = false;
+      setConnectionState("polling");
+    });
+    socket.on("disconnect", () => {
+      const wasHealthy = socketHealthyRef.current;
+      socketHealthyRef.current = false;
+      setConnectionState("polling");
+      if (wasHealthy) setReloadKey((value) => value + 1);
+    });
 
-    socket.on("chat:message", (message: ServerMessage) => {
+    socket.on("chat:message", (payload: unknown) => {
+      const message = messageFromContract(payload);
+      if (!message) return;
       const roomId = message.roomId;
       if (!roomId || !message.id || !message.sender) return;
       const mapped = mapServerMessage(message, currentUserId);
@@ -820,7 +869,7 @@ export default function MessagesPage() {
         ),
       );
       if (isCurrentIncoming) {
-        void markRoomRead(roomId, message.id);
+        void markRoomRead(roomId, message.id, message.sequence);
       }
     });
     socket.on("room:created", () => setReloadKey((value) => value + 1));
@@ -839,14 +888,28 @@ export default function MessagesPage() {
     );
     socket.on(
       "chat:read",
-      (payload: { roomId?: string; messageId?: string; userId?: string }) => {
+      (payload: { roomId?: string; messageId?: string; sequence?: string; userId?: string }) => {
         if (!payload.roomId || payload.userId === currentUserId) return;
-        setMessages((current) => ({
-          ...current,
-          [payload.roomId!]: (current[payload.roomId!] ?? []).map((message) =>
-            message.mine ? { ...message, read: true } : message,
-          ),
-        }));
+        setMessages((current) => {
+          const list = current[payload.roomId!] ?? [];
+          const targetIndex = payload.messageId
+            ? list.findIndex((message) => message.id === payload.messageId)
+            : -1;
+          const receiptSequence =
+            payload.sequence ||
+            (targetIndex >= 0 ? list[targetIndex]?.sequence : undefined);
+          return {
+            ...current,
+            [payload.roomId!]: list.map((message, index) =>
+              message.mine &&
+              (receiptSequence
+                ? sequenceAtMost(message.sequence, receiptSequence)
+                : targetIndex >= 0 && index <= targetIndex)
+                ? { ...message, read: true }
+                : message,
+            ),
+          };
+        });
       },
     );
     socket.on(
@@ -864,6 +927,7 @@ export default function MessagesPage() {
     );
     return () => {
       socketRef.current = null;
+      socketHealthyRef.current = false;
       socket.disconnect();
     };
   }, [currentUserId, loadState]);
@@ -960,7 +1024,7 @@ export default function MessagesPage() {
       if (document.visibilityState !== "visible") return;
       const list = messages[selectedIdRef.current] ?? [];
       const latest = list[list.length - 1];
-      if (latest) void markRoomRead(selectedIdRef.current, latest.id);
+      if (latest) void markRoomRead(selectedIdRef.current, latest.id, latest.sequence);
     }
     window.addEventListener("focus", acknowledgeVisibleRoom);
     document.addEventListener("visibilitychange", acknowledgeVisibleRoom);
@@ -972,9 +1036,16 @@ export default function MessagesPage() {
 
   async function loadOlderMessages() {
     const first = roomMessages[0];
+    const cursor =
+      messageCursor[selectedId] ||
+      (first?.sequence
+        ? `seq:${first.sequence}`
+        : first?.createdAt
+          ? `${first.createdAt}|${first.id}`
+          : null);
     if (
       !selectedId ||
-      !first?.createdAt ||
+      !cursor ||
       olderMessagesLoading ||
       !messageHasMore[selectedId]
     )
@@ -985,12 +1056,13 @@ export default function MessagesPage() {
     setMessagesError("");
     try {
       const response = await fetchWithTimeout(
-        `/api/messages?roomId=${encodeURIComponent(selectedId)}&before=${encodeURIComponent(first.createdAt)}`,
+        `/api/messages?roomId=${encodeURIComponent(selectedId)}&before=${encodeURIComponent(cursor)}`,
         { cache: "no-store" },
       );
       const payload = await readApiEnvelope<{
         messages: ServerMessage[];
         hasMore: boolean;
+        nextCursor?: string | null;
       }>(response);
       if (!response.ok || !payload?.ok)
         throw new Error(
@@ -1019,6 +1091,10 @@ export default function MessagesPage() {
         ...current,
         [selectedId]: payload.data.hasMore,
       }));
+      setMessageCursor((current) => ({
+        ...current,
+        [selectedId]: payload.data.nextCursor ?? null,
+      }));
       if (!viewport || uniqueOlder.length === 0) {
         olderScrollRestoreRef.current = null;
         loadingOlderRef.current = false;
@@ -1044,7 +1120,7 @@ export default function MessagesPage() {
     nearBottomRef.current = true;
     const selectedMessages = messages[id] ?? [];
     const latest = selectedMessages[selectedMessages.length - 1];
-    if (latest) void markRoomRead(id, latest.id);
+    if (latest) void markRoomRead(id, latest.id, latest.sequence);
   }
 
   async function sendMessage(event?: FormEvent) {
@@ -1138,6 +1214,7 @@ export default function MessagesPage() {
             uploadedAttachmentId ? [uploadedAttachmentId] : [],
           );
         }
+        const mappedPersisted = mapServerMessage(persisted, currentUserId);
         setMessages((current) => {
           const list = current[selectedId] ?? [];
           const serverAlreadyPresent = list.some(
@@ -1149,7 +1226,7 @@ export default function MessagesPage() {
               ? list.filter((message) => message.id !== next.id)
               : list.map((message) =>
                   message.id === next.id
-                    ? { ...message, id: persisted.id, read: false }
+                    ? { ...mappedPersisted, read: false }
                     : message,
                 ),
           };

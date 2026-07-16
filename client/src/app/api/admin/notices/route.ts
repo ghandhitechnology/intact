@@ -10,6 +10,7 @@ import {
   requiredString,
 } from '@/lib/server/http';
 import { requireReadyAdmin } from '@/lib/server/session';
+import { createNotificationsWithDelivery } from '@/lib/server/notifications';
 
 export const runtime = 'nodejs';
 
@@ -86,8 +87,9 @@ export async function POST(request: Request) {
           },
           select: { id: true },
         });
-        await tx.notification.createMany({
-          data: recipients.map(({ id }) => ({
+        await createNotificationsWithDelivery(
+          tx,
+          recipients.map(({ id }) => ({
             userId: id,
             actorId: admin.user.id,
             type: 'NOTICE',
@@ -96,7 +98,7 @@ export async function POST(request: Request) {
             href: `/notices#notice-${created.id}`,
             metadata: { noticeId: created.id },
           })),
-        });
+        );
       }
       return created;
     });

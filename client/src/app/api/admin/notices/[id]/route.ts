@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma';
 import { writeAdminAudit } from '@/lib/server/audit';
 import { ApiError, assertSameOrigin, json, jsonError, readJson, requiredString } from '@/lib/server/http';
 import { requireReadyAdmin } from '@/lib/server/session';
+import { createNotificationsWithDelivery } from '@/lib/server/notifications';
 
 export const runtime = 'nodejs';
 
@@ -91,8 +92,9 @@ export async function PATCH(
           },
           select: { id: true },
         });
-        await tx.notification.createMany({
-          data: recipients.map(({ id: userId }) => ({
+        await createNotificationsWithDelivery(
+          tx,
+          recipients.map(({ id: userId }) => ({
             userId,
             actorId: admin.user.id,
             type: 'NOTICE',
@@ -101,7 +103,7 @@ export async function PATCH(
             href: `/notices#notice-${updated.id}`,
             metadata: { noticeId: updated.id },
           })),
-        });
+        );
       }
       return updated;
     });

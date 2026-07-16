@@ -1,8 +1,10 @@
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { publicAuthorSelect } from '@/lib/server/content';
 import {
   ApiError,
   assertSameOrigin,
+  enforceDistributedRateLimit,
   enforceRateLimit,
   isUniqueConstraintError,
   json,
@@ -10,8 +12,12 @@ import {
   readJson,
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
-import { publishRealtimeEvent } from '@/lib/server/realtime';
-import { anonymousNickname, getPlatformMode, maskPublicIdentities } from '@/lib/server/platform-mode';
+import {
+  outboxPublicationEnabled,
+  publishRealtimeEvent,
+  queueRealtimeEvent,
+} from '@/lib/server/realtime';
+import { getPlatformMode, maskPublicIdentities } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,7 +36,8 @@ export async function GET(request: Request) {
             userId: true,
             role: true,
             joinedAt: true,
-            lastReadMessage: { select: { createdAt: true } },
+            lastReadSequence: true,
+            lastReadMessage: { select: { createdAt: true, sequence: true } },
             user: { select: publicAuthorSelect },
           },
         },
@@ -40,6 +47,7 @@ export async function GET(request: Request) {
           take: 1,
           select: {
             id: true,
+            sequence: true,
             content: true,
             createdAt: true,
             sender: { select: { id: true, nickname: true, realName: true } },
@@ -47,19 +55,27 @@ export async function GET(request: Request) {
         },
       },
     });
-    const roomsWithUnread = await Promise.all(rooms.map(async (room) => {
-      const membership = room.members.find((member) => member.userId === session.user.id);
-      const unreadCount = membership
-        ? await prisma.message.count({
-            where: {
-              roomId: room.id,
-              deletedAt: null,
-              senderId: { not: session.user.id },
-              createdAt: { gt: membership.lastReadMessage?.createdAt ?? membership.joinedAt },
-            },
-          })
-        : 0;
-      return { ...room, unreadCount };
+    const unreadRows = rooms.length
+      ? await prisma.$queryRaw<Array<{ roomId: string; unreadCount: bigint }>>(Prisma.sql`
+          SELECT message."roomId", COUNT(*)::bigint AS "unreadCount"
+          FROM "Message" AS message
+          INNER JOIN "ChatMember" AS membership
+            ON membership."roomId" = message."roomId"
+          WHERE membership."userId" = ${session.user.id}
+            AND membership."leftAt" IS NULL
+            AND message."deletedAt" IS NULL
+            AND message."senderId" <> ${session.user.id}
+            AND message."createdAt" >= membership."joinedAt"
+            AND message."sequence" > membership."lastReadSequence"
+          GROUP BY message."roomId"
+        `)
+      : [];
+    const unreadByRoom = new Map(
+      unreadRows.map((row) => [row.roomId, Number(row.unreadCount)]),
+    );
+    const roomsWithUnread = rooms.map((room) => ({
+      ...room,
+      unreadCount: unreadByRoom.get(room.id) ?? 0,
     }));
     return json({ rooms: await maskPublicIdentities(roomsWithUnread, session.user.id) }, 200, {
       'Cache-Control': 'private, no-cache',
@@ -77,13 +93,44 @@ interface CreateRoomBody {
   authorNickname?: unknown;
 }
 
+type CreatedRoom = Prisma.ChatRoomGetPayload<{
+  include: {
+    members: {
+      include: {
+        user: { select: typeof publicAuthorSelect };
+      };
+    };
+  };
+}>;
+
+function queueRoomCreated(
+  tx: Prisma.TransactionClient,
+  roomId: string,
+  memberIds: string[],
+  eventKey: string,
+) {
+  if (!outboxPublicationEnabled()) return Promise.resolve({ inserted: false });
+  return queueRealtimeEvent(
+    tx,
+    'room-created',
+    { roomId, memberIds },
+    `realtime:room-created:${roomId}:${eventKey}`,
+  );
+}
+
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
     const session = await requireUser(request);
+    const roomEventKey = crypto.randomUUID();
     enforceRateLimit(`chat-room-create:${session.user.id}`, {
       limit: 20,
       windowMs: 24 * 60 * 60 * 1_000,
+    });
+    await enforceDistributedRateLimit(`chat-room-create:${session.user.id}`, {
+      limit: 20,
+      windowMs: 24 * 60 * 60 * 1_000,
+      failPolicy: 'open',
     });
     const body = await readJson<CreateRoomBody>(request, 16_384);
     let memberIds = Array.isArray(body.memberIds)
@@ -111,11 +158,13 @@ export async function POST(request: Request) {
     const anonymousIdentifiers = platformMode.bSideEnabled
       ? memberIds.filter((value) => /^#[A-F0-9]{8}$/i.test(value))
       : [];
-    const anonymousCandidates = anonymousIdentifiers.length
-      ? await prisma.user.findMany({
-          where: { status: 'ACTIVE' },
-          select: { id: true },
-          take: 1_000,
+    const anonymousAliases = anonymousIdentifiers.length
+      ? await prisma.platformAlias.findMany({
+          where: {
+            epoch: platformMode.bSideEpoch,
+            alias: { in: anonymousIdentifiers.map((value) => value.toUpperCase()) },
+          },
+          select: { alias: true, userId: true },
         })
       : [];
     const uuidIdentifiers = memberIds.filter((value) =>
@@ -138,11 +187,9 @@ export async function POST(request: Request) {
     });
     const resolvedMemberIds = memberIds.map((identifier) => {
       if (platformMode.bSideEnabled && /^#[A-F0-9]{8}$/i.test(identifier)) {
-        return anonymousCandidates.find(
-          (candidate) =>
-            anonymousNickname(candidate.id, platformMode.bSideEpoch).toLowerCase() ===
-            identifier.toLowerCase(),
-        )?.id ?? null;
+        return anonymousAliases.find(
+          (candidate) => candidate.alias.toLowerCase() === identifier.toLowerCase(),
+        )?.userId ?? null;
       }
       return members.find((member) =>
         member.id === identifier ||
@@ -170,18 +217,22 @@ export async function POST(request: Request) {
         include: { members: { include: { user: { select: publicAuthorSelect } } } },
       });
       if (existing) {
-        await prisma.chatMember.updateMany({
-          where: { roomId: existing.id, userId: { in: allMemberIds } },
-          data: { leftAt: null },
-        });
-        const reactivated = await prisma.chatRoom.findUniqueOrThrow({
-          where: { id: existing.id },
-          include: {
-            members: {
-              where: { leftAt: null },
-              include: { user: { select: publicAuthorSelect } },
+        const reactivated = await prisma.$transaction(async (tx) => {
+          await tx.chatMember.updateMany({
+            where: { roomId: existing.id, userId: { in: allMemberIds } },
+            data: { leftAt: null },
+          });
+          const value = await tx.chatRoom.findUniqueOrThrow({
+            where: { id: existing.id },
+            include: {
+              members: {
+                where: { leftAt: null },
+                include: { user: { select: publicAuthorSelect } },
+              },
             },
-          },
+          });
+          await queueRoomCreated(tx, value.id, allMemberIds, roomEventKey);
+          return value;
         });
         await publishRealtimeEvent('room-created', { roomId: reactivated.id, memberIds: allMemberIds });
         return json({
@@ -195,22 +246,26 @@ export async function POST(request: Request) {
       throw new ApiError(400, 'TITLE_REQUIRED', '그룹 대화방 이름을 입력해 주세요.');
     }
 
-    let room;
+    let room: CreatedRoom;
     try {
-      room = await prisma.chatRoom.create({
-        data: {
-          type: direct ? 'DIRECT' : 'GROUP',
-          title: direct ? null : title,
-          createdById: session.user.id,
-          directKey,
-          members: {
-            create: allMemberIds.map((userId) => ({
-              userId,
-              role: userId === session.user.id ? 'OWNER' : 'MEMBER',
-            })),
+      room = await prisma.$transaction(async (tx) => {
+        const created = await tx.chatRoom.create({
+          data: {
+            type: direct ? 'DIRECT' : 'GROUP',
+            title: direct ? null : title,
+            createdById: session.user.id,
+            directKey,
+            members: {
+              create: allMemberIds.map((userId) => ({
+                userId,
+                role: userId === session.user.id ? 'OWNER' : 'MEMBER',
+              })),
+            },
           },
-        },
-        include: { members: { include: { user: { select: publicAuthorSelect } } } },
+          include: { members: { include: { user: { select: publicAuthorSelect } } } },
+        });
+        await queueRoomCreated(tx, created.id, allMemberIds, roomEventKey);
+        return created;
       });
     } catch (error) {
       if (!directKey || !isUniqueConstraintError(error)) throw error;
@@ -218,18 +273,22 @@ export async function POST(request: Request) {
         where: { directKey },
         include: { members: { include: { user: { select: publicAuthorSelect } } } },
       });
-      await prisma.chatMember.updateMany({
-        where: { roomId: room.id, userId: { in: allMemberIds } },
-        data: { leftAt: null },
-      });
-      const reactivated = await prisma.chatRoom.findUniqueOrThrow({
-        where: { id: room.id },
-        include: {
-          members: {
-            where: { leftAt: null },
-            include: { user: { select: publicAuthorSelect } },
+      const reactivated = await prisma.$transaction(async (tx) => {
+        await tx.chatMember.updateMany({
+          where: { roomId: room.id, userId: { in: allMemberIds } },
+          data: { leftAt: null },
+        });
+        const value = await tx.chatRoom.findUniqueOrThrow({
+          where: { id: room.id },
+          include: {
+            members: {
+              where: { leftAt: null },
+              include: { user: { select: publicAuthorSelect } },
+            },
           },
-        },
+        });
+        await queueRoomCreated(tx, value.id, allMemberIds, roomEventKey);
+        return value;
       });
       await publishRealtimeEvent('room-created', { roomId: reactivated.id, memberIds: allMemberIds });
       return json({

@@ -50,6 +50,14 @@ import SafeMarkdown from "./SafeMarkdown";
 import AttachmentGallery from "./AttachmentGallery";
 import { cosmeticsFromItems } from "@/lib/igk-shop";
 
+type PostEditConflict = {
+  currentVersion: number;
+  current: {
+    title: string;
+    content: string;
+  };
+};
+
 type CommentItem = {
   id: string;
   parentId?: string | null;
@@ -61,6 +69,48 @@ type CommentItem = {
   accepted: boolean;
   content: string;
 };
+
+type ApiComment = {
+  id?: string;
+  parentId?: string | null;
+  createdAt?: string;
+  recommendationCount?: number;
+  viewerRecommended?: boolean;
+  accepted?: boolean;
+  content?: string;
+  author?: {
+    realName?: string | null;
+    nickname?: string | null;
+    level?: number;
+    profileImage?: string | null;
+    studentIdentity?: { studentCode?: string | null } | null;
+    items?: Array<{ itemId: string }>;
+  };
+};
+
+function mapApiComment(comment: ApiComment): CommentItem {
+  const nickname = comment.author?.realName || comment.author?.nickname || "알 수 없음";
+  const createdAt = comment.createdAt ? new Date(comment.createdAt) : new Date();
+  return {
+    id: String(comment.id || `comment-${createdAt.getTime()}`),
+    parentId: comment.parentId || null,
+    author: {
+      nickname,
+      studentId: comment.author?.studentIdentity?.studentCode || "------",
+      level: Number(comment.author?.level || 1),
+      initials: nickname.slice(0, 1),
+      profileImage: comment.author?.profileImage || null,
+      accent: "blue",
+      cosmetics: cosmeticsFromItems(comment.author?.items),
+    },
+    createdAt: createdAt.toLocaleString("ko-KR"),
+    createdAtRaw: createdAt.getTime(),
+    likes: Number(comment.recommendationCount || 0),
+    viewerRecommended: Boolean(comment.viewerRecommended),
+    accepted: Boolean(comment.accepted),
+    content: String(comment.content || ""),
+  };
+}
 
 function BodyContent({
   post,
@@ -452,6 +502,8 @@ export default function PostDetailClient({
   const [actionError, setActionError] = useState("");
   const [actionPending, setActionPending] = useState(false);
   const [editingPost, setEditingPost] = useState(false);
+  const [editBaseVersion, setEditBaseVersion] = useState<number | null>(null);
+  const [editConflict, setEditConflict] = useState<PostEditConflict | null>(null);
   const [displayTitle, setDisplayTitle] = useState(post.title);
   const [displayContent, setDisplayContent] = useState(
     post.content || post.excerpt,
@@ -464,6 +516,8 @@ export default function PostDetailClient({
         ? (initialComments as CommentItem[])
         : []),
   );
+  const [nextCommentCursor, setNextCommentCursor] = useState<string | null>(null);
+  const [commentsPending, setCommentsPending] = useState(false);
   const board = getBoard(post.board);
   const isPostOwner = Boolean(
     !isNotice &&
@@ -533,6 +587,76 @@ export default function PostDetailClient({
       active = false;
     };
   }, [demoMode, post.board, post.id]);
+
+  useEffect(() => {
+    const initialCount = post.commentItems?.length ?? 0;
+    if (demoMode || isNotice || post.comments <= initialCount) return;
+    const controller = new AbortController();
+    fetch(`/api/comments?postId=${encodeURIComponent(post.id)}&pageSize=30`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const body = await response.json().catch(() => null);
+        if (!response.ok) throw new Error("comments failed");
+        return body?.data || body;
+      })
+      .then((data) => {
+        const items = Array.isArray(data?.comments)
+          ? (data.comments as ApiComment[]).map(mapApiComment)
+          : [];
+        setCommentItems((current) => {
+          const known = new Set(current.map((item) => item.id));
+          return [...current, ...items.filter((item) => !known.has(item.id))];
+        });
+        setNextCommentCursor(
+          typeof data?.pagination?.nextCursor === "string"
+            ? data.pagination.nextCursor
+            : null,
+        );
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [demoMode, isNotice, post.commentItems?.length, post.comments, post.id]);
+
+  async function loadMoreComments() {
+    if (!nextCommentCursor || commentsPending) return;
+    setCommentsPending(true);
+    setActionError("");
+    try {
+      const params = new URLSearchParams({
+        postId: post.id,
+        pageSize: "30",
+        cursor: nextCommentCursor,
+      });
+      const response = await fetch(`/api/comments?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error?.message || "댓글을 더 불러오지 못했습니다.");
+      }
+      const data = body?.data || body;
+      const items = Array.isArray(data?.comments)
+        ? (data.comments as ApiComment[]).map(mapApiComment)
+        : [];
+      setCommentItems((current) => {
+        const known = new Set(current.map((item) => item.id));
+        return [...current, ...items.filter((item) => !known.has(item.id))];
+      });
+      setNextCommentCursor(
+        typeof data?.pagination?.nextCursor === "string"
+          ? data.pagination.nextCursor
+          : null,
+      );
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "댓글을 더 불러오지 못했습니다.",
+      );
+    } finally {
+      setCommentsPending(false);
+    }
+  }
 
   const sortedCommentItems = useMemo(
     () =>
@@ -695,27 +819,74 @@ export default function PostDetailClient({
     }
   }
 
+  async function beginPostEdit() {
+    setActionPending(true);
+    setActionError("");
+    setEditConflict(null);
+    try {
+      const response = await fetch(`/api/posts/${encodeURIComponent(post.id)}`, {
+        cache: "no-store",
+      });
+      const body = await response.json().catch(() => null);
+      const current = body?.data?.post || body?.post;
+      if (response.ok && Number.isSafeInteger(current?.version) && Number(current.version) > 0) {
+        setEditBaseVersion(Number(current.version));
+      } else {
+        setEditBaseVersion(null);
+      }
+    } catch {
+      setEditBaseVersion(null);
+    } finally {
+      setEditingPost(true);
+      setActionPending(false);
+    }
+  }
+
   async function savePostEdit() {
     if (editTitle.trim().length < 2 || (post.board !== "photos" && !editContent.trim())) return;
     setActionPending(true);
     setActionError("");
     try {
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      if (editBaseVersion) headers["If-Match"] = `"${editBaseVersion}"`;
       const response = await fetch(
         `/api/posts/${encodeURIComponent(post.id)}`,
         {
           method: "PATCH",
-          headers: { "content-type": "application/json" },
+          headers,
           body: JSON.stringify({
             title: editTitle.trim(),
             content: editContent.trim(),
+            ...(editBaseVersion ? { baseVersion: editBaseVersion } : {}),
           }),
         },
       );
       const body = await response.json().catch(() => null);
-      if (!response.ok)
+      if (!response.ok) {
+        const details = body?.error?.details;
+        if (
+          response.status === 409 &&
+          Number.isSafeInteger(details?.currentVersion) &&
+          typeof details?.current?.title === "string" &&
+          typeof details?.current?.content === "string"
+        ) {
+          setEditConflict({
+            currentVersion: Number(details.currentVersion),
+            current: {
+              title: details.current.title,
+              content: details.current.content,
+            },
+          });
+        }
         throw new Error(
           body?.error?.message || "게시글을 수정하지 못했습니다.",
         );
+      }
+      const savedPost = body?.data?.post || body?.post;
+      if (Number.isSafeInteger(savedPost?.version) && Number(savedPost.version) > 0) {
+        setEditBaseVersion(Number(savedPost.version));
+      }
+      setEditConflict(null);
       setDisplayTitle(editTitle.trim());
       setDisplayContent(editContent.trim());
       setEditingPost(false);
@@ -851,7 +1022,7 @@ export default function PostDetailClient({
                         className="h-3.5 w-3.5"
                         aria-hidden="true"
                       />
-                      {commentItems.length}
+                      {Math.max(post.comments, commentItems.length)}
                     </span>
                   </div>
                 </div>
@@ -860,6 +1031,38 @@ export default function PostDetailClient({
               <div className="px-4 py-5 sm:px-5 sm:py-6">
                 {editingPost ? (
                   <div>
+                    {editConflict ? (
+                      <div className="mb-3 border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
+                        <p className="font-bold">다른 곳에서 이 글이 수정되었습니다.</p>
+                        <p className="mt-1">서버 제목: {editConflict.current.title}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditTitle(editConflict.current.title);
+                              setEditContent(editConflict.current.content);
+                              setEditBaseVersion(editConflict.currentVersion);
+                              setEditConflict(null);
+                              setActionError("");
+                            }}
+                            className="border border-amber-400 bg-white px-2.5 py-1 font-bold"
+                          >
+                            서버 내용 불러오기
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditBaseVersion(editConflict.currentVersion);
+                              setEditConflict(null);
+                              setActionError("");
+                            }}
+                            className="border border-amber-700 bg-amber-700 px-2.5 py-1 font-bold text-white"
+                          >
+                            내 내용 유지
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                     {post.board !== "photos" ? <textarea
                       value={editContent}
                       onChange={(event) =>
@@ -881,6 +1084,7 @@ export default function PostDetailClient({
                           setEditTitle(displayTitle);
                           setEditContent(displayContent);
                           setEditingPost(false);
+                          setEditConflict(null);
                           setActionError("");
                         }}
                         className="h-9 border border-slate-300 px-4 text-xs font-bold text-slate-600"
@@ -1020,7 +1224,7 @@ export default function PostDetailClient({
                       <button
                         type="button"
                         disabled={actionPending}
-                        onClick={() => setEditingPost(true)}
+                        onClick={() => void beginPostEdit()}
                         className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-700"
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -1079,7 +1283,7 @@ export default function PostDetailClient({
                 >
                   댓글{" "}
                   <span className="text-emerald-700">
-                    {commentItems.length}
+                    {Math.max(post.comments, commentItems.length)}
                   </span>
                 </h2>
                 <div className="flex gap-3 text-xs font-bold">
@@ -1111,25 +1315,39 @@ export default function PostDetailClient({
               </div>
 
               {commentItems.length > 0 ? (
-                sortedCommentItems.map((comment) => (
-                  <CommentCard
-                    key={comment.id}
-                    comment={comment}
-                    onReply={setReplyTo}
-                    onAccept={
-                      post.board === "question" &&
-                      post.viewer?.studentId === post.author.studentId
-                        ? acceptAnswer
-                        : undefined
-                    }
-                    viewerStudentId={post.viewer?.studentId}
-                    onDeleted={(commentId) =>
-                      setCommentItems((items) =>
-                        items.filter((item) => item.id !== commentId),
-                      )
-                    }
-                  />
-                ))
+                <>
+                  {sortedCommentItems.map((comment) => (
+                    <CommentCard
+                      key={comment.id}
+                      comment={comment}
+                      onReply={setReplyTo}
+                      onAccept={
+                        post.board === "question" &&
+                        post.viewer?.studentId === post.author.studentId
+                          ? acceptAnswer
+                          : undefined
+                      }
+                      viewerStudentId={post.viewer?.studentId}
+                      onDeleted={(commentId) =>
+                        setCommentItems((items) =>
+                          items.filter((item) => item.id !== commentId),
+                        )
+                      }
+                    />
+                  ))}
+                  {nextCommentCursor ? (
+                    <div className="border-b border-slate-100 px-5 py-4 text-center">
+                      <button
+                        type="button"
+                        disabled={commentsPending}
+                        onClick={() => void loadMoreComments()}
+                        className="border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:border-emerald-600 hover:text-emerald-700 disabled:text-slate-300"
+                      >
+                        {commentsPending ? "댓글 불러오는 중…" : "댓글 더 보기"}
+                      </button>
+                    </div>
+                  ) : null}
+                </>
               ) : (
                 <div className="px-5 py-12 text-center text-sm text-slate-400">
                   댓글 없음

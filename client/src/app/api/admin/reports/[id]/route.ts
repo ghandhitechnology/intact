@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma';
 import { writeAdminAudit } from '@/lib/server/audit';
 import { ApiError, assertSameOrigin, json, jsonError, readJson, requiredString } from '@/lib/server/http';
 import { requireReadyAdmin } from '@/lib/server/session';
+import { createNotificationWithDelivery } from '@/lib/server/notifications';
 
 export const runtime = 'nodejs';
 
@@ -35,16 +36,14 @@ export async function PATCH(
           resolvedById: action === 'REVIEW' ? null : admin.user.id,
         },
       });
-      await tx.notification.create({
-        data: {
-          userId: before.reporterId,
-          actorId: admin.user.id,
-          type: 'SYSTEM',
-          title: action === 'REVIEW' ? '신고 검토가 시작되었습니다.' : '신고 처리가 완료되었습니다.',
-          body: resolution ?? reason,
-          href: '/notifications',
-          metadata: { reportId: before.id, status: updated.status },
-        },
+      await createNotificationWithDelivery(tx, {
+        userId: before.reporterId,
+        actorId: admin.user.id,
+        type: 'SYSTEM',
+        title: action === 'REVIEW' ? '신고 검토가 시작되었습니다.' : '신고 처리가 완료되었습니다.',
+        body: resolution ?? reason,
+        href: '/notifications',
+        metadata: { reportId: before.id, status: updated.status },
       });
       await writeAdminAudit(tx, request, {
         adminId: admin.user.id,

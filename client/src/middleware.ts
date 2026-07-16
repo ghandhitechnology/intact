@@ -1,3 +1,4 @@
+import { requestId } from '@/lib/request-id';
 import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_ROUTES = new Set([
@@ -11,6 +12,19 @@ const PUBLIC_ROUTES = new Set([
   '/offline',
   '/admin/login',
 ]);
+
+function continueRequest(request: NextRequest, id: string) {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-request-id', id);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set('X-Request-ID', id);
+  return response;
+}
+
+function identifyResponse<T extends NextResponse>(response: T, id: string) {
+  response.headers.set('X-Request-ID', id);
+  return response;
+}
 
 function isPublicAsset(pathname: string) {
   return (
@@ -137,8 +151,9 @@ function maintenanceExempt(pathname: string) {
 
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  const id = requestId(request.headers.get('x-request-id'));
   if (process.env.PORTAL_DEMO_MODE === 'true' || isPublicAsset(pathname)) {
-    return NextResponse.next();
+    return continueRequest(request, id);
   }
 
   // Exempt paths must never trigger the /api/platform self-fetch: the nested
@@ -147,32 +162,32 @@ export async function middleware(request: NextRequest) {
   if (!maintenanceExempt(pathname)) {
     if ((await maintenanceEnabled(request)) && !(await verifiedAdmin(request))) {
       if (pathname.startsWith('/api/')) {
-        return NextResponse.json(
+        return identifyResponse(NextResponse.json(
           { ok: false, error: { code: 'MAINTENANCE', message: '서버 점검 중입니다. 잠시 후 다시 이용해 주세요.' } },
           { status: 503, headers: { 'Cache-Control': 'no-store' } },
-        );
+        ), id);
       }
-      return NextResponse.rewrite(internalUrl(request, '/maintenance'));
+      return identifyResponse(NextResponse.rewrite(internalUrl(request, '/maintenance')), id);
     }
   } else if (pathname === '/maintenance' && !(await maintenanceEnabled(request))) {
-    return NextResponse.redirect(redirectUrl(request, '/'));
+    return identifyResponse(NextResponse.redirect(redirectUrl(request, '/')), id);
   }
 
   if (PUBLIC_ROUTES.has(pathname) || pathname === '/maintenance' || pathname.startsWith('/api/')) {
-    return NextResponse.next();
+    return continueRequest(request, id);
   }
 
   if (pathname.startsWith('/admin')) {
-    if (request.cookies.has('igwak_admin_session')) return NextResponse.next();
+    if (request.cookies.has('igwak_admin_session')) return continueRequest(request, id);
     const url = redirectUrl(request, '/admin/login');
     url.searchParams.set('returnTo', `${pathname}${search}`);
-    return NextResponse.redirect(url);
+    return identifyResponse(NextResponse.redirect(url), id);
   }
 
-  if (request.cookies.has('igwak_session')) return NextResponse.next();
+  if (request.cookies.has('igwak_session')) return continueRequest(request, id);
   const url = redirectUrl(request, '/login');
   url.searchParams.set('returnTo', `${pathname}${search}`);
-  return NextResponse.redirect(url);
+  return identifyResponse(NextResponse.redirect(url), id);
 }
 
 export const config = {

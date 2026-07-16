@@ -3,6 +3,7 @@ import { awardIgk } from '@/lib/server/igk';
 import { ApiError, assertSameOrigin, json, jsonError, readJson, requiredString } from '@/lib/server/http';
 import { lockResources } from '@/lib/server/locks';
 import { requireUser } from '@/lib/server/session';
+import { createNotificationWithDelivery } from '@/lib/server/notifications';
 
 export const runtime = 'nodejs';
 
@@ -70,15 +71,13 @@ export async function POST(
           dailyCap: 150,
           note: '질문 답변 채택 보상',
         });
-        await tx.notification.create({
-          data: {
+        await createNotificationWithDelivery(tx, {
             userId: comment.authorId,
             actorId: session.user.id,
             type: 'ANSWER_ACCEPTED',
             title: '작성한 답변이 채택되었습니다.',
             href: `/post/${post.id}#comment-${comment.id}`,
             metadata: { postId: post.id, commentId: comment.id },
-          },
         });
       }
       return comment.id;

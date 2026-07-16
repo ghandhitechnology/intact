@@ -1,6 +1,9 @@
 import { createHmac } from 'node:crypto';
+import type { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { ApiError } from '@/lib/server/http';
+import { writeOutboxEvent } from './outbox';
+import { getRedisClient, subscribeRedis } from './redis';
 
 export type PlatformMode = {
   bSideEnabled: boolean;
@@ -11,10 +14,78 @@ export type PlatformMode = {
 
 const PLATFORM_SETTING_ID = 'global';
 const CACHE_TTL_MS = 5_000;
+export const PLATFORM_INVALIDATION_CHANNEL = 'intact:platform:invalidate:v1';
 
 let cachedMode: PlatformMode | null = null;
 let cacheExpiresAt = 0;
 let pendingMode: Promise<PlatformMode> | null = null;
+let invalidationSubscription: Promise<void> | null = null;
+let invalidationSubscribed = false;
+
+export function platformModeVersion(mode: Pick<PlatformMode, 'bSideEpoch' | 'updatedAt'>) {
+  return `${mode.bSideEpoch}:${mode.updatedAt.getTime()}`;
+}
+
+function ensureInvalidationSubscription() {
+  if (invalidationSubscribed || invalidationSubscription || !process.env.REDIS_URL) return;
+  invalidationSubscription = subscribeRedis(PLATFORM_INVALIDATION_CHANNEL, (raw) => {
+    try {
+      const message = JSON.parse(raw) as { version?: unknown };
+      if (typeof message.version !== 'string') return;
+      if (!cachedMode || platformModeVersion(cachedMode) !== message.version) {
+        cachedMode = null;
+        cacheExpiresAt = 0;
+      }
+    } catch {
+      // Ignore malformed invalidations; the short database cache remains authoritative.
+    }
+  }).then((unsubscribe) => {
+    invalidationSubscribed = Boolean(unsubscribe);
+  }).finally(() => {
+    invalidationSubscription = null;
+  });
+}
+
+export async function publishPlatformInvalidationMessage(message: {
+  version: string;
+  bSideEnabled: boolean;
+  maintenanceEnabled: boolean;
+}) {
+  const client = await getRedisClient();
+  if (!client) return false;
+  try {
+    return (await client.publish(PLATFORM_INVALIDATION_CHANNEL, JSON.stringify(message))) > 0;
+  } catch {
+    return false;
+  }
+}
+
+export async function publishPlatformModeInvalidation(
+  mode: Pick<PlatformMode, 'bSideEnabled' | 'bSideEpoch' | 'maintenanceEnabled' | 'updatedAt'>,
+) {
+  return publishPlatformInvalidationMessage({
+    version: platformModeVersion(mode),
+    bSideEnabled: mode.bSideEnabled,
+    maintenanceEnabled: mode.maintenanceEnabled,
+  });
+}
+
+/** Queue this beside the platform update when the admin route adopts the outbox. */
+export function queuePlatformModeInvalidation(tx: Prisma.TransactionClient, mode: PlatformMode) {
+  const version = platformModeVersion(mode);
+  return writeOutboxEvent(tx, {
+    eventType: 'platform.mode.changed',
+    aggregateType: 'PlatformSetting',
+    aggregateId: 'global',
+    dedupeKey: `platform:${version}`,
+    payload: {
+      version,
+      bSideEnabled: mode.bSideEnabled,
+      maintenanceEnabled: mode.maintenanceEnabled,
+      updatedAt: mode.updatedAt.toISOString(),
+    },
+  });
+}
 
 function normalizedMode(value: PlatformMode): PlatformMode {
   return {
@@ -26,6 +97,7 @@ function normalizedMode(value: PlatformMode): PlatformMode {
 }
 
 export async function getPlatformMode(options: { fresh?: boolean } = {}) {
+  ensureInvalidationSubscription();
   if (!options.fresh && cachedMode && Date.now() < cacheExpiresAt) return cachedMode;
   if (!options.fresh && pendingMode) return pendingMode;
 
@@ -50,6 +122,9 @@ export async function getPlatformMode(options: { fresh?: boolean } = {}) {
 export function primePlatformMode(mode: PlatformMode) {
   cachedMode = normalizedMode(mode);
   cacheExpiresAt = Date.now() + CACHE_TTL_MS;
+  if (process.env.OUTBOX_ENABLED !== 'true') {
+    void publishPlatformModeInvalidation(cachedMode);
+  }
 }
 
 /** Blocks non-admin traffic while maintenance mode is on. */
@@ -73,6 +148,32 @@ export function anonymousNickname(userId: string, epoch: number) {
     .slice(0, 8)
     .toUpperCase();
   return `#${digest}`;
+}
+
+type PlatformAliasWriter = {
+  platformAlias: {
+    createMany(args: Prisma.PlatformAliasCreateManyArgs): Promise<{ count: number }>;
+  };
+};
+
+export function platformAliasRows(userIds: readonly string[], epoch: number) {
+  return userIds.map((userId) => ({
+    epoch,
+    userId,
+    alias: anonymousNickname(userId, epoch),
+  }));
+}
+
+export function materializePlatformAliases(
+  client: PlatformAliasWriter,
+  epoch: number,
+  userIds: readonly string[],
+) {
+  if (!userIds.length) return Promise.resolve({ count: 0 });
+  return client.platformAlias.createMany({
+    data: platformAliasRows(userIds, epoch),
+    skipDuplicates: true,
+  });
 }
 
 function maskIdentityTree(value: unknown, viewerId: string, mode: PlatformMode): unknown {

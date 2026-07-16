@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { io } from 'socket.io-client';
 import { clearClientDataCache } from './ClientDataProvider';
 
 type PlatformModeSnapshot = {
@@ -72,12 +73,30 @@ export default function PlatformModeProvider({ children }: { children: ReactNode
 
   useEffect(() => {
     void refresh();
-    const interval = window.setInterval(() => void refresh(), 5_000);
     const onFocus = () => void refresh();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
     window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    const realtimeBase = (process.env.NEXT_PUBLIC_REALTIME_URL || window.location.origin).replace(/\/$/, '');
+    const socket = io(`${realtimeBase}/platform`, {
+      withCredentials: true,
+      transports: ['websocket', 'polling'],
+    });
+    socket.on('platform:invalidate', (message: { version?: unknown }) => {
+      if (typeof message?.version === 'string' && message.version !== currentRef.current?.version) {
+        void refresh();
+      }
+    });
+
     return () => {
-      window.clearInterval(interval);
+      socket.disconnect();
       window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [refresh]);
 

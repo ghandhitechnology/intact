@@ -4,6 +4,8 @@ import {
   ApiError,
   assertSameOrigin,
   enforceClientIpRateLimit,
+  enforceDistributedClientIpRateLimit,
+  enforceDistributedRateLimit,
   enforceRateLimit,
   json,
   jsonError,
@@ -28,6 +30,11 @@ export async function POST(request: Request) {
       limit: 30,
       windowMs: 15 * 60 * 1_000,
     });
+    await enforceDistributedClientIpRateLimit(request, 'student-invite-verify', {
+      limit: 30,
+      windowMs: 15 * 60 * 1_000,
+      failPolicy: 'closed',
+    });
     const body = await readJson<VerifyInviteBody>(request, 8_192);
     const code = requiredString(body.code, '초대 코드', { min: 20, max: 128 });
     const codeHash = hashToken(code);
@@ -35,6 +42,11 @@ export async function POST(request: Request) {
     enforceRateLimit(`student-invite-code:${codeHash}`, {
       limit: 5,
       windowMs: 15 * 60 * 1_000,
+    });
+    await enforceDistributedRateLimit(`student-invite-code:${codeHash}`, {
+      limit: 5,
+      windowMs: 15 * 60 * 1_000,
+      failPolicy: 'closed',
     });
 
     const session = purpose === 'REVERIFY' ? await resolveSession(request) : null;

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { igkLevelLabel } from '@/lib/igk-levels';
 import { cosmeticsFromItems } from '@/lib/igk-shop';
+import { apiClient, ApiClientError, onResourceInvalidated } from '@/lib/client/api-client';
+import { parseHomeData, type HomeData } from '@/lib/contracts/home';
 import { fetchWithTimeout } from '@/lib/client/request';
 import { clearClientDataCache, getCachedResource, setCachedResource } from '@/components/portal/ClientDataProvider';
 import { usePortalSession } from '@/components/portal/SessionProvider';
@@ -555,6 +557,21 @@ function mapHomePost(item: any, slug: PostSummary['board']): PostSummary {
   };
 }
 
+function mergeHomeData(previous: HomeData | null, next: HomeData): HomeData {
+  if (!previous) return next;
+  return {
+    ...next,
+    boards: next.sectionErrors.boards ? previous.boards : next.boards,
+    notices: next.sectionErrors.notices ? previous.notices : next.notices,
+    leaders: next.sectionErrors.leaders ? previous.leaders : next.leaders,
+    account: {
+      currentIgk: next.sectionErrors.balance ? previous.account.currentIgk : next.account.currentIgk,
+      jojolRank: next.sectionErrors.balance ? previous.account.jojolRank : next.account.jojolRank,
+      unreadCount: next.sectionErrors.notifications ? previous.account.unreadCount : next.account.unreadCount,
+    },
+  };
+}
+
 export default function HomePage() {
   const demoMode = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === 'true';
   const [boardItems, setBoardItems] = useState<BoardDefinition[]>(
@@ -565,31 +582,44 @@ export default function HomePage() {
   const [rankingItems, setRankingItems] = useState<RankingMember[]>(demoMode ? demoRanking : []);
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'partial' | 'error'>(demoMode ? 'ready' : 'loading');
   const [reloadKey, setReloadKey] = useState(0);
-  const [homePayload, setHomePayload] = useState<any>(null);
+  const [homePayload, setHomePayload] = useState<HomeData | null>(null);
   const [homeError, setHomeError] = useState<Error | null>(null);
   const [homeLoading, setHomeLoading] = useState(!demoMode);
+
+  useEffect(() => onResourceInvalidated('/api/home', () => {
+    setReloadKey((value) => value + 1);
+  }), []);
 
   useEffect(() => {
     if (demoMode) return undefined;
     let active = true;
     const controller = new AbortController();
-    const cached = getCachedResource<any>('/api/home', 90_000);
-    if (cached) {
-      setHomePayload(cached);
-      setHomeLoading(false);
+    const cachedValue = getCachedResource<unknown>('/api/home', 90_000);
+    if (cachedValue) {
+      try {
+        setHomePayload(parseHomeData(cachedValue));
+        setHomeLoading(false);
+      } catch {
+        // Ignore stale cache entries written before the home contract was introduced.
+      }
     }
     async function loadHome() {
       setHomeError(null);
       try {
-        const response = await fetchWithTimeout('/api/home', { cache: 'no-cache', signal: controller.signal });
-        const body = await response.json().catch(() => null);
-        if (!response.ok || !body) throw new Error('LOAD_FAILED');
-        const data = body.data ?? body;
+        const data = await apiClient.get('/api/home', parseHomeData, {
+          cache: 'no-cache',
+          signal: controller.signal,
+        });
         if (!active) return;
-        setHomePayload(data);
-        setCachedResource('/api/home', data);
+        setHomePayload((previous) => {
+          const merged = mergeHomeData(previous, data);
+          setCachedResource('/api/home', merged);
+          return merged;
+        });
       } catch (cause) {
-        if (active) setHomeError(cause instanceof Error ? cause : new Error('LOAD_FAILED'));
+        if (active && !(cause instanceof ApiClientError && cause.kind === 'aborted')) {
+          setHomeError(cause instanceof Error ? cause : new Error('LOAD_FAILED'));
+        }
       } finally {
         if (active) setHomeLoading(false);
       }
@@ -607,7 +637,7 @@ export default function HomePage() {
           const apiBoards = homePayload.boards || [];
           const nextPosts: PostSummary[] = [];
           const nextBoards = boards.map((definition) => {
-            const board = apiBoards.find((item: any) => item.slug === definition.slug);
+            const board: any = apiBoards.find((item: any) => item.slug === definition.slug);
             if (!board) return { ...definition, postCount: 0, todayCount: 0 };
             const mapped: PostSummary[] = Array.isArray(board.posts) ? board.posts.map((item: any) => mapHomePost(item, definition.slug)) : [];
             nextPosts.push(...mapped);
@@ -645,7 +675,8 @@ export default function HomePage() {
             igk: Number(leader.currentIgk || 0),
             change: 0,
           })));
-    setLoadState('ready');
+    const hasSectionErrors = Object.keys(homePayload.sectionErrors).length > 0;
+    setLoadState(homeError || hasSectionErrors ? 'partial' : 'ready');
     return undefined;
   }, [demoMode, homeError, homePayload, reloadKey]);
 

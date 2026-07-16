@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { recommendationLockKeys } from '@/lib/server/domain/concurrency';
 import { awardIgk, reverseReward } from '@/lib/server/igk';
 import { lockResources } from '@/lib/server/locks';
 import {
@@ -11,6 +12,7 @@ import {
   readJson,
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
+import { createNotificationWithDelivery } from '@/lib/server/notifications';
 
 export const runtime = 'nodejs';
 
@@ -50,11 +52,10 @@ export async function POST(request: Request) {
     }
 
     const recommendation = await prisma.$transaction(async (tx) => {
-      await lockResources(tx, [
-        ...(target.postId ? [`post:${target.postId}`] : []),
-        ...(target.commentId ? [`comment:${target.commentId}`] : []),
-        ...(commentPostId ? [`post:${commentPostId}`] : []),
-      ]);
+      await lockResources(
+        tx,
+        recommendationLockKeys(session.user.id, target, commentPostId),
+      );
       let parentPostPublished = true;
       const entity: { id: string; authorId: string; status: string } | null = target.postId
         ? await tx.post.findUnique({
@@ -107,8 +108,7 @@ export async function POST(request: Request) {
         dailyCap: 50,
         note: '추천받은 콘텐츠 보상',
       });
-      await tx.notification.create({
-        data: {
+      await createNotificationWithDelivery(tx, {
           userId: entity.authorId,
           actorId: session.user.id,
           type: 'RECOMMENDATION',
@@ -119,7 +119,6 @@ export async function POST(request: Request) {
               ? `/post/${commentPostId}#comment-${target.commentId}`
               : undefined,
           metadata: { ...target, recommendationId: created.id },
-        },
       });
       return created;
     });
@@ -137,17 +136,19 @@ export async function DELETE(request: Request) {
     assertSameOrigin(request);
     const session = await requireUser(request);
     const target = targetFrom(await readJson<RecommendationBody>(request));
-    const recommendation = await prisma.recommendation.findFirst({
-      where: { userId: session.user.id, ...target },
-    });
-    if (!recommendation) {
-      throw new ApiError(404, 'RECOMMENDATION_NOT_FOUND', '추천 내역을 찾을 수 없습니다.');
-    }
-    const entity = target.postId
-      ? await prisma.post.findUnique({ where: { id: target.postId }, select: { authorId: true } })
-      : await prisma.comment.findUnique({ where: { id: target.commentId! }, select: { authorId: true } });
-
     await prisma.$transaction(async (tx) => {
+      await lockResources(tx, recommendationLockKeys(session.user.id, target));
+      const recommendation = await tx.recommendation.findFirst({
+        where: { userId: session.user.id, ...target },
+      });
+      if (!recommendation) return;
+
+      const entity = target.postId
+        ? await tx.post.findUnique({ where: { id: target.postId }, select: { authorId: true } })
+        : await tx.comment.findUnique({
+            where: { id: target.commentId! },
+            select: { authorId: true },
+          });
       await tx.recommendation.delete({ where: { id: recommendation.id } });
       if (target.postId) {
         await tx.post.update({

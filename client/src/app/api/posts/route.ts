@@ -1,10 +1,22 @@
 import type { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
+import { bindEligibleAttachments } from '@/lib/server/attachment-state';
 import { isPhotoMimeType, parseAttachmentIds, postListSelect, sanitizePostMetadata } from '@/lib/server/content';
+import {
+  cursorBoolean,
+  cursorDate,
+  cursorNumber,
+  cursorScope,
+  cursorString,
+  decodeCursor,
+  encodeCursor,
+  type CursorScalar,
+} from '@/lib/server/cursor';
 import { awardIgk } from '@/lib/server/igk';
 import {
   ApiError,
   assertSameOrigin,
+  enforceDistributedRateLimit,
   enforceRateLimit,
   json,
   jsonError,
@@ -16,10 +28,69 @@ import {
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 import { getPlatformMode, maskPublicIdentities, maskPublicIdentitiesWithMode } from '@/lib/server/platform-mode';
+import { postVersionEtag } from '@/lib/server/post-version';
 import { getModerationMode, publicModerationStatus, queueModerationSubmission } from '@/lib/server/moderation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+type PostSort = 'latest' | 'recommended' | 'comments' | 'views';
+
+function normalizedPostSort(value: string | null): PostSort {
+  return value === 'recommended' || value === 'comments' || value === 'views'
+    ? value
+    : 'latest';
+}
+
+function postCursorWhere(sort: PostSort, position: CursorScalar[]): Prisma.PostWhereInput {
+  if (position.length !== 3) {
+    throw new ApiError(400, 'INVALID_CURSOR', '페이지 커서가 올바르지 않거나 만료되었습니다.');
+  }
+  const isPinned = cursorBoolean(position[0]!);
+  const id = cursorString(position[2]!);
+  const pinnedBoundary: Prisma.PostWhereInput[] = isPinned ? [{ isPinned: false }] : [];
+  if (sort === 'latest') {
+    const publishedAt = cursorDate(position[1]!);
+    return {
+      OR: [
+        ...pinnedBoundary,
+        { isPinned, publishedAt: { lt: publishedAt } },
+        { isPinned, publishedAt, id: { lt: id } },
+      ],
+    };
+  }
+  const value = cursorNumber(position[1]!);
+  const field = sort === 'recommended'
+    ? 'recommendationCount'
+    : sort === 'comments'
+      ? 'commentCount'
+      : 'viewCount';
+  return {
+    OR: [
+      ...pinnedBoundary,
+      { isPinned, [field]: { lt: value } },
+      { isPinned, [field]: value, id: { lt: id } },
+    ],
+  };
+}
+
+function postCursorPosition(post: {
+  id: string;
+  isPinned: boolean;
+  publishedAt: Date | null;
+  recommendationCount: number;
+  commentCount: number;
+  viewCount: number;
+}, sort: PostSort): CursorScalar[] {
+  const secondary = sort === 'recommended'
+    ? post.recommendationCount
+    : sort === 'comments'
+      ? post.commentCount
+      : sort === 'views'
+        ? post.viewCount
+        : post.publishedAt?.toISOString() ?? post.id;
+  return [post.isPinned, secondary, post.id];
+}
 
 export async function GET(request: Request) {
   try {
@@ -29,9 +100,14 @@ export async function GET(request: Request) {
     const { page, pageSize, skip } = parsePagination(url);
     const board = url.searchParams.get('board');
     const query = url.searchParams.get('q')?.trim().slice(0, 100);
-    const sort = url.searchParams.get('sort') ?? 'latest';
+    const sort = normalizedPostSort(url.searchParams.get('sort'));
     const filter = url.searchParams.get('filter') ?? 'all';
     const tag = url.searchParams.get('tag')?.trim().slice(0, 24);
+    const scope = cursorScope('posts', { board, query, sort, filter, tag });
+    const cursorToken = url.searchParams.get('cursor');
+    const cursorWhere = cursorToken
+      ? postCursorWhere(sort, decodeCursor(cursorToken, scope))
+      : null;
     const where: Prisma.PostWhereInput = {
       status: 'PUBLISHED',
       publishedAt: { lte: new Date() },
@@ -64,19 +140,30 @@ export async function GET(request: Request) {
           : sort === 'views'
             ? { viewCount: 'desc' }
             : { publishedAt: 'desc' };
-    const [posts, total] = await prisma.$transaction([
+    const [postRows, total] = await prisma.$transaction([
       prisma.post.findMany({
-        where,
+        where: cursorWhere ? { AND: [where, cursorWhere] } : where,
         orderBy: [{ isPinned: 'desc' }, secondary, { id: 'desc' }],
-        skip,
-        take: pageSize,
+        skip: cursorToken ? 0 : skip,
+        take: pageSize + 1,
         select: postListSelect,
       }),
       prisma.post.count({ where }),
     ]);
+    const hasMore = postRows.length > pageSize;
+    const posts = postRows.slice(0, pageSize);
+    const lastPost = posts.at(-1);
+    const nextCursor = hasMore && lastPost
+      ? encodeCursor(scope, postCursorPosition(lastPost, sort))
+      : null;
     return json({
       posts: maskPublicIdentitiesWithMode(posts, session.user.id, platformMode),
-      pagination: paginationMeta(page, pageSize, total),
+      pagination: {
+        ...paginationMeta(page, pageSize, total),
+        cursor: cursorToken,
+        nextCursor,
+        hasMore,
+      },
     });
   } catch (error) {
     return jsonError(error);
@@ -101,6 +188,11 @@ export async function POST(request: Request) {
     enforceRateLimit(`post-create:${session.user.id}`, {
       limit: 20,
       windowMs: 60 * 60 * 1_000,
+    });
+    await enforceDistributedRateLimit(`post-create:${session.user.id}`, {
+      limit: 20,
+      windowMs: 60 * 60 * 1_000,
+      failPolicy: 'open',
     });
     const body = await readJson<PostBody>(request, 128 * 1024);
     const boardIdentifier = requiredString(body.board ?? body.boardId, '게시판', { max: 64 });
@@ -167,7 +259,7 @@ export async function POST(request: Request) {
           metadata,
           publishedAt: status === 'PUBLISHED' ? new Date() : null,
         },
-        select: postListSelect,
+        select: { ...postListSelect, version: true },
       });
       if (attachmentIds.length) {
         const pendingAttachments = await tx.attachment.findMany({
@@ -185,18 +277,11 @@ export async function POST(request: Request) {
         if (photoPost && pendingAttachments.some((attachment) => !isPhotoMimeType(attachment.mimeType))) {
           throw new ApiError(400, 'IMAGES_ONLY', '사진게시판에는 이미지만 올릴 수 있어요.');
         }
-        const attached = await tx.attachment.updateMany({
-          where: {
-            id: { in: attachmentIds },
-            uploaderId: session.user.id,
-            postId: null,
-            messageId: null,
-          },
-          data: { postId: created.id },
+        await bindEligibleAttachments(tx, {
+          attachmentIds,
+          uploaderId: session.user.id,
+          binding: { postId: created.id },
         });
-        if (attached.count !== attachmentIds.length) {
-          throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않아요. 파일을 다시 선택해 주세요.');
-        }
       }
       let moderation = null;
       if (requestedStatus === 'PUBLISHED' && moderationMode !== 'OFF') {
@@ -234,7 +319,9 @@ export async function POST(request: Request) {
       moderation: result.moderation
         ? { ...publicModerationStatus(result.moderation), enforced: moderationMode === 'ENFORCE' }
         : null,
-    }, result.moderation ? 202 : 201);
+    }, result.moderation ? 202 : 201, {
+      ETag: postVersionEtag(result.post),
+    });
   } catch (error) {
     return jsonError(error);
   }

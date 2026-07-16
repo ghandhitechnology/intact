@@ -3,6 +3,7 @@ import { hashPassword, verifyPassword } from '@/lib/server/crypto';
 import {
   ApiError,
   assertSameOrigin,
+  enforceDistributedRateLimit,
   enforceRateLimit,
   json,
   jsonError,
@@ -25,6 +26,11 @@ export async function PATCH(request: Request) {
     enforceRateLimit(`password-change:${session.user.id}`, {
       limit: 10,
       windowMs: 60 * 60 * 1_000,
+    });
+    await enforceDistributedRateLimit(`password-change:${session.user.id}`, {
+      limit: 10,
+      windowMs: 60 * 60 * 1_000,
+      failPolicy: 'closed',
     });
     const body = await readJson<PasswordBody>(request, 8_192);
     const currentPassword = requiredString(body.currentPassword, '현재 비밀번호', {

@@ -1,4 +1,9 @@
+import { REQUEST_ID_HEADER, requestId } from '@/lib/request-id';
+import { logStructuredError } from '@/lib/server/observability';
+import { consumeRedisTokenBucket, type RateLimitFailPolicy } from '@/lib/server/rate-limit-redis';
 import type { ApiFailure, ApiSuccess, PaginationMeta } from '@/types/api';
+
+export { requestId } from '@/lib/request-id';
 
 export class ApiError extends Error {
   constructor(
@@ -17,6 +22,15 @@ const JSON_HEADERS = {
   'Cache-Control': 'no-store',
 };
 
+function jsonHeaders(headers?: HeadersInit, id = requestId()) {
+  const result = new Headers(headers);
+  for (const [name, value] of Object.entries(JSON_HEADERS)) {
+    if (!result.has(name)) result.set(name, value);
+  }
+  result.set(REQUEST_ID_HEADER, requestId(result.get(REQUEST_ID_HEADER) ?? id));
+  return result;
+}
+
 export function json<T>(data: T, status = 200, headers?: HeadersInit) {
   const body: ApiSuccess<T> = { ok: true, data };
   return new Response(
@@ -24,13 +38,13 @@ export function json<T>(data: T, status = 200, headers?: HeadersInit) {
       typeof value === 'bigint' ? value.toString() : value,
     ),
     {
-    status,
-    headers: { ...JSON_HEADERS, ...headers },
+      status,
+      headers: jsonHeaders(headers),
     },
   );
 }
 
-export function jsonError(error: unknown) {
+export function jsonError(error: unknown, suppliedRequestId?: string | null) {
   if (
     typeof error === 'object' &&
     error !== null &&
@@ -54,14 +68,12 @@ export function jsonError(error: unknown) {
     },
   };
 
-  if (!isApiError) {
-    // Never include request bodies, credentials, or raw upstream responses.
-    console.error('[api] unhandled error', error);
-  }
+  const id = requestId(suppliedRequestId);
+  if (!isApiError) logStructuredError('api.unhandled_error', error, { requestId: id });
 
-  const headers: Record<string, string> = { ...JSON_HEADERS };
+  const headers = jsonHeaders(undefined, id);
   if (
-    status === 429 &&
+    (status === 429 || (status === 503 && isApiError && error.code === 'RATE_LIMIT_UNAVAILABLE')) &&
     isApiError &&
     typeof error.details === 'object' &&
     error.details !== null &&
@@ -69,7 +81,7 @@ export function jsonError(error: unknown) {
   ) {
     const retryAfter = Number((error.details as { retryAfter?: unknown }).retryAfter);
     if (Number.isFinite(retryAfter) && retryAfter > 0) {
-      headers['Retry-After'] = String(Math.ceil(retryAfter));
+      headers.set('Retry-After', String(Math.ceil(retryAfter)));
     }
   }
 
@@ -209,6 +221,16 @@ export function enforceClientIpRateLimit(
   enforceRateLimit(`${prefix}:${ip}`, options);
 }
 
+export async function enforceDistributedClientIpRateLimit(
+  request: Request,
+  prefix: string,
+  options: { limit: number; windowMs: number; failPolicy: RateLimitFailPolicy },
+) {
+  const ip = getClientIp(request);
+  if (ip === 'direct-unproxied') return null;
+  return enforceDistributedRateLimit(`${prefix}:${ip}`, options);
+}
+
 export function assertSameOrigin(request: Request) {
   const origin = request.headers.get('origin');
   if (!origin) return;
@@ -275,6 +297,35 @@ export function enforceRateLimit(
     );
   }
 
+}
+
+export async function enforceDistributedRateLimit(
+  key: string,
+  options: { limit: number; windowMs: number; failPolicy: RateLimitFailPolicy },
+) {
+  if (!process.env.REDIS_URL && process.env.NODE_ENV !== 'production') return null;
+  const result = await consumeRedisTokenBucket({
+    key,
+    capacity: options.limit,
+    refillPerSecond: options.limit / (options.windowMs / 1_000),
+    failPolicy: options.failPolicy,
+  });
+  if (result.allowed) return result;
+  const retryAfter = Math.max(1, Math.ceil(result.retryAfterMs / 1_000));
+  if (result.source === 'fail-closed') {
+    throw new ApiError(
+      503,
+      'RATE_LIMIT_UNAVAILABLE',
+      '요청 보호 서비스를 확인하는 중입니다. 잠시 후 다시 시도해 주세요.',
+      { retryAfter },
+    );
+  }
+  throw new ApiError(
+    429,
+    'RATE_LIMITED',
+    `요청이 너무 많습니다. ${retryAfter}초 후 다시 시도해 주세요.`,
+    { retryAfter },
+  );
 }
 
 export function isUniqueConstraintError(error: unknown) {

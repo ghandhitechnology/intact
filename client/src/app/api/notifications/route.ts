@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import {
   assertSameOrigin,
@@ -7,6 +8,11 @@ import {
   parsePagination,
   readJson,
 } from '@/lib/server/http';
+import {
+  decodeNotificationCursor,
+  encodeNotificationCursor,
+  notificationCursorWhere,
+} from '@/lib/server/notifications';
 import { requireUser } from '@/lib/server/session';
 import { getPlatformMode, maskPublicIdentitiesWithMode } from '@/lib/server/platform-mode';
 
@@ -19,27 +25,41 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const { page, pageSize, skip } = parsePagination(url, 100);
     const unreadOnly = url.searchParams.get('unread') === 'true';
-    const where = { userId: session.user.id, ...(unreadOnly ? { readAt: null } : {}) };
-    const [notifications, total, unreadCount] = await prisma.$transaction([
+    const cursor = decodeNotificationCursor(url.searchParams.get('cursor'));
+    const baseWhere: Prisma.NotificationWhereInput = {
+      userId: session.user.id,
+      ...(unreadOnly ? { readAt: null } : {}),
+    };
+    const where: Prisma.NotificationWhereInput = cursor
+      ? { AND: [baseWhere, notificationCursorWhere(cursor)] }
+      : baseWhere;
+    const [rows, total, unreadCount] = await prisma.$transaction([
       prisma.notification.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: pageSize,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: cursor ? undefined : skip,
+        take: pageSize + 1,
         include: {
           actor: {
             select: {
               id: true,
-              nickname: true, realName: true,
+              nickname: true,
+              realName: true,
               profileImage: true,
               studentIdentity: { select: { studentCode: true } },
             },
           },
         },
       }),
-      prisma.notification.count({ where }),
+      prisma.notification.count({ where: baseWhere }),
       prisma.notification.count({ where: { userId: session.user.id, readAt: null } }),
     ]);
+    const hasMore = rows.length > pageSize;
+    const notifications = rows.slice(0, pageSize);
+    const last = notifications.at(-1);
+    const nextCursor = hasMore && last
+      ? encodeNotificationCursor({ createdAt: last.createdAt, id: last.id })
+      : null;
     const platformMode = await getPlatformMode();
     const safeNotifications = maskPublicIdentitiesWithMode(
       notifications.map((notification) => {
@@ -66,6 +86,7 @@ export async function GET(request: Request) {
       notifications: safeNotifications,
       unreadCount,
       pagination: paginationMeta(page, pageSize, total),
+      cursor: { nextCursor, hasMore },
     });
   } catch (error) {
     return jsonError(error);

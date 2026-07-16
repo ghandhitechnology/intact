@@ -4,6 +4,8 @@ import {
   ApiError,
   assertSameOrigin,
   enforceClientIpRateLimit,
+  enforceDistributedClientIpRateLimit,
+  enforceDistributedRateLimit,
   enforceRateLimit,
   json,
   jsonError,
@@ -22,11 +24,21 @@ export async function POST(request: Request) {
       limit: 30,
       windowMs: 15 * 60 * 1_000,
     });
+    await enforceDistributedClientIpRateLimit(request, 'riro-reset', {
+      limit: 30,
+      windowMs: 15 * 60 * 1_000,
+      failPolicy: 'closed',
+    });
     const body = await readJson<{ id?: unknown; password?: unknown }>(request, 8_192);
     const id = requiredString(body.id, '리로스쿨 아이디', { min: 2, max: 32 });
     enforceRateLimit(`riro-reset-account:${privateFingerprint(id)}`, {
       limit: 5,
       windowMs: 15 * 60 * 1_000,
+    });
+    await enforceDistributedRateLimit(`riro-reset-account:${privateFingerprint(id)}`, {
+      limit: 5,
+      windowMs: 15 * 60 * 1_000,
+      failPolicy: 'closed',
     });
     const password = requiredString(body.password, '리로스쿨 비밀번호', {
       min: 1,
