@@ -93,7 +93,7 @@ Caddy는 `/socket.io/*`만 `realtime:3001`로 보내고 나머지는 `web:3000`�
 
 - Node.js 22
 - Corepack 및 Yarn 1.22.22
-- Python 3.11 또는 3.12 (리로스쿨 브리지 검증, 필요하면 `PYTHON_BIN` 지정)
+- Python 3.10 이상 (리로스쿨 브리지 검증, 필요하면 `PYTHON_BIN` 지정)
 - Docker Engine/Compose 또는 별도 PostgreSQL 16, Redis, MinIO
 - Prisma CLI는 `client`의 dev dependency 사용
 

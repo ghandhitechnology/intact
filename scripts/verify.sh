@@ -26,7 +26,11 @@ fi
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
-  printf 'error: Python 3.11 or 3.12 is required for the Riro bridge checks. Set PYTHON_BIN when it is not on PATH.\n' >&2
+  printf 'error: Python 3.10 or newer is required for the Riro bridge checks. Set PYTHON_BIN when it is not on PATH.\n' >&2
+  exit 1
+fi
+if ! "$PYTHON_BIN" -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'; then
+  printf 'error: Python 3.10 or newer is required for the Riro bridge checks.\n' >&2
   exit 1
 fi
 

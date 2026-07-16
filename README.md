@@ -71,7 +71,7 @@
 
 - Node.js 22
 - Corepack/Yarn 1.22.22
-- Python 3.11 또는 3.12 (리로스쿨 브리지 검증)
+- Python 3.10 이상 (리로스쿨 브리지 검증; 운영 이미지는 3.11)
 - Docker Engine과 Docker Compose v2
 
 ### 전체 스택
