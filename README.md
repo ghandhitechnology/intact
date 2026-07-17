@@ -15,7 +15,7 @@
 
 - 질문·대회 모집·자료·자유·사진·공지 게시판
 - 게시글 임시저장, 수정 이력, 댓글·답글, 추천, 북마크, 통합 검색
-- private MinIO 기반 첨부 파일 업로드, 검정 배경 전용 미리보기와 원본 다운로드
+- private MinIO 기반 첨부 파일 업로드, 자료공유 게시판의 500MB 멀티파트 전송·자동 재시도, 검정 배경 전용 미리보기와 원본 다운로드
 - 제목과 최대 12장의 이미지만으로 작성하는 사진게시판, 묶음형 갤러리와 검정 배경 전체화면 미리보기
 - 1:1·그룹 메시지, Socket.IO 실시간 수신, 읽음 상태, 이전 대화 불러오기
 - 게시글·메시지 단위로 묶이는 알림과 Web Push 기반 PWA
@@ -49,7 +49,7 @@
 ├── server/chat/             Socket.IO realtime gateway
 ├── deploy/                  Production backup script and systemd units
 ├── design/                  Archived prototypes; not loaded in production
-├── Caddyfile                HTTPS and /socket.io reverse proxy
+├── Caddyfile                HTTPS, signed object transfer and /socket.io proxy
 ├── docker-compose.yml       Complete production stack
 ├── ARCHITECTURE.md          Runtime boundaries and data flows
 ├── FAST_DEPLOY.md           Fast production deployment and error lookup
@@ -64,6 +64,7 @@
 - 카드, 버튼, 입력창, 모달은 둥근 모서리와 부유하는 그림자를 사용하지 않습니다.
 - 별도 설명 상자와 홍보성 패널을 반복하지 않고 필요한 문장은 제목이나 입력 항목 가까이에 짧게 둡니다.
 - 첨부 파일 미리보기는 콘텐츠에 집중할 수 있도록 검정 배경의 전용 화면을 사용합니다.
+- 자료공유 파일은 브라우저에서 MinIO로 8MB 단위 병렬 전송하고, 서버에서 스트리밍 악성코드 검사 후 공개 저장소로 승격합니다. 자료 파일은 500MB까지이며 안전한 재인코딩이 필요한 이미지는 20MB까지입니다.
 
 ## 빠른 로컬 실행
 

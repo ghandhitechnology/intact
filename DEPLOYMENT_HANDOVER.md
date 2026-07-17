@@ -55,7 +55,7 @@ intact/
 ├── client/prisma/           PostgreSQL 스키마와 순차 migration
 ├── server/chat/             Socket.IO 실시간 게이트웨이
 ├── deploy/                  백업 스크립트와 systemd unit
-├── Caddyfile                HTTPS와 /socket.io 프록시
+├── Caddyfile                HTTPS, 서명 object 전송과 /socket.io 프록시
 ├── docker-compose.yml       운영 서비스 정의
 ├── .env.example             운영 환경변수 템플릿
 ├── FAST_DEPLOY.md           반복 배포와 증상별 최단 복구
@@ -74,6 +74,8 @@ intact/
 | `redis` | 실시간 fan-out, 세션성/속도 제한 데이터 | `redis_data` |
 | `minio` | 비공개 첨부 파일 저장 | `object_data` |
 | `minio-init` | bucket 생성 및 public access 차단 | 일회 실행 |
+| `attachment-worker` | 격리 파일 스트리밍 검사·승격·미완료 upload 정리 | PostgreSQL/MinIO 사용 |
+| `clamav` | 첨부 악성코드 검사 | `clamav_data` |
 
 현재 운영 볼륨의 정확한 이름:
 
@@ -85,7 +87,7 @@ igwak-portal_postgres_data
 igwak-portal_redis_data
 ```
 
-Caddy는 `/socket.io/*`만 `realtime:3001`로 보내고 나머지는 `web:3000`으로 보냅니다. Web, realtime, MinIO 콘솔 포트는 localhost에만 바인딩되며 인터넷에 직접 노출하면 안 됩니다.
+Caddy는 `/socket.io/*`를 `realtime:3001`로, 서명된 `/<S3_BUCKET>/*` GET/HEAD/PUT을 `minio:9000`으로, 나머지를 `web:3000`으로 보냅니다. MinIO bucket은 계속 private이고 Web이 발급한 짧은 SigV4 URL만 통과합니다. Web, realtime, MinIO 콘솔 포트는 localhost에만 바인딩되며 인터넷에 직접 노출하면 안 됩니다.
 
 같은 Caddy 컨테이너가 `raufriend.online`도 Tailscale Mac mini로 프록시합니다. Caddy를 재생성할 때 해당 블록을 제거하지 말고, 배포 전후 두 도메인의 HTTP 200을 함께 확인합니다.
 
@@ -419,7 +421,7 @@ curl -sS -i https://ishsoutside.com/api/auth/login \
 로그인된 staging/test 계정으로 추가 확인:
 
 - 글 작성·임시저장·수정·삭제
-- 20MB 이하 파일 업로드, 게시글 연결, 다운로드, 삭제
+- 일반 20MB 이하 파일과 자료공유 500MB multipart 파일의 업로드, 안전 검사, 게시글 연결, Range 다운로드, 삭제
 - 다른 로그인 사용자로 이미지 inline 미리보기와 `?download=1` 원본 다운로드
 - 사진게시판에 여러 이미지 게시, 묶음 펼치기와 전체화면 미리보기
 - 메시지 방 전환, 100개 최근 내역, 이전 내역 로딩, 자동 스크롤, 읽음 상태
@@ -543,7 +545,7 @@ docker system df
 
 - `web` unhealthy: DB 연결, migration 실패, 잘못된 env, Next 런타임 예외
 - 브라우저는 열리나 채팅 불가: `NEXT_PUBLIC_REALTIME_URL`, `/socket.io/*` 프록시, realtime 내부 secret 확인
-- 첨부 실패: MinIO health, private bucket, S3 key, 20MB 제한 확인
+- 첨부 실패: MinIO/ClamAV/attachment-worker health, private bucket, S3 key, Caddy 서명 object route, 일반 20MB·자료 500MB 제한 확인
 - Prisma UUID 오류: board slug를 UUID field에 직접 조회하지 않았는지 확인
 - advisory lock 오류: 결과 row가 필요 없는 PostgreSQL lock은 Prisma `$executeRaw` 사용
 - 새 공개 env가 반영되지 않음: `NEXT_PUBLIC_*` 변경 후 Web 이미지 재빌드

@@ -17,6 +17,7 @@
     "test": "tsx --test tests/*.test.ts",
     "test:moderation": "tsx --test tests/moderation.test.ts",
     "test:riro": "tsx --test tests/riro.test.ts",
+    "smoke:resource-upload": "tsx scripts/resource-upload-smoke.ts",
     "platform-aliases:backfill": "tsx scripts/platform-alias-backfill.ts",
     "verify": "bash ../scripts/verify.sh",
     "push": "prisma db push",

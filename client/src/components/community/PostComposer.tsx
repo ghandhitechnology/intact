@@ -35,6 +35,13 @@ import {
 } from "./demo-data";
 import { usePlatformMode } from "@/components/portal/PlatformModeProvider";
 import SafeMarkdown from "./SafeMarkdown";
+import {
+  RESOURCE_FILE_MAX_BYTES,
+  RESOURCE_IMAGE_MAX_BYTES,
+  uploadResourceFile,
+  waitForAttachmentReady,
+  type ResourceUploadProgress,
+} from "@/lib/client/resource-upload";
 
 type EditorMode = "write" | "preview";
 
@@ -47,6 +54,8 @@ type ComposerAttachment = {
   previewUrl?: string;
   id?: string;
   uploading?: boolean;
+  uploadPhase?: ResourceUploadProgress["phase"];
+  uploadPercent?: number;
 };
 
 type LocalDraft = {
@@ -164,6 +173,7 @@ export default function PostComposer({
   const serverSavedFingerprintRef = useRef<string | null>(null);
   const board = getBoard(selectedSlug) ?? initialBoard;
   const photoMode = selectedSlug === "photos";
+  const resourceMode = selectedSlug === "resources";
   const attachmentLimit = photoMode ? 12 : 5;
 
   useEffect(() => {
@@ -414,8 +424,16 @@ export default function PostComposer({
       return;
     }
     const accepted = incoming.slice(0, available).filter((file) => {
-      if (file.size > 20 * 1024 * 1024) {
-        setSubmitError(`${file.name}: 20MB보다 커서 못 올려요.`);
+      const image = file.type.toLowerCase().startsWith("image/");
+      const maxBytes = resourceMode && !image
+        ? RESOURCE_FILE_MAX_BYTES
+        : RESOURCE_IMAGE_MAX_BYTES;
+      if (file.size > maxBytes) {
+        setSubmitError(
+          resourceMode && image
+            ? `${file.name}: 이미지는 20MB까지, 그 밖의 자료 파일은 500MB까지 가능해요.`
+            : `${file.name}: ${resourceMode ? "500MB" : "20MB"}보다 커서 못 올려요.`,
+        );
         return false;
       }
       if (photoMode && !PHOTO_MIME_TYPES.has(file.type.toLowerCase())) {
@@ -441,27 +459,79 @@ export default function PostComposer({
     const next = [...attachments];
     for (let index = 0; index < next.length; index += 1) {
       const item = next[index];
-      if (!item || item.id) continue;
-      if (!item.file)
+      if (!item) continue;
+      if (!item.id && !item.file)
         throw new Error(`${item.name} 파일을 다시 선택해 주세요.`);
-      next[index] = { ...item, uploading: true };
-      setAttachments([...next]);
-      const form = new FormData();
-      form.append("file", item.file);
-      const response = await fetch("/api/uploads", {
-        method: "POST",
-        body: form,
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok || !body?.data?.attachment?.id) {
-        next[index] = { ...item, uploading: false };
+      const showProgress = (progress: ResourceUploadProgress) => {
+        next[index] = {
+          ...(next[index] ?? item),
+          uploading: true,
+          uploadPhase: progress.phase,
+          uploadPercent: progress.percent,
+        };
         setAttachments([...next]);
-        throw new Error(
-          body?.error?.message || `${item.name} 업로드에 실패했어요.`,
-        );
-      }
-      next[index] = { ...item, id: body.data.attachment.id, uploading: false };
+      };
+      next[index] = {
+        ...item,
+        uploading: true,
+        uploadPhase: item.id ? "scanning" : "uploading",
+        uploadPercent: item.id ? 100 : 0,
+      };
       setAttachments([...next]);
+      let attachmentId = item.id;
+      try {
+        if (!resourceMode && item.file && item.file.size > RESOURCE_IMAGE_MAX_BYTES) {
+          throw new Error(`${item.name}: 20MB를 넘는 파일은 자료공유 게시판에만 올릴 수 있어요.`);
+        }
+        if (!attachmentId && resourceMode) {
+          if (!item.file) throw new Error(`${item.name} 파일을 다시 선택해 주세요.`);
+          const uploaded = await uploadResourceFile(item.file, {
+            onProgress: showProgress,
+          });
+          attachmentId = uploaded.id;
+        } else if (!attachmentId) {
+          if (!item.file) throw new Error(`${item.name} 파일을 다시 선택해 주세요.`);
+          const form = new FormData();
+          form.append("file", item.file);
+          const response = await fetch("/api/uploads", {
+            method: "POST",
+            body: form,
+          });
+          const body = await response.json().catch(() => null);
+          if (!response.ok || !body?.data?.attachment?.id) {
+            throw new Error(
+              body?.error?.message || `${item.name} 업로드에 실패했어요.`,
+            );
+          }
+          attachmentId = String(body.data.attachment.id);
+        }
+        next[index] = {
+          ...item,
+          id: attachmentId,
+          uploading: true,
+          uploadPhase: "scanning",
+          uploadPercent: 100,
+        };
+        setAttachments([...next]);
+        await waitForAttachmentReady(attachmentId, { onProgress: showProgress });
+        next[index] = {
+          ...item,
+          id: attachmentId,
+          uploading: false,
+          uploadPhase: undefined,
+          uploadPercent: 100,
+        };
+        setAttachments([...next]);
+      } catch (error) {
+        next[index] = {
+          ...item,
+          ...(attachmentId ? { id: attachmentId } : {}),
+          uploading: false,
+          uploadPhase: undefined,
+        };
+        setAttachments([...next]);
+        throw error;
+      }
     }
     return next.flatMap((item) => (item.id ? [item.id] : []));
   }
@@ -865,7 +935,9 @@ export default function PostComposer({
                   <span className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-700">
                     <span>{photoMode ? "사진" : "첨부 파일"}</span>
                     <span className="font-normal text-slate-400">
-                      최대 {attachmentLimit}개 · 각 20MB
+                      {resourceMode
+                        ? `최대 ${attachmentLimit}개 · 일반 자료 각 500MB · 이미지 각 20MB`
+                        : `최대 ${attachmentLimit}개 · 각 20MB`}
                     </span>
                   </span>
                   <label className={cx(
@@ -905,14 +977,14 @@ export default function PostComposer({
                               />
                               <div className="flex items-center gap-2 p-2">
                                 <span className="min-w-0 flex-1 truncate font-bold text-slate-700">{item.name}</span>
-                                <span className="shrink-0 text-slate-400">{item.uploading ? "올리는 중…" : item.id ? "저장됨" : `${(item.size / 1_048_576).toFixed(1)}MB`}</span>
+                                <span className="shrink-0 text-slate-400">{item.uploading ? (item.uploadPhase === "scanning" ? "안전 검사 중…" : `전송 ${item.uploadPercent ?? 0}%`) : item.id ? "저장됨" : `${(item.size / 1_048_576).toFixed(1)}MB`}</span>
                               </div>
                             </>
                           ) : (
                             <>
                               <Paperclip className="h-3.5 w-3.5 shrink-0 text-blue-600" />
                               <span className="min-w-0 flex-1 truncate font-bold text-slate-700">{item.name}</span>
-                              <span className="shrink-0 text-slate-400">{item.uploading ? "올리는 중…" : item.id ? "저장됨" : `${(item.size / 1024 / 1024).toFixed(1)}MB`}</span>
+                              <span className="shrink-0 text-slate-400">{item.uploading ? (item.uploadPhase === "scanning" ? "안전 검사 중…" : `전송 ${item.uploadPercent ?? 0}%`) : item.id ? "저장됨" : `${(item.size / 1024 / 1024).toFixed(1)}MB`}</span>
                             </>
                           )}
                           {!item.uploading ? (

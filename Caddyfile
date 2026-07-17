@@ -5,12 +5,37 @@ www.ishsoutside.com {
 ishsoutside.com {
 	encode zstd gzip
 
-	@realtime path /socket.io/*
-	reverse_proxy @realtime realtime:3001 {
-		header_up X-Real-IP {remote_host}
+	@object_storage {
+		path /{$S3_BUCKET:igwak-uploads}/*
+		method GET HEAD PUT
 	}
-	reverse_proxy web:3000 {
-		header_up X-Real-IP {remote_host}
+	handle @object_storage {
+		# Browser uploads are split into 8 MiB signed parts. Capping each
+		# request prevents a signed URL from becoming an unbounded body path.
+		request_body {
+			max_size 10MB
+		}
+		header {
+			X-Content-Type-Options "nosniff"
+			Referrer-Policy "no-referrer"
+			Cache-Control "private, no-store"
+		}
+		reverse_proxy minio:9000 {
+			# SigV4 signs the public host; preserve it across the private hop.
+			header_up Host {host}
+		}
+	}
+
+	@realtime path /socket.io/*
+	handle @realtime {
+		reverse_proxy realtime:3001 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+	handle {
+		reverse_proxy web:3000 {
+			header_up X-Real-IP {remote_host}
+		}
 	}
 
 	header {

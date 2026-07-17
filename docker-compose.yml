@@ -4,6 +4,8 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    environment:
+      S3_BUCKET: ${S3_BUCKET:-igwak-uploads}
     ports:
       - "80:80"
       - "443:443"
@@ -17,6 +19,8 @@ services:
         condition: service_healthy
       realtime:
         condition: service_started
+      minio:
+        condition: service_healthy
 
   web:
     build:
@@ -137,10 +141,11 @@ services:
       S3_REGION: ${S3_REGION:-auto}
       CLAMAV_HOST: clamav
       CLAMAV_PORT: 3310
-      CLAMAV_TIMEOUT_MS: ${CLAMAV_TIMEOUT_MS:-30000}
+      CLAMAV_TIMEOUT_MS: ${CLAMAV_TIMEOUT_MS:-600000}
       ATTACHMENT_POLL_MS: ${ATTACHMENT_POLL_MS:-1500}
       ATTACHMENT_LEASE_MS: ${ATTACHMENT_LEASE_MS:-300000}
       ATTACHMENT_MAX_ATTEMPTS: ${ATTACHMENT_MAX_ATTEMPTS:-3}
+      ATTACHMENT_UPLOAD_CLEANUP_MS: ${ATTACHMENT_UPLOAD_CLEANUP_MS:-900000}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -289,7 +294,9 @@ services:
     image: clamav/clamav:1.4.5
     restart: unless-stopped
     environment:
-      CLAMD_CONF_StreamMaxLength: 25M
+      CLAMD_CONF_StreamMaxLength: 550M
+      CLAMD_CONF_MaxScanSize: 550M
+      CLAMD_CONF_MaxFileSize: 550M
       CLAMD_STARTUP_TIMEOUT: 600
       FRESHCLAM_CHECKS: 24
     volumes:

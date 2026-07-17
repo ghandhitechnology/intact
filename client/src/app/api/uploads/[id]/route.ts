@@ -6,7 +6,8 @@ import {
   isLegacyReadableAttachment,
   isReadableAttachment,
 } from '@/lib/server/attachment-state';
-import { deleteObjects, getObject } from '@/lib/server/object-storage';
+import { parseMultipartUploadMetadata, publicStorageOrigin } from '@/lib/server/multipart-upload';
+import { abortMultipartUpload, deleteObjects, presignObjectRequest } from '@/lib/server/object-storage';
 import { ApiError, assertSameOrigin, json, jsonError } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 
@@ -78,17 +79,25 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       return new Response(null, { status: 304, headers: { ETag: etag } });
     }
 
-    const object = await getObject(
-      serveDerivative ? `${attachment.storageKey}.thumb-${requestedWidth}.webp` : attachment.storageKey,
-    );
+    const objectKey = serveDerivative
+      ? `${attachment.storageKey}.thumb-${requestedWidth}.webp`
+      : attachment.storageKey;
     const asciiName = attachment.originalName.replace(/[^A-Za-z0-9._-]/g, '_') || 'download';
     const inline = url.searchParams.get('download') !== '1' && INLINE_MIME_TYPES.has(attachment.mimeType);
-    return new Response(object.body, {
+    const contentType = serveDerivative ? 'image/webp' : attachment.mimeType || 'application/octet-stream';
+    const disposition = `${inline ? 'inline' : 'attachment'}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(attachment.originalName)}`;
+    const signedUrl = presignObjectRequest('GET', objectKey, publicStorageOrigin(request), {
+      expiresSeconds: 5 * 60,
+      query: {
+        'response-content-disposition': disposition,
+        'response-content-type': contentType,
+      },
+    });
+    return new Response(null, {
+      status: 307,
       headers: {
-        'Content-Type': serveDerivative ? 'image/webp' : attachment.mimeType || 'application/octet-stream',
-        ...(!serveDerivative ? { 'Content-Length': String(attachment.sizeBytes) } : {}),
-        'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(attachment.originalName)}`,
-        'Cache-Control': thumbnail ? 'private, max-age=86400, must-revalidate' : 'private, max-age=300, must-revalidate',
+        Location: signedUrl,
+        'Cache-Control': 'private, no-store',
         'Cross-Origin-Resource-Policy': 'same-origin',
         ETag: etag,
         'X-Content-Type-Options': 'nosniff',
@@ -107,7 +116,15 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     const attachment = await prisma.$transaction(async (tx) => {
       const current = await tx.attachment.findUnique({
         where: { id },
-        select: { id: true, uploaderId: true, storageKey: true, postId: true, messageId: true, scanStatus: true },
+        select: {
+          id: true,
+          uploaderId: true,
+          storageKey: true,
+          postId: true,
+          messageId: true,
+          scanStatus: true,
+          processingError: true,
+        },
       });
       if (!current || current.uploaderId !== session.user.id) {
         throw new ApiError(404, 'FILE_NOT_FOUND', '파일을 찾을 수 없어요.');
@@ -135,6 +152,10 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       return { ...current, scanStatus: ATTACHMENT_STATUS.DELETING };
     });
 
+    const multipart = parseMultipartUploadMetadata(attachment.processingError);
+    if (multipart) {
+      await abortMultipartUpload(attachment.storageKey, multipart.uploadId).catch(() => undefined);
+    }
     await deleteObjects(attachmentObjectKeys(attachment.storageKey));
     const deleted = await prisma.attachment.deleteMany({
       where: {

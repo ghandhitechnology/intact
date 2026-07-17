@@ -12,9 +12,11 @@ Browser / installed PWA
         ├── /socket.io/* ──► Realtime gateway ──► Redis
         │                           │
         │                           └── internal authorization/API
+        ├── signed /<bucket>/* ────────────────► private MinIO bucket
         └── all other paths ─► Next.js Web/API ──► PostgreSQL
                                       │
-                                      └──────────► private MinIO bucket
+                                      ├──────────► private MinIO bucket
+                                      └──────────► attachment worker ─► ClamAV
 ```
 
 - Caddy만 인터넷의 80/443 포트를 받습니다.
@@ -22,7 +24,7 @@ Browser / installed PWA
 - 브라우저가 사용하는 세션 cookie는 Web이 발급·검증합니다.
 - PostgreSQL이 사용자, 게시글, 메시지, 알림, IGK와 운영 기록의 기준 데이터입니다.
 - Redis는 realtime fan-out과 짧은 수명의 상태에 사용하며 영구 메시지 원본이 아닙니다.
-- MinIO object는 private이며 Web의 권한 검사를 통과한 API로만 접근합니다.
+- MinIO object는 private입니다. Web이 권한을 확인한 뒤 짧게 유효한 method/path-bound URL만 서명하며, Caddy는 해당 object path의 GET/HEAD/PUT만 MinIO로 전달합니다.
 
 ## 2. Web 애플리케이션
 
@@ -64,16 +66,17 @@ Route handler는 입력 크기와 타입, same-origin, rate limit, session scope
 첨부 흐름:
 
 1. 인증된 사용자가 업로드 API에 metadata를 제출합니다.
-2. Web이 권한과 파일 제한을 확인하고 private MinIO bucket에 object를 저장합니다.
-3. `Attachment`가 게시글과 연결됩니다.
-4. 다운로드 요청 때 Web이 session과 연결 권한을 다시 확인합니다.
-5. 게시글/첨부 삭제 시 DB와 object 정리가 함께 수행됩니다.
+2. 일반 첨부는 20MB까지 Web을 거쳐 격리 저장합니다. `resources` 자료 파일은 500MB까지 8MB multipart 조각으로 브라우저에서 MinIO에 직접 전송하며, 전송 조각은 병렬 처리·자동 재시도됩니다.
+3. attachment worker가 격리 object를 메모리에 합치지 않고 ClamAV로 스트리밍 검사하고 SHA-256/크기/MIME을 검증합니다. 이미지는 20MB 이하만 안전하게 재인코딩하고, 일반 자료는 MinIO 내부 copy로 clean 경로에 승격합니다.
+4. 검사가 `CLEAN`으로 끝난 파일만 `Attachment`가 게시글이나 메시지에 연결됩니다. 20MB 초과 또는 resource 전용 object는 `resources` 게시판 밖으로 연결할 수 없습니다.
+5. 다운로드 요청 때 Web이 session과 게시글/대화방 권한을 확인하고 5분짜리 서명 URL로 이동시킵니다. object body는 MinIO가 직접 전송하므로 Range/재개 다운로드가 가능합니다.
+6. 게시글/첨부 삭제 시 DB와 격리·clean object를 함께 정리하고, 24시간 동안 완료되지 않은 multipart upload는 worker가 회수합니다.
 
-게시글은 최대 5개, 각 20MB 첨부를 허용합니다. 현재 별도 악성 파일 스캔은 없으므로 사용자가 내려받은 파일을 실행하지 않도록 운영 안내가 필요합니다.
+게시글은 기본적으로 최대 5개, 각 20MB 첨부를 허용합니다. `resources`는 비이미지 자료를 파일당 500MB까지 허용하며, 이미지는 안전한 재인코딩 상한 때문에 20MB를 유지합니다. 모든 신규 첨부는 ClamAV 검사를 통과해야 게시물에 연결됩니다.
 
 게시된 글의 첨부는 모든 로그인 사용자가 열 수 있고, 메시지 첨부는 해당 대화방의 현재 참여자만 열 수 있습니다. 안전한 이미지·PDF·미디어 MIME은 기본적으로 브라우저에서 inline 표시하고 `?download=1`일 때 원본 다운로드를 강제합니다. HTML, SVG 등 실행 가능성이 있는 형식은 inline 표시하지 않습니다.
 
-MinIO 내부 요청은 30초 뒤 중단되어 object storage 장애가 Web 요청을 무기한 점유하지 않게 합니다. 미리보기는 `X-Frame-Options: SAMEORIGIN` 범위에서만 iframe 표시를 허용하며 외부 사이트의 framing은 차단합니다.
+MinIO 내부 요청의 연결/응답 헤더 대기는 30초 뒤 중단되어 object storage 장애가 Web 요청을 무기한 점유하지 않게 합니다. 대용량 body는 Web을 통과하지 않습니다. 미리보기는 `X-Frame-Options: SAMEORIGIN` 범위에서만 iframe 표시를 허용하며 외부 사이트의 framing은 차단합니다.
 
 `photos` 게시판은 같은 Post/Attachment 모델을 사용하지만 API에서 별도 불변 조건을 적용합니다. 본문과 태그는 저장하지 않고, 게시 시 JPG·PNG·GIF·WebP·AVIF 중 1~12장이 반드시 연결되어야 합니다. 클라이언트 MIME만 신뢰하지 않고 업로드 시 파일 signature를 확인합니다.
 

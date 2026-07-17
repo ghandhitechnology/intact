@@ -22,6 +22,7 @@ import {
   requestedPostVersion,
 } from '@/lib/server/post-version';
 import { getModerationMode, publicModerationStatus, queueModerationSubmission } from '@/lib/server/moderation';
+import { assertAttachmentAllowedOnBoard } from '@/lib/server/multipart-upload';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -296,7 +297,7 @@ export async function PATCH(
             messageId: null,
             OR: [{ postId: null }, { postId: current.id }],
           },
-          select: { id: true, mimeType: true, postId: true },
+          select: { id: true, mimeType: true, postId: true, storageKey: true, sizeBytes: true },
         });
         if (candidateAttachments.length !== candidateAttachmentIds.length) {
           throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않아요. 파일을 다시 선택해 주세요.');
@@ -308,6 +309,7 @@ export async function PATCH(
         )) {
           throw new ApiError(400, 'IMAGES_ONLY', '사진게시판에는 이미지를 1~12장 올릴 수 있어요.');
         }
+        assertAttachmentAllowedOnBoard(targetBoard.slug, candidateAttachments);
 
         let visiblePost;
         const isNewPost = current.status !== 'PUBLISHED';
@@ -383,7 +385,7 @@ export async function PATCH(
             messageId: null,
             OR: [{ postId: null }, { postId: current.id }],
           },
-          select: { id: true, mimeType: true, postId: true },
+          select: { id: true, mimeType: true, postId: true, storageKey: true, sizeBytes: true },
         });
         if (candidateAttachments.length !== attachmentIds.length) {
           throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않아요. 파일을 다시 선택해 주세요.');
@@ -391,6 +393,7 @@ export async function PATCH(
         if (photoPost && candidateAttachments.some((attachment) => !isPhotoMimeType(attachment.mimeType))) {
           throw new ApiError(400, 'IMAGES_ONLY', '사진게시판에는 이미지만 올릴 수 있어요.');
         }
+        assertAttachmentAllowedOnBoard(targetBoard.slug, candidateAttachments);
         const newAttachmentIds = candidateAttachments
           .filter((attachment) => attachment.postId === null)
           .map((attachment) => attachment.id);
@@ -412,6 +415,11 @@ export async function PATCH(
           throw new ApiError(400, 'PHOTO_REQUIRED', '사진을 한 장 이상 골라 주세요.');
         }
       }
+      const attachmentsForBoard = await tx.attachment.findMany({
+        where: { postId: current.id },
+        select: { storageKey: true, sizeBytes: true },
+      });
+      assertAttachmentAllowedOnBoard(targetBoard.slug, attachmentsForBoard);
       const updated = await updatePostAtVersion(tx, current.id, baseVersion, {
         title,
         content,

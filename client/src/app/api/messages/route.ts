@@ -23,6 +23,7 @@ import {
 import { toOutboxJson } from '@/lib/server/outbox';
 import { createNotificationsWithDelivery } from '@/lib/server/notifications';
 import { requireUser } from '@/lib/server/session';
+import { assertAttachmentAllowedOnBoard } from '@/lib/server/multipart-upload';
 import {
   isRealtimeGatewayRequest,
   outboxPublicationEnabled,
@@ -255,6 +256,22 @@ export async function POST(request: Request) {
             assertMatchingReplay(existing);
             return { message: existing, replayed: true };
           }
+        }
+
+        if (attachmentIds.length) {
+          const messageAttachments = await tx.attachment.findMany({
+            where: {
+              id: { in: attachmentIds },
+              uploaderId: session.user.id,
+              postId: null,
+              messageId: null,
+            },
+            select: { storageKey: true, sizeBytes: true },
+          });
+          if (messageAttachments.length !== attachmentIds.length) {
+            throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않습니다.');
+          }
+          assertAttachmentAllowedOnBoard('messages', messageAttachments);
         }
 
         const allocatedRoom = await tx.chatRoom.update({

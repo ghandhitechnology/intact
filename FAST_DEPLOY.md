@@ -386,7 +386,7 @@ REMOTE
 | 증상 | 우선 확인 | 가장 빠른 해결 |
 | --- | --- | --- |
 | 502/503 | `docker compose ps`; Caddy/Web/realtime log | upstream service를 healthy로 만든 뒤 Caddy reload |
-| 404/잘못된 route | Caddyfile과 Next route, 요청 hostname | `caddy validate`; `/socket.io/*`만 realtime으로 가는지 확인 |
+| 404/잘못된 route | Caddyfile과 Next route, 요청 hostname | `caddy validate`; `/socket.io/*`는 realtime, 서명된 bucket GET/HEAD/PUT은 MinIO, 나머지는 Web으로 가는지 확인 |
 | TLS certificate 오류 | DNS A/AAAA, 80/443, Caddy log | 도메인이 VPS를 가리키고 포트가 열렸는지 수정 후 Caddy가 자동 재발급하도록 유지 |
 | redirect loop | `NEXT_PUBLIC_APP_URL`, Caddy redirect, proxy header | public URL은 `https://ishsoutside.com`; 중복 redirect 제거 |
 | `www`만 실패 | DNS와 Caddy host block | `www` DNS가 VPS를 가리키는지와 본 도메인 redirect 확인 |
@@ -412,7 +412,7 @@ REMOTE
 | handshake 400 | origin, EIO version, proxy path | `WEB_ORIGIN=https://ishsoutside.com`, Socket.IO client/server 호환성과 path 확인 |
 | handshake 502 | realtime down 또는 Caddy upstream | realtime을 healthy로 만든 뒤 Caddy reload |
 | 메시지는 보내지나 실시간 수신 안 됨 | Redis와 socket room join | realtime/Redis log 확인, 두 service 재생성 전 Web API health 확인 |
-| 첨부 upload/download 실패 | MinIO health, bucket, S3 key, 20MB 제한 | `minio`/`minio-init` log와 private bucket 확인; public bucket으로 바꾸지 않음 |
+| 첨부 upload/download 실패 | MinIO·ClamAV·worker health, bucket, S3 key, 일반 20MB/자료 500MB 제한, 서명 URL | `minio`/`minio-init`/`attachment-worker`/`clamav`/`caddy` log 확인; bucket은 private 유지 |
 | 첨부 record만 있고 object 없음 | DB와 object backup 시점 불일치 | 같은 timestamp의 PostgreSQL/MinIO backup pair로 복구 |
 | 로그인 전체 실패 | Web log, DB, session/env | session secret/DB를 확인. secret을 임의 회전하면 기존 세션이 모두 무효화됨 |
 | env의 admin 초기 비밀번호가 반영 안 됨 | 기존 admin row가 이미 존재 | seed env는 최초 생성에만 적용됨. 승인된 관리자 계정 복구 절차 사용 |
