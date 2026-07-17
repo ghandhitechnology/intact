@@ -20,6 +20,7 @@ import {
 import {
   Award,
   CalendarDays,
+  Coins,
   Edit3,
   Gift,
   KeyRound,
@@ -557,7 +558,21 @@ export default function ProfilePage() {
 
   return (
     <div className="app-page mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 lg:px-8">
-      <PageHeading title="내 프로필" actions={<Button variant="secondary" onClick={openEditor}><Edit3 className="h-4 w-4" />프로필 편집</Button>} />
+      <PageHeading
+        title="내 프로필"
+        actions={(
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+            <Link
+              href="/igk"
+              className="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap border border-emerald-700 bg-emerald-700 px-3.5 text-xs font-semibold text-white transition hover:border-emerald-800 hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200"
+            >
+              <Coins className="h-4 w-4" />
+              IGK 대시보드
+            </Link>
+            <Button variant="secondary" className="w-full sm:w-auto" onClick={openEditor}><Edit3 className="h-4 w-4" />프로필 편집</Button>
+          </div>
+        )}
+      />
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_280px]">
         <aside className="space-y-4">
@@ -577,7 +592,13 @@ export default function ProfilePage() {
         <section className="min-w-0 space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="현재 등급" value={igkLevelLabel(level)} detail={igk?.igkRank ? `${igk.igkRank}짱 · 보유 IGK 기준` : '보유 IGK 기준'} icon={<Trophy className="h-4 w-4" />} tone="amber" />
-            <Stat label="보유 IGK" value={currentIgk.toLocaleString()} detail={`누적 ${lifetimeIgk.toLocaleString()}`} icon={<Gift className="h-4 w-4" />} tone="green" />
+            <Link
+              href="/igk"
+              aria-label={`IGK 대시보드 열기, 현재 ${currentIgk.toLocaleString()} IGK`}
+              className="block transition hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200"
+            >
+              <Stat label="보유 IGK" value={currentIgk.toLocaleString()} detail={`누적 ${lifetimeIgk.toLocaleString()} · 대시보드 열기`} icon={<Gift className="h-4 w-4" />} tone="green" />
+            </Link>
             <Stat label="작성한 글" value={profile._count.posts.toLocaleString()} detail="전체 게시판" icon={<Award className="h-4 w-4" />} />
             <Stat label="교내 랭킹" value={igk ? `#${igk.rank}` : '—'} detail={igk ? '보유 IGK 기준' : '랭킹 정보 없음'} icon={<Users className="h-4 w-4" />} tone="slate" />
           </div>

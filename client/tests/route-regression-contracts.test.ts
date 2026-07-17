@@ -50,6 +50,12 @@ test('signed-out home never loads or retains authenticated home data', () => {
   assert.match(shell, /!isAdmin && portalNavigationAvailable/);
 });
 
+test('my page exposes the IGK dashboard on every layout', () => {
+  const profile = compact(source('src/app/profile/page.tsx'));
+  assert.match(profile, /href="\/igk"[^>]*>[\s\S]*?IGK 대시보드/);
+  assert.match(profile, /aria-label=\{`IGK 대시보드 열기/);
+});
+
 test('platform mode is recoverable and demo mode is database independent', () => {
   const route = compact(source('src/app/api/platform/route.ts'));
   const provider = compact(source('src/components/portal/PlatformModeProvider.tsx'));
