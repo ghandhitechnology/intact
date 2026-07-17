@@ -88,7 +88,7 @@ test('encrypted Web Push subscriptions are decrypted only at delivery', async ()
     pushSubscription: {
       findMany: async () => [{
         id: UUID_C,
-        endpoint: encryptText('https://push.example.test/subscription'),
+        endpoint: encryptText('https://fcm.googleapis.com/fcm/send/subscription'),
         p256dh: encryptText('public-key'),
         auth: encryptText('auth-key'),
       }],
@@ -111,7 +111,7 @@ test('encrypted Web Push subscriptions are decrypted only at delivery', async ()
     else process.env.PORTAL_ENCRYPTION_KEY = previousKey;
   }
   assert.deepEqual((delivered as { subscription: unknown }).subscription, {
-    endpoint: 'https://push.example.test/subscription',
+    endpoint: 'https://fcm.googleapis.com/fcm/send/subscription',
     keys: { p256dh: 'public-key', auth: 'auth-key' },
   });
   assert.equal(updates.length, 1);

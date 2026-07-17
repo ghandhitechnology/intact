@@ -147,7 +147,7 @@ interface MessageBody {
 
 export async function POST(request: Request) {
   try {
-    assertSameOrigin(request);
+    assertSameOrigin(request, { allowRealtimeGateway: true });
     const session = await requireUser(request);
     enforceRateLimit(`message-create:${session.user.id}`, {
       limit: 90,
@@ -399,7 +399,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    assertSameOrigin(request);
+    assertSameOrigin(request, { allowRealtimeGateway: true });
     const session = await requireUser(request);
     const body = await readJson<{ roomId?: unknown; messageId?: unknown }>(request, 8_192);
     const roomId = requiredString(body.roomId, 'roomId', { max: 64 });

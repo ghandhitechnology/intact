@@ -1,6 +1,6 @@
 # 인텍트 운영·배포 인수인계서
 
-마지막 현장 확인: 2026-07-15 (Asia/Seoul)
+마지막 현장 확인: 2026-07-17 (Asia/Seoul)
 
 이 문서는 새 개발자나 자동화 에이전트가 별도 대화 기록 없이 인텍트를 로컬에서 실행하고, 운영 VPS에 안전하게 배포하고, 장애 복구까지 수행할 수 있도록 현재 구성을 정리한 기준 문서입니다. 비밀번호, 세션 키, 암호화 키 같은 실제 비밀값은 절대 이 문서나 Git에 기록하지 않습니다.
 
@@ -22,7 +22,7 @@
 | 운영체제 | Ubuntu 24.04 LTS, x86_64 |
 | Docker | 29.x |
 | Docker Compose | 2.40.x |
-| 방화벽 공개 포트 | SSH, TCP 80/443, UDP 443 |
+| 방화벽 공개 포트 | key-only SSH, TCP 80/443, UDP 443 |
 | 웹 내부 바인딩 | `127.0.0.1:3000` |
 | 실시간 내부 바인딩 | `127.0.0.1:3001` |
 | MinIO 콘솔 | `127.0.0.1:9001` |
@@ -254,11 +254,29 @@ WHERE substring("studentCode", 1, 2) NOT IN ('31', '32', '33')
 1. Ubuntu 24.04에 Docker Engine과 Compose plugin을 설치합니다.
 2. 배포 전용 ED25519 공개키를 `root` 또는 별도 deploy 사용자에게 등록합니다.
 3. UFW에서 SSH, TCP 80/443, UDP 443만 엽니다.
-4. DNS `A` 레코드로 `ishsoutside.com`과 `www.ishsoutside.com`을 VPS IP에 연결합니다.
-5. 코드를 `/opt/ishsoutside`에 배치합니다.
-6. `.env.example`을 `.env`로 복사하고 모든 비밀값과 공개 URL을 교체합니다.
-7. `.env` 권한을 제한합니다.
-8. 전체 stack을 빌드·시작합니다.
+4. 배포 key로 새 SSH 세션이 열리는 것을 확인한 뒤 key-only SSH와 Fail2ban을 적용합니다.
+   설정 전에 반드시 `sshd -t`를 통과해야 하며 기존 세션을 닫기 전에 두 번째 key 세션을 엽니다.
+
+```bash
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y fail2ban
+install -o root -g root -m 0644 \
+  deploy/00-ishsoutside-sshd-hardening.conf \
+  /etc/ssh/sshd_config.d/00-ishsoutside-hardening.conf
+install -o root -g root -m 0644 \
+  deploy/fail2ban-sshd.local \
+  /etc/fail2ban/jail.d/ishsoutside-sshd.local
+sshd -t
+systemctl reload ssh
+fail2ban-client -t
+systemctl enable --now fail2ban
+```
+
+5. DNS `A` 레코드로 `ishsoutside.com`과 `www.ishsoutside.com`을 VPS IP에 연결합니다.
+6. 코드를 `/opt/ishsoutside`에 배치합니다.
+7. `.env.example`을 `.env`로 복사하고 모든 비밀값과 공개 URL을 교체합니다.
+8. `.env` 권한을 제한합니다.
+9. 전체 stack을 빌드·시작합니다.
 
 ```bash
 cd /opt/ishsoutside
@@ -553,6 +571,8 @@ docker system df
 ## 14. 보안과 운영 원칙
 
 - `.env`, DB dump, 업로드 backup, private key를 Git에 추가하지 않습니다.
+- SSH는 public key만 허용하고 password, X11, agent/TCP forwarding을 허용하지 않습니다.
+- Fail2ban, UFW, unattended security upgrades, backup timer가 항상 active인지 확인합니다.
 - production에서 `prisma db push`, demo mode, public MinIO bucket을 사용하지 않습니다.
 - 실제 사용자 계정으로 자동화 테스트 메시지를 보내지 않습니다. 전용 test/staging 계정을 사용합니다.
 - 관리자 조치와 초대 발급은 감사 로그를 유지합니다.

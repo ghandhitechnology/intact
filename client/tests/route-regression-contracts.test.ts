@@ -72,6 +72,20 @@ test('health reports every required runtime dependency', () => {
   assert.match(route, /status: healthy \? 200 : 503/);
 });
 
+test('browser and proxy boundaries enforce baseline exploit mitigations', () => {
+  const nextConfig = compact(source('next.config.js'));
+  const caddy = compact(source('../Caddyfile'));
+  const middleware = compact(source('src/middleware.ts'));
+  assert.match(nextConfig, /Content-Security-Policy/);
+  assert.match(nextConfig, /object-src 'none'/);
+  assert.match(nextConfig, /frame-ancestors 'self'/);
+  assert.match(nextConfig, /Referrer-Policy', value: 'no-referrer'/);
+  assert.match(caddy, /max_size 25MB/);
+  assert.match(caddy, /header_up X-Real-IP \{remote_host\}/);
+  assert.match(middleware, /while \(adminVerifyCache\.size >= 100\)/);
+  assert.match(middleware, /crypto\.subtle\.digest\('SHA-256'/);
+});
+
 test('report creation authorizes message targets and maps duplicate races consistently', () => {
   const route = compact(source('src/app/api/reports/route.ts'));
   assert.match(route, /reportLockKey\s*\(/);

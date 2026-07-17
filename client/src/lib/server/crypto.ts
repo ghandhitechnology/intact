@@ -111,25 +111,42 @@ export function privateFingerprint(value: string) {
 
 export function encryptText(plainText: string) {
   const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', deriveKey(), iv);
+  const cipher = createCipheriv('aes-256-gcm', deriveKey(), iv, { authTagLength: 16 });
   const encrypted = Buffer.concat([cipher.update(plainText, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
   return `v1.${iv.toString('base64url')}.${tag.toString('base64url')}.${encrypted.toString('base64url')}`;
 }
 
 export function decryptText(encoded: string) {
-  const [version, ivText, tagText, encryptedText] = encoded.split('.');
+  const parts = encoded.split('.');
+  const [version, ivText, tagText, encryptedText] = parts;
   if (version !== 'v1' || !ivText || !tagText || encryptedText === undefined) {
     throw new Error('Unsupported encrypted value.');
+  }
+  if (parts.length !== 4 || ![ivText, tagText, encryptedText].every((value) => /^[A-Za-z0-9_-]*$/.test(value))) {
+    throw new Error('Malformed encrypted value.');
+  }
+  const iv = Buffer.from(ivText, 'base64url');
+  const tag = Buffer.from(tagText, 'base64url');
+  const ciphertext = Buffer.from(encryptedText, 'base64url');
+  if (
+    iv.length !== 12
+    || tag.length !== 16
+    || iv.toString('base64url') !== ivText
+    || tag.toString('base64url') !== tagText
+    || ciphertext.toString('base64url') !== encryptedText
+  ) {
+    throw new Error('Malformed encrypted value.');
   }
   const decipher = createDecipheriv(
     'aes-256-gcm',
     deriveKey(),
-    Buffer.from(ivText, 'base64url'),
+    iv,
+    { authTagLength: 16 },
   );
-  decipher.setAuthTag(Buffer.from(tagText, 'base64url'));
+  decipher.setAuthTag(tag);
   return Buffer.concat([
-    decipher.update(Buffer.from(encryptedText, 'base64url')),
+    decipher.update(ciphertext),
     decipher.final(),
   ]).toString('utf8');
 }

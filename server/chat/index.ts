@@ -36,6 +36,10 @@ type Ack = (payload: { ok: boolean; message?: unknown; error?: string }) => void
 const port = Number(process.env.PORT || 3001);
 const webOrigin = process.env.WEB_ORIGIN || 'http://localhost:3000';
 const internalApiUrl = process.env.INTERNAL_API_URL || webOrigin;
+const MAX_CONNECTIONS_PER_USER = 8;
+const HANDSHAKE_LIMIT = 60;
+const HANDSHAKE_WINDOW_MS = 10 * 60_000;
+const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
 const app = express();
 app.disable('x-powered-by');
 app.use(cors({ origin: webOrigin, credentials: true }));
@@ -50,12 +54,41 @@ app.get('/health', (_request, response) => {
 });
 
 const server = http.createServer(app);
+const handshakeAttempts = new Map<string, number[]>();
+
+function handshakeIp(request: http.IncomingMessage) {
+  const realIp = request.headers['x-real-ip'];
+  return (typeof realIp === 'string' && realIp.length <= 64 ? realIp : request.socket.remoteAddress) || 'unknown';
+}
+
+function allowHandshake(request: http.IncomingMessage) {
+  if (request.headers.origin !== webOrigin) return false;
+  const now = Date.now();
+  const ip = handshakeIp(request);
+  const recent = (handshakeAttempts.get(ip) || []).filter((value) => now - value < HANDSHAKE_WINDOW_MS);
+  if (recent.length >= HANDSHAKE_LIMIT) return false;
+  recent.push(now);
+  if (handshakeAttempts.size >= 10_000 && !handshakeAttempts.has(ip)) {
+    for (const [key, values] of handshakeAttempts) {
+      if (!values.some((value) => now - value < HANDSHAKE_WINDOW_MS)) handshakeAttempts.delete(key);
+    }
+    while (handshakeAttempts.size >= 10_000) {
+      const oldest = handshakeAttempts.keys().next().value as string | undefined;
+      if (!oldest) break;
+      handshakeAttempts.delete(oldest);
+    }
+  }
+  handshakeAttempts.set(ip, recent);
+  return true;
+}
+
 const io = new Server(server, {
   cors: { origin: webOrigin, credentials: true },
   transports: ['websocket', 'polling'],
   maxHttpBufferSize: 2 * 1024 * 1024,
   pingInterval: 25_000,
   pingTimeout: 20_000,
+  allowRequest: (request, callback) => callback(null, allowHandshake(request)),
 });
 
 const platformNamespace = io.of('/platform');
@@ -191,6 +224,16 @@ app.post('/internal/room-created', async (request, response) => {
 const attempts = new Map<string, number[]>();
 const userConnectionCounts = new Map<string, number>();
 
+function releaseConnectionReservation(socket: Socket) {
+  if (!socket.data.connectionReserved) return;
+  socket.data.connectionReserved = false;
+  const user = socket.data.user as SessionUser | undefined;
+  if (!user) return;
+  const remaining = Math.max(0, (userConnectionCounts.get(user.id) || 1) - 1);
+  if (remaining === 0) userConnectionCounts.delete(user.id);
+  else userConnectionCounts.set(user.id, remaining);
+}
+
 function allowEvent(socketId: string, limit = 25, windowMs = 10_000) {
   const now = Date.now();
   const recent = (attempts.get(socketId) || []).filter((value) => now - value < windowMs);
@@ -241,13 +284,22 @@ io.use(async (socket, next) => {
     next(new Error('AUTH_REQUIRED'));
     return;
   }
+  if ((userConnectionCounts.get(user.id) || 0) >= MAX_CONNECTIONS_PER_USER) {
+    next(new Error('CONNECTION_LIMIT'));
+    return;
+  }
+  userConnectionCounts.set(user.id, (userConnectionCounts.get(user.id) || 0) + 1);
+  socket.data.connectionReserved = true;
   socket.data.user = user;
+  socket.data.reservationTimer = setTimeout(() => {
+    if (!socket.connected) releaseConnectionReservation(socket);
+  }, 10_000);
   next();
 });
 
 io.on('connection', (socket) => {
   const user = socket.data.user as SessionUser;
-  userConnectionCounts.set(user.id, (userConnectionCounts.get(user.id) || 0) + 1);
+  clearTimeout(socket.data.reservationTimer);
   socket.join(`user:${user.id}`);
 
   const accessTimer = setInterval(async () => {
@@ -287,8 +339,18 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat:message', async (input: ClientMessage, ack?: Ack) => {
-    if (!allowEvent(socket.id, 12) || !input || typeof input.content !== 'string') {
-      ack?.({ ok: false, error: 'RATE_LIMITED' });
+    if (
+      !allowEvent(socket.id, 12)
+      || !input
+      || typeof input.content !== 'string'
+      || typeof input.roomId !== 'string'
+      || typeof input.clientId !== 'string'
+      || !SAFE_ID.test(input.roomId)
+      || !SAFE_ID.test(input.clientId)
+      || (input.replyToId !== undefined && (typeof input.replyToId !== 'string' || !SAFE_ID.test(input.replyToId)))
+      || (input.type !== undefined && !['TEXT', 'IMAGE', 'FILE'].includes(input.type))
+    ) {
+      ack?.({ ok: false, error: 'INVALID_MESSAGE' });
       return;
     }
     const content = input.content.trim();
@@ -334,7 +396,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat:typing', (payload: { roomId?: string; active?: boolean }) => {
-    if (!allowEvent(socket.id, 30) || !payload?.roomId || !socket.rooms.has(`room:${payload.roomId}`)) return;
+    if (
+      !allowEvent(socket.id, 30)
+      || typeof payload?.roomId !== 'string'
+      || !SAFE_ID.test(payload.roomId)
+      || !socket.rooms.has(`room:${payload.roomId}`)
+    ) return;
     socket.to(`room:${payload.roomId}`).emit('chat:typing', {
       roomId: payload.roomId,
       userId: user.id,
@@ -344,7 +411,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat:read', async (payload: { roomId?: string; messageId?: string }) => {
-    if (!allowEvent(socket.id, 20) || !payload?.roomId || !payload.messageId) return;
+    if (
+      !allowEvent(socket.id, 20)
+      || typeof payload?.roomId !== 'string'
+      || typeof payload.messageId !== 'string'
+      || !SAFE_ID.test(payload.roomId)
+      || !SAFE_ID.test(payload.messageId)
+    ) return;
     if (!socket.rooms.has(`room:${payload.roomId}`)) return;
     try {
       const response = await fetch(`${internalApiUrl}/api/messages`, {
@@ -352,6 +425,7 @@ io.on('connection', (socket) => {
         headers: {
           'content-type': 'application/json',
           cookie: socket.handshake.headers.cookie || '',
+          'x-igwak-realtime-origin': process.env.INTERNAL_API_SECRET || '',
         },
         body: JSON.stringify({ roomId: payload.roomId, messageId: payload.messageId }),
         signal: AbortSignal.timeout(5_000),
@@ -381,10 +455,9 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     clearInterval(accessTimer);
+    clearTimeout(socket.data.reservationTimer);
     attempts.delete(socket.id);
-    const remaining = Math.max(0, (userConnectionCounts.get(user.id) || 1) - 1);
-    if (remaining === 0) userConnectionCounts.delete(user.id);
-    else userConnectionCounts.set(user.id, remaining);
+    releaseConnectionReservation(socket);
   });
 });
 

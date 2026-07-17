@@ -30,11 +30,19 @@ ishsoutside.com {
 	handle @realtime {
 		reverse_proxy realtime:3001 {
 			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
 		}
 	}
 	handle {
+		# All large file data travels directly to signed, 8 MiB object-storage
+		# parts. Bound the application path before a chunked multipart body can
+		# force Next.js to buffer unbounded data.
+		request_body {
+			max_size 25MB
+		}
 		reverse_proxy web:3000 {
 			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
 		}
 	}
 

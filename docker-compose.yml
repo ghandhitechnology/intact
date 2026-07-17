@@ -21,6 +21,7 @@ services:
         condition: service_started
       minio:
         condition: service_healthy
+    networks: [edge]
 
   web:
     build:
@@ -65,6 +66,9 @@ services:
       interval: 20s
       timeout: 5s
       retries: 5
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [edge, backend]
 
   migrate:
     build:
@@ -76,6 +80,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
 
   moderation-worker:
     build:
@@ -100,6 +107,9 @@ services:
         condition: service_completed_successfully
       codex-moderation:
         condition: service_started
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
 
   outbox-worker:
     build:
@@ -116,6 +126,7 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.invalid}
+      PUSH_ENDPOINT_HOSTS: ${PUSH_ENDPOINT_HOSTS:-}
       OUTBOX_POLL_MS: ${OUTBOX_POLL_MS:-1000}
       NOTICE_SCHEDULER_INTERVAL_MS: ${NOTICE_SCHEDULER_INTERVAL_MS:-15000}
     depends_on:
@@ -125,6 +136,9 @@ services:
         condition: service_healthy
       realtime:
         condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
 
   attachment-worker:
     build:
@@ -153,6 +167,9 @@ services:
         condition: service_completed_successfully
       clamav:
         condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
 
   platform-alias-backfill:
     profiles: ["tools"]
@@ -169,6 +186,9 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
 
   codex-moderation:
     build:
@@ -186,6 +206,9 @@ services:
       timeout: 12s
       retries: 3
       start_period: 10s
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
 
   codex-auth:
     profiles: ["tools"]
@@ -196,6 +219,9 @@ services:
     volumes:
       - codex_auth:/var/lib/intact-codex
     command: ["/app/node_modules/.bin/codex", "login", "--device-auth"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
 
   realtime:
     build:
@@ -222,6 +248,9 @@ services:
       start_period: 10s
     ports:
       - "127.0.0.1:${REALTIME_PORT:-3001}:3001"
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [edge, backend]
 
   postgres:
     image: postgres:16-alpine
@@ -237,6 +266,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 8
+    networks: [backend]
 
   redis:
     image: redis@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
@@ -249,6 +279,7 @@ services:
       interval: 10s
       timeout: 4s
       retries: 8
+    networks: [backend]
 
   minio:
     image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
@@ -267,6 +298,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 10s
+    networks: [edge, backend]
 
   minio-init:
     image: minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
@@ -289,6 +321,7 @@ services:
       mc mb --ignore-existing local/$$S3_BUCKET;
       mc anonymous set none local/$$S3_BUCKET;
       "
+    networks: [backend]
 
   clamav:
     image: clamav/clamav:1.4.5
@@ -307,6 +340,11 @@ services:
       timeout: 10s
       retries: 10
       start_period: 120s
+    networks: [backend]
+
+networks:
+  edge:
+  backend:
 
 volumes:
   caddy_data:

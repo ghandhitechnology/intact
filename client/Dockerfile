@@ -8,15 +8,19 @@ RUN yarn install --frozen-lockfile
 FROM dependencies AS migrator
 WORKDIR /app
 COPY prisma ./prisma
+USER node
 CMD ["yarn", "prisma", "migrate", "deploy"]
 
 FROM dependencies AS worker
 WORKDIR /app
 COPY . .
 RUN yarn prisma generate
+USER node
 
 FROM worker AS moderation-worker
+USER root
 RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor && rm -rf /var/lib/apt/lists/*
+USER node
 CMD ["./node_modules/.bin/tsx", "scripts/moderation-worker.ts"]
 
 FROM worker AS outbox-worker
