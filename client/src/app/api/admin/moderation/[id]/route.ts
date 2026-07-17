@@ -5,6 +5,7 @@ import { awardIgk, reverseReward } from '@/lib/server/igk';
 import { ApiError, assertSameOrigin, json, jsonError, readJson, requiredString } from '@/lib/server/http';
 import {
   applyApprovedModerationCandidate,
+  blockedModerationPostUpdate,
   moderationBaseMatchesPost,
   validateModerationCandidateForApproval,
 } from '@/lib/server/moderation';
@@ -93,7 +94,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         if (before.isNewPost) {
           await tx.post.update({
             where: { id: before.postId },
-            data: { status: 'HIDDEN', version: { increment: 1 } },
+            data: blockedModerationPostUpdate(),
           });
         }
         submission = await tx.moderationSubmission.update({

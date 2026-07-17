@@ -11,6 +11,7 @@ import { perceptualAverageHash, perceptualHashDistance, sampleFrameIndexes } fro
 import {
   analyzeLocalText,
   applyApprovedModerationCandidate,
+  blockedModerationPostUpdate,
   getModerationMode,
   validateModerationCandidateForApproval,
   type LocalRule,
@@ -248,7 +249,7 @@ async function finish(submission: ClaimedModerationSubmission, input: {
     } else if (mode === 'ENFORCE' && finalState === 'BLOCKED' && current.isNewPost) {
       await tx.post.update({
         where: { id: current.postId },
-        data: { status: 'HIDDEN', version: { increment: 1 } },
+        data: blockedModerationPostUpdate(),
       });
     }
     await tx.moderationSubmission.update({
