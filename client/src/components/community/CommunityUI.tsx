@@ -17,7 +17,7 @@ import type {
   PostSummary,
 } from "./demo-data";
 import { formatNumber, getBoard } from "./demo-data";
-import { igkLevelLabel } from "@/lib/igk-levels";
+import { igkLevelLabel, igkRankLabel, type IgkStanding } from "@/lib/igk-levels";
 
 const avatarStyles: Record<Member["accent"], string> = {
   emerald: "border-emerald-300 bg-white text-emerald-800",
@@ -102,10 +102,13 @@ export function Avatar({
   );
 }
 
-export function LevelBadge({ level, jojolRank }: { level: number; jojolRank?: number | null }) {
+export function LevelBadge({ level, standing, igkRank }: { level: number; standing?: IgkStanding | null; igkRank?: number | null }) {
+  const tierLabel = standing?.tierLabel ?? igkLevelLabel(level);
+  const rankLabel = standing?.rankLabel ?? igkRankLabel(igkRank);
   return (
-    <span className="inline-flex h-5 items-center border-l-2 border-emerald-700 pl-1.5 text-xs font-semibold text-emerald-800">
-      {igkLevelLabel(level, jojolRank)}
+    <span className="inline-flex items-center gap-1">
+      <span className="inline-flex h-5 items-center border-l-2 border-emerald-700 pl-1.5 text-xs font-semibold text-emerald-800">{tierLabel}</span>
+      {rankLabel ? <span className="inline-flex h-5 items-center border-l-2 border-blue-700 pl-1.5 text-xs font-semibold text-blue-800">{rankLabel}</span> : null}
     </span>
   );
 }
@@ -143,7 +146,7 @@ export function MemberLine({
           운영자
         </span>
       ) : (
-        <LevelBadge level={member.level} jojolRank={member.jojolRank} />
+        <LevelBadge level={member.level} standing={member.standing} igkRank={member.igkRank} />
       )}
       {member.cosmetics?.title ? (
         <span className="inline-flex h-5 shrink-0 items-center border-l-2 border-amber-500 pl-1.5 text-xs font-semibold text-amber-800">

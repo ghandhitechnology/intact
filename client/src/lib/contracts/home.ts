@@ -21,7 +21,7 @@ export type HomeEntity = Record<string, unknown>;
 
 export interface HomeAccount {
   currentIgk: number;
-  jojolRank: number | null;
+  igkRank: number | null;
   unreadCount: number;
 }
 
@@ -47,9 +47,9 @@ function parseEntities(value: unknown, path: string, requiredFields: readonly st
 
 function parseAccount(value: unknown): HomeAccount {
   const account = expectRecord(value, 'home.account');
-  const jojolRank = account.jojolRank;
-  if (jojolRank !== null && (!Number.isInteger(jojolRank) || Number(jojolRank) < 1)) {
-    throw new ContractParseError(['home.account.jojolRank: expected positive integer or null']);
+  const igkRank = account.igkRank;
+  if (igkRank !== null && (!Number.isInteger(igkRank) || Number(igkRank) < 1)) {
+    throw new ContractParseError(['home.account.igkRank: expected positive integer or null']);
   }
   const unreadCount = expectFiniteNumber(account.unreadCount, 'home.account.unreadCount');
   if (!Number.isInteger(unreadCount) || unreadCount < 0) {
@@ -57,7 +57,7 @@ function parseAccount(value: unknown): HomeAccount {
   }
   return {
     currentIgk: expectFiniteNumber(account.currentIgk, 'home.account.currentIgk'),
-    jojolRank: jojolRank === null ? null : Number(jojolRank),
+    igkRank: igkRank === null ? null : Number(igkRank),
     unreadCount,
   };
 }

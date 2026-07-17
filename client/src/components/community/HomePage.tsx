@@ -60,7 +60,7 @@ type HomeAccountUser = {
   profileImage?: string | null;
 };
 
-type HomeAccountStatus = { currentIgk: number; jojolRank: number | null; unreadCount: number };
+type HomeAccountStatus = { currentIgk: number; igkRank: number | null; unreadCount: number };
 
 function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; accountStatus?: HomeAccountStatus }) {
   const router = useRouter();
@@ -71,7 +71,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
       : null,
   );
   const [currentIgk, setCurrentIgk] = useState(demoMode ? 1840 : 0);
-  const [jojolRank, setJojolRank] = useState<number | null>(null);
+  const [igkRank, setIgkRank] = useState<number | null>(null);
   const [unreadCount, setUnreadCount] = useState(demoMode ? 3 : 0);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -90,7 +90,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
   useEffect(() => {
     if (!accountStatus) return;
     setCurrentIgk(accountStatus.currentIgk);
-    setJojolRank(accountStatus.jojolRank);
+    setIgkRank(accountStatus.igkRank);
     setUnreadCount(accountStatus.unreadCount);
   }, [accountStatus]);
 
@@ -100,7 +100,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
     await fetchWithTimeout('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
     setUser(null);
     setCurrentIgk(0);
-    setJojolRank(null);
+    setIgkRank(null);
     setUnreadCount(0);
     clearClientDataCache();
     await refreshSession();
@@ -143,7 +143,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
     nickname: displayName,
     studentId: studentCode,
     level,
-    jojolRank,
+    igkRank,
     initials: displayName.slice(0, 1),
     profileImage: user.profileImage || null,
     accent: 'emerald' as const,
@@ -156,7 +156,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
         <Avatar member={avatarMember} />
         <span className="min-w-0 flex-1">
           <strong id="home-account-title" className="block truncate text-xs font-bold text-slate-900">{displayName}</strong>
-          <span className="mt-0.5 block truncate text-xs text-slate-500">{studentCode} · {igkLevelLabel(level, jojolRank)}</span>
+          <span className="mt-0.5 flex truncate text-xs text-slate-500">{studentCode} · {igkLevelLabel(level)}{igkRank ? ` · ${igkRank}짱` : ''}</span>
         </span>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" aria-hidden="true" />
       </Link>
@@ -578,7 +578,7 @@ function RankingPanel({ items }: { items: RankingMember[] }) {
         <span className="ml-auto text-xs font-semibold text-slate-400">현재 잔액 기준</span>
       </div>
       <ol className="border-t border-slate-900">
-        {items.slice(0, 5).map((member) => (
+        {items.slice(0, 10).map((member) => (
           <li
             key={`${member.nickname}:${member.studentId}`}
             className="grid grid-cols-[24px_32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-100 py-3"
@@ -591,13 +591,11 @@ function RankingPanel({ items }: { items: RankingMember[] }) {
             >
               {member.rank}
             </span>
-            <Avatar member={member} size="sm" />
+            {member.id ? <Link href={`/users/${member.id}`}><Avatar member={member} size="sm" /></Link> : <Avatar member={member} size="sm" />}
             <span className="min-w-0">
-              <span className="block truncate text-xs font-bold text-slate-700">
-                {member.nickname}
-              </span>
+              {member.id ? <Link href={`/users/${member.id}`} className="block truncate text-xs font-bold text-slate-700 hover:text-emerald-700">{member.nickname}</Link> : <span className="block truncate text-xs font-bold text-slate-700">{member.nickname}</span>}
               <span className="block text-xs text-slate-400">
-                {member.studentId !== '------' ? `${member.studentId} · ` : ''}{igkLevelLabel(member.level, member.jojolRank)}
+                {member.studentId !== '------' ? `${member.studentId} · ` : ''}{member.standing?.tierLabel ?? igkLevelLabel(member.level)}{member.standing?.rankLabel ? ` · ${member.standing.rankLabel}` : ''}
               </span>
             </span>
             <span className="text-xs font-bold tabular-nums text-slate-700">
@@ -623,11 +621,14 @@ function mapHomePost(item: any, slug: PostSummary['board']): PostSummary {
     title: item.title,
     excerpt: item.contentText || '',
     author: {
+      id: item?.author?.id,
       nickname,
       studentId: item?.author?.studentIdentity?.studentCode || '------',
       level: Number(item?.author?.level || 1),
       initials: nickname.slice(0, 1),
       profileImage: item?.author?.profileImage || null,
+      standing: item?.author?.standing || null,
+      igkRank: Number.isInteger(item?.author?.igkRank) ? Number(item.author.igkRank) : null,
       accent: 'emerald',
       cosmetics: cosmeticsFromItems(item?.author?.items),
     },
@@ -653,7 +654,7 @@ function mergeHomeData(previous: HomeData | null, next: HomeData): HomeData {
     leaders: next.sectionErrors.leaders ? previous.leaders : next.leaders,
     account: {
       currentIgk: next.sectionErrors.balance ? previous.account.currentIgk : next.account.currentIgk,
-      jojolRank: next.sectionErrors.balance ? previous.account.jojolRank : next.account.jojolRank,
+      igkRank: next.sectionErrors.balance ? previous.account.igkRank : next.account.igkRank,
       unreadCount: next.sectionErrors.notifications ? previous.account.unreadCount : next.account.unreadCount,
     },
   };
@@ -771,12 +772,14 @@ export default function HomePage() {
             important: notice.priority >= 50,
           })));
           const apiLeaders = homePayload.leaders || [];
-          setRankingItems(apiLeaders.slice(0, 7).map((leader: any, index: number) => ({
+          setRankingItems(apiLeaders.slice(0, 10).map((leader: any, index: number) => ({
+            id: leader.id,
             rank: Number(leader.rank || index + 1),
             nickname: leader.realName || leader.nickname,
             studentId: leader?.studentIdentity?.studentCode || '------',
             level: Number(leader.level || 1),
-            jojolRank: Number.isInteger(leader.jojolRank) ? Number(leader.jojolRank) : null,
+            igkRank: Number.isInteger(leader.igkRank) ? Number(leader.igkRank) : null,
+            standing: leader.standing || null,
             initials: String(leader.realName || leader.nickname || '?').slice(0, 1),
             profileImage: leader.profileImage || null,
             accent: 'emerald',

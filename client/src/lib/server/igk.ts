@@ -31,20 +31,20 @@ export function seoulDateKey(now = new Date()) {
   return seoulCalendarDate(now).toISOString().slice(0, 10);
 }
 
-export async function levelForLifetime(tx: Tx, lifetimeIgk: number) {
+export async function levelForBalance(tx: Tx, currentIgk: number) {
   const rule = await tx.levelRule.findFirst({
-    where: { minimumLifetimeIgk: { lte: lifetimeIgk } },
-    orderBy: { minimumLifetimeIgk: 'desc' },
+    where: { minimumCurrentIgk: { lte: currentIgk } },
+    orderBy: { minimumCurrentIgk: 'desc' },
     select: { level: true },
   });
   return rule?.level ?? 1;
 }
 
-export async function syncLevelForLifetime(
+export async function syncLevelForBalance(
   tx: Tx,
-  user: { id: string; lifetimeIgk: number; level: number },
+  user: { id: string; currentIgk: number; level: number },
 ) {
-  const level = await levelForLifetime(tx, user.lifetimeIgk);
+  const level = await levelForBalance(tx, user.currentIgk);
   if (level !== user.level) {
     await tx.user.update({ where: { id: user.id }, data: { level } });
   }
@@ -106,7 +106,7 @@ export async function awardIgk(
     },
     select: { currentIgk: true, lifetimeIgk: true, level: true, igkDebt: true },
   });
-  await syncLevelForLifetime(tx, { id: input.userId, ...updated });
+  await syncLevelForBalance(tx, { id: input.userId, ...updated });
 
   return tx.igkLedger.create({
     data: {
@@ -143,7 +143,7 @@ export async function spendIgk(
   });
   if (existing) return existing;
 
-  // Spending only touches currentIgk; lifetimeIgk, level and igkDebt stay intact.
+  // Spending changes currentIgk and can therefore lower the user's tier.
   const debited = await tx.user.updateMany({
     where: { id: input.userId, status: 'ACTIVE', currentIgk: { gte: input.amount } },
     data: { currentIgk: { decrement: input.amount } },
@@ -153,8 +153,9 @@ export async function spendIgk(
   }
   const user = await tx.user.findUniqueOrThrow({
     where: { id: input.userId },
-    select: { currentIgk: true, lifetimeIgk: true },
+    select: { currentIgk: true, lifetimeIgk: true, level: true },
   });
+  await syncLevelForBalance(tx, { id: input.userId, ...user });
 
   return tx.igkLedger.create({
     data: {
@@ -216,7 +217,7 @@ export async function reverseReward(
     },
     select: { currentIgk: true, lifetimeIgk: true, level: true, igkDebt: true },
   });
-  await syncLevelForLifetime(tx, { id: input.userId, ...updated });
+  await syncLevelForBalance(tx, { id: input.userId, ...updated });
 
   return tx.igkLedger.create({
     data: {

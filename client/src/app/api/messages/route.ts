@@ -127,7 +127,7 @@ export async function GET(request: Request) {
     );
     const platformMode = await getPlatformMode();
     return json({
-      messages: maskPublicIdentitiesWithMode(chronological, session.user.id, platformMode),
+      messages: await maskPublicIdentitiesWithMode(chronological, session.user.id, platformMode),
       hasMore,
       nextCursor: hasMore && oldest ? sequenceCursor(oldest.sequence) : null,
       legacyNextCursor:
@@ -386,7 +386,7 @@ export async function POST(request: Request) {
     if (fromRealtimeGateway) {
       return json(chatMessageEnvelope(realtimeMessage, replayed), 201, deliveryHeaders);
     }
-    const publicMessage = maskPublicIdentitiesWithMode(
+    const publicMessage = await maskPublicIdentitiesWithMode(
       serializedMessage,
       session.user.id,
       platformMode,

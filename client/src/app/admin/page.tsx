@@ -57,7 +57,7 @@ import {
   normalizeStudentCode,
   STUDENT_CODE_REQUIREMENTS,
 } from "@/lib/student-code";
-import { igkLevelLabel } from "@/lib/igk-levels";
+import { igkLevelForBalance, igkLevelLabel, type IgkStanding } from "@/lib/igk-levels";
 import { usePlatformMode } from "@/components/portal/PlatformModeProvider";
 
 type AdminTab = "users" | "content" | "notices";
@@ -82,6 +82,7 @@ type PortalUser = {
   igk: number;
   lifetimeIgk?: number;
   igkDebt?: number;
+  standing?: IgkStanding | null;
   posts: number;
   comments: number;
   reports: number;
@@ -212,6 +213,7 @@ type DashboardUser = {
   lifetimeIgk: number;
   igkDebt: number;
   level: number;
+  standing?: IgkStanding | null;
   lastLoginAt: string | null;
   activeSessionCount: number;
   studentIdentity?: {
@@ -656,6 +658,7 @@ export default function AdminPage() {
   const [reason, setReason] = useState("");
   const [duration, setDuration] = useState("7");
   const [igkAmount, setIgkAmount] = useState("");
+  const [igkDirection, setIgkDirection] = useState<"GRANT" | "TAKE">("GRANT");
   const [noticeDraft, setNoticeDraft] = useState({
     title: "",
     body: "",
@@ -789,6 +792,7 @@ export default function AdminPage() {
         igk: user.currentIgk,
         lifetimeIgk: user.lifetimeIgk,
         igkDebt: user.igkDebt,
+        standing: user.standing,
         posts: user._count.posts,
         comments: user._count.comments,
         reports: user._count.reportsAgainst,
@@ -1228,6 +1232,7 @@ export default function AdminPage() {
     setPendingAction(null);
     setReason("");
     setIgkAmount("");
+    setIgkDirection("GRANT");
   }
 
   function openPendingAction(action: PendingAction) {
@@ -1236,6 +1241,7 @@ export default function AdminPage() {
     setReportQueueOpen(false);
     setReason("");
     setIgkAmount("");
+    setIgkDirection("GRANT");
     setPendingAction(action);
   }
 
@@ -1269,12 +1275,13 @@ export default function AdminPage() {
           "/api/admin/users/" + encodeURIComponent(pendingAction.id),
           {
             method: "PATCH",
-            headers: { "content-type": "application/json" },
+            headers: { "content-type": "application/json", ...(action === "ADJUST_IGK" ? { "Idempotency-Key": crypto.randomUUID() } : {}) },
             body: JSON.stringify({
               action,
               reason: reason.trim(),
               durationDays: action === "SUSPEND" ? Number(duration) : undefined,
               amount: action === "ADJUST_IGK" ? Number(igkAmount) : undefined,
+              direction: action === "ADJUST_IGK" ? igkDirection : undefined,
             }),
           },
         );
@@ -1966,7 +1973,7 @@ export default function AdminPage() {
                     </span>
                     <span className="mt-2 flex items-center justify-between text-xs text-slate-400">
                       <span>
-                        {igkLevelLabel(user.level)} · {user.igk.toLocaleString()} IGK
+                        {user.standing?.tierLabel ?? igkLevelLabel(user.level)}{user.standing?.rankLabel ? ` · ${user.standing.rankLabel}` : ''} · {user.igk.toLocaleString()} IGK
                       </span>
                       <span>{user.lastActive}</span>
                     </span>
@@ -2471,7 +2478,7 @@ export default function AdminPage() {
                   {selectedUser.lastActive}
                 </p>
               </div>
-              <Badge tone="blue">{igkLevelLabel(selectedUser.level)}</Badge>
+              <div className="flex gap-1"><Badge tone="green">{selectedUser.standing?.tierLabel ?? igkLevelLabel(selectedUser.level)}</Badge>{selectedUser.standing?.rankLabel ? <Badge tone="blue">{selectedUser.standing.rankLabel}</Badge> : null}</div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
@@ -2500,7 +2507,7 @@ export default function AdminPage() {
                     <Coins className="h-4 w-4 text-emerald-700" /> IGK 관리
                   </p>
                   <p className="mt-1 text-xs text-slate-600">
-                    누적 기여 {Number(selectedUser.lifetimeIgk || 0).toLocaleString()} · 미상환 회수 {Number(selectedUser.igkDebt || 0).toLocaleString()}
+                    평생 활동 기록 {Number(selectedUser.lifetimeIgk || 0).toLocaleString()} · 미상환 회수 {Number(selectedUser.igkDebt || 0).toLocaleString()}
                   </p>
                 </div>
                 <Button
@@ -2997,8 +3004,8 @@ export default function AdminPage() {
                 reason.trim().length < 4 ||
                 (pendingAction?.kind === "adjust-igk" &&
                   (!Number.isInteger(Number(igkAmount)) ||
-                    Number(igkAmount) === 0 ||
-                    Math.abs(Number(igkAmount)) > 100000))
+                    Number(igkAmount) <= 0 ||
+                    Number(igkAmount) > 100000))
               }
             >
               {applying ? "적용 중…" : pendingAction?.label || "적용"}
@@ -3030,22 +3037,22 @@ export default function AdminPage() {
             </Field>
           ) : null}
           {pendingAction?.kind === "adjust-igk" ? (
-            <Field
-              label="조정량"
-              required
-              hint="지급·회수는 누적 IGK와 등급에도 반영 · 1회 최대 100,000 IGK"
-            >
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2" role="group" aria-label="IGK 조정 종류"><Button type="button" variant={igkDirection === 'GRANT' ? 'green' : 'secondary'} onClick={() => setIgkDirection('GRANT')}>지급</Button><Button type="button" variant={igkDirection === 'TAKE' ? 'danger' : 'secondary'} onClick={() => setIgkDirection('TAKE')}>회수</Button></div>
+            <Field label={igkDirection === 'GRANT' ? '지급할 IGK' : '회수할 IGK'} required hint="현재 잔액만 변경하며 평생 활동 기록은 유지 · 1회 최대 100,000 IGK">
               <Input
                 type="number"
                 inputMode="numeric"
-                min={-100000}
+                min={1}
                 max={100000}
                 step={1}
                 value={igkAmount}
                 onChange={(event) => setIgkAmount(event.target.value)}
-                placeholder="예: 500 또는 -200"
+                placeholder="예: 500"
               />
             </Field>
+            {(() => { const target = users.find((user) => user.id === pendingAction.id); if (!target || !Number.isInteger(Number(igkAmount)) || Number(igkAmount) <= 0) return null; const signed = Number(igkAmount) * (igkDirection === 'GRANT' ? 1 : -1); const after = Math.max(0, target.igk + signed); const tier = igkLevelForBalance(after); return <div className="grid grid-cols-2 gap-px bg-slate-200 text-xs"><div className="bg-white p-3"><p className="text-slate-500">변경 전</p><p className="mt-1 font-black">{target.igk.toLocaleString()} IGK · {target.standing?.tierLabel ?? igkLevelLabel(target.level)}{target.standing?.rankLabel ? ` · ${target.standing.rankLabel}` : ''}</p></div><div className="bg-white p-3"><p className="text-slate-500">변경 후</p><p className="mt-1 font-black">{after.toLocaleString()} IGK · {tier.label}</p><p className="mt-1 text-slate-500">짱 순위 즉시 재계산</p></div></div>; })()}
+            </div>
           ) : null}
           <Field
             label={

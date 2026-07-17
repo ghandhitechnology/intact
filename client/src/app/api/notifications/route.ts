@@ -61,7 +61,7 @@ export async function GET(request: Request) {
       ? encodeNotificationCursor({ createdAt: last.createdAt, id: last.id })
       : null;
     const platformMode = await getPlatformMode();
-    const safeNotifications = maskPublicIdentitiesWithMode(
+    const safeNotifications = await maskPublicIdentitiesWithMode(
       notifications.map((notification) => {
         if (!platformMode.bSideEnabled) return notification;
         if (notification.type === 'MESSAGE') {

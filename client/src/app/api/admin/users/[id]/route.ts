@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import prisma from '@/lib/prisma';
 import { writeAdminAudit } from '@/lib/server/audit';
-import { lockIgkAccounts, syncLevelForLifetime } from '@/lib/server/igk';
+import { lockIgkAccounts, syncLevelForBalance } from '@/lib/server/igk';
 import {
   ApiError,
   assertSameOrigin,
@@ -30,6 +30,7 @@ interface UserMutationBody {
   reason?: unknown;
   durationDays?: unknown;
   amount?: unknown;
+  direction?: unknown;
 }
 
 const safeUserSelect = {
@@ -176,8 +177,19 @@ export async function PATCH(
         after = { revokedSessions: revoked.count };
       } else {
         await lockIgkAccounts(tx, [target.id]);
-        const requestedAmount = requiredInteger(body.amount, 'IGK 조정량', -100_000, 100_000);
+        const legacyAmount = requiredInteger(body.amount, 'IGK 조정량', -100_000, 100_000);
+        const direction = body.direction === 'GRANT' || body.direction === 'TAKE' ? body.direction : null;
+        const requestedAmount = direction
+          ? Math.abs(legacyAmount) * (direction === 'GRANT' ? 1 : -1)
+          : legacyAmount;
         if (requestedAmount === 0) throw new ApiError(400, 'ZERO_ADJUSTMENT', 'IGK 조정량은 0일 수 없습니다.');
+        const requestKey = request.headers.get('idempotency-key')?.trim().slice(0, 100) || randomUUID();
+        const idempotencyKey = `admin-adjust:${admin.user.id}:${target.id}:${requestKey}`;
+        const completed = await tx.igkLedger.findUnique({ where: { idempotencyKey } });
+        if (completed) {
+          after = await tx.user.findUniqueOrThrow({ where: { id: target.id }, select: safeUserSelect });
+          return after;
+        }
         const freshTarget = await tx.user.findUniqueOrThrow({
           where: { id: target.id },
           select: { currentIgk: true, lifetimeIgk: true, level: true },
@@ -186,18 +198,14 @@ export async function PATCH(
         if (actualAmount === 0) {
           throw new ApiError(409, 'NO_IGK_TO_REMOVE', '회수할 수 있는 IGK 잔액이 없습니다.');
         }
-        const lifetimeAdjustment = actualAmount > 0
-          ? actualAmount
-          : -Math.min(freshTarget.lifetimeIgk, Math.abs(actualAmount));
         let updated = await tx.user.update({
           where: { id: target.id },
           data: {
             currentIgk: { increment: actualAmount },
-            lifetimeIgk: { increment: lifetimeAdjustment },
           },
           select: safeUserSelect,
         });
-        const level = await syncLevelForLifetime(tx, updated);
+        const level = await syncLevelForBalance(tx, updated);
         if (level !== updated.level) updated = { ...updated, level };
         await tx.igkLedger.create({
           data: {
@@ -209,9 +217,9 @@ export async function PATCH(
             lifetimeAfter: updated.lifetimeIgk,
             sourceType: 'ADMIN',
             sourceId: admin.user.id,
-            idempotencyKey: `admin-adjust:${randomUUID()}`,
+            idempotencyKey,
             note: reason,
-            metadata: { requestedAmount, actualAmount, lifetimeAdjustment },
+            metadata: { requestedAmount, actualAmount, direction: actualAmount > 0 ? 'GRANT' : 'TAKE' },
           },
         });
         await createNotificationWithDelivery(tx, {

@@ -89,8 +89,8 @@ export async function GET(request: Request) {
     const [posts, users] = await Promise.all([postPromise, userPromise]);
     return json({
       query,
-      posts: maskPublicIdentitiesWithMode(posts, session.user.id, platformMode),
-      users: maskPublicIdentitiesWithMode(users, session.user.id, platformMode),
+      posts: await maskPublicIdentitiesWithMode(posts, session.user.id, platformMode),
+      users: await maskPublicIdentitiesWithMode(users, session.user.id, platformMode),
     });
   } catch (error) {
     return jsonError(error);

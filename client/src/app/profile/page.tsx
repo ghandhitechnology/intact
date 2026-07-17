@@ -24,6 +24,7 @@ import {
   Gift,
   KeyRound,
   Loader2,
+  ImagePlus,
   LogIn,
   LogOut,
   MonitorSmartphone,
@@ -31,12 +32,14 @@ import {
   ShieldCheck,
   Trophy,
   Users,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { usePlatformMode } from '@/components/portal/PlatformModeProvider';
 import { FormEvent, useEffect, useState } from 'react';
 import { igkLevelLabel } from '@/lib/igk-levels';
+import { waitForAttachmentReady } from '@/lib/client/resource-upload';
 
 const DEMO_MODE = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === 'true';
 
@@ -50,6 +53,9 @@ type Profile = {
   profileImage: string | null;
   bio: string | null;
   interests: string[];
+  showRealName: boolean;
+  showStudentCode: boolean;
+  showActivityStats: boolean;
   role: string;
   status: string;
   currentIgk: number;
@@ -72,10 +78,10 @@ type IgkSummary = {
   currentIgk: number;
   lifetimeIgk: number;
   level: number;
-  jojolRank?: number | null;
+  igkRank?: number | null;
   rank: number;
   progress: number;
-  nextLevel: { level: number; minimumLifetimeIgk: number; label: string | null } | null;
+  nextLevel: { level: number; minimumCurrentIgk: number; label: string | null } | null;
   attendanceStreak?: number;
   bestAttendanceStreak?: number;
 };
@@ -102,6 +108,9 @@ const demoProfile: Profile = {
   profileImage: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
   bio: '물리와 천문을 좋아합니다. 서로 좋은 질문을 주고받아요.',
   interests: ['물리', '천문', '과학대회'],
+  showRealName: false,
+  showStudentCode: false,
+  showActivityStats: false,
   role: 'USER',
   status: 'ACTIVE',
   currentIgk: 2480,
@@ -118,8 +127,8 @@ const demoIgk: IgkSummary = {
   lifetimeIgk: 2980,
   level: 6,
   rank: 18,
-  progress: (2980 - 2000) / (3500 - 2000),
-  nextLevel: { level: 7, minimumLifetimeIgk: 3500, label: '3등급' },
+  progress: (2480 - 2000) / (3500 - 2000),
+  nextLevel: { level: 7, minimumCurrentIgk: 3500, label: '3등급' },
   attendanceStreak: 4,
   bestAttendanceStreak: 12,
 };
@@ -175,6 +184,11 @@ export default function ProfilePage() {
   const [editOpen, setEditOpen] = useState(false);
   const [draftNickname, setDraftNickname] = useState(DEMO_MODE ? demoProfile.nickname : '');
   const [draftProfileImage, setDraftProfileImage] = useState(DEMO_MODE ? demoProfile.profileImage ?? '' : '');
+  const [draftShowRealName, setDraftShowRealName] = useState(false);
+  const [draftShowStudentCode, setDraftShowStudentCode] = useState(false);
+  const [draftShowActivityStats, setDraftShowActivityStats] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarProgress, setAvatarProgress] = useState('');
   const [draftBio, setDraftBio] = useState(DEMO_MODE ? demoProfile.bio ?? '' : '');
   const [interestDraft, setInterestDraft] = useState(DEMO_MODE ? demoProfile.interests.join(', ') : '');
   const [toast, setToast] = useState<string | null>(null);
@@ -221,6 +235,9 @@ export default function ProfilePage() {
         setDraftProfileImage(nextProfile.profileImage ?? '');
         setDraftBio(nextProfile.bio ?? '');
         setInterestDraft(nextProfile.interests.join(', '));
+        setDraftShowRealName(nextProfile.showRealName);
+        setDraftShowStudentCode(nextProfile.showStudentCode);
+        setDraftShowActivityStats(nextProfile.showActivityStats);
         setIgk(igkResponse.ok && igkPayload?.ok ? igkPayload.data : null);
         setLoadState('ready');
       } catch (cause) {
@@ -275,6 +292,9 @@ export default function ProfilePage() {
     setDraftProfileImage(profile.profileImage ?? '');
     setDraftBio(profile.bio ?? '');
     setInterestDraft(profile.interests.join(', '));
+    setDraftShowRealName(profile.showRealName);
+    setDraftShowStudentCode(profile.showStudentCode);
+    setDraftShowActivityStats(profile.showActivityStats);
     setEditOpen(true);
   }
 
@@ -284,14 +304,29 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       if (DEMO_MODE) {
-        setProfile({ ...profile, nickname: draftNickname, profileImage: draftProfileImage.trim() || null, bio: draftBio.trim() || null, interests });
+        setProfile({
+          ...profile,
+          nickname: draftNickname,
+          bio: draftBio.trim() || null,
+          interests,
+          showRealName: draftShowRealName,
+          showStudentCode: draftShowStudentCode,
+          showActivityStats: draftShowActivityStats,
+        });
       } else {
         const response = await fetch('/api/profile', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nickname: draftNickname, profileImage: draftProfileImage, bio: draftBio, interests }),
+          body: JSON.stringify({
+            nickname: draftNickname,
+            bio: draftBio,
+            interests,
+            showRealName: draftShowRealName,
+            showStudentCode: draftShowStudentCode,
+            showActivityStats: draftShowActivityStats,
+          }),
         });
-        const payload = await readApiEnvelope<{ profile: Pick<Profile, 'id' | 'nickname' | 'profileImage' | 'bio' | 'interests' | 'level'> }>(response);
+        const payload = await readApiEnvelope<{ profile: Pick<Profile, 'id' | 'nickname' | 'profileImage' | 'bio' | 'interests' | 'level' | 'showRealName' | 'showStudentCode' | 'showActivityStats'> }>(response);
         if (response.status === 401) {
           setEditOpen(false);
           setLoadState('auth');
@@ -308,6 +343,76 @@ export default function ProfilePage() {
       setToast(cause instanceof Error ? cause.message : '프로필을 저장하지 못했습니다.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function uploadAvatar(file: File) {
+    if (!profile || avatarUploading) return;
+    const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
+    if (!allowed.has(file.type) || file.size < 1 || file.size > 10 * 1024 * 1024) {
+      setToastTone('error');
+      setToast('10MB 이하의 JPEG, PNG, WebP 또는 AVIF 이미지를 선택해 주세요.');
+      return;
+    }
+    setAvatarUploading(true);
+    setAvatarProgress('업로드 중…');
+    let attachmentId: string | null = null;
+    try {
+      const form = new FormData();
+      form.set('file', file);
+      const uploadResponse = await fetch('/api/uploads', { method: 'POST', body: form });
+      const uploadPayload = await readApiEnvelope<{ attachment: { id: string } }>(uploadResponse);
+      if (!uploadResponse.ok || !uploadPayload?.ok) {
+        throw new Error(apiErrorMessage(uploadPayload, '프로필 이미지를 업로드하지 못했습니다.'));
+      }
+      attachmentId = uploadPayload.data.attachment.id;
+      setAvatarProgress('안전 검사 중…');
+      await waitForAttachmentReady(attachmentId);
+      setAvatarProgress('프로필 이미지 처리 중…');
+      const response = await fetch('/api/profile/avatar', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attachmentId }),
+      });
+      const payload = await readApiEnvelope<{ profile: { id: string; profileImage: string | null } }>(response);
+      if (!response.ok || !payload?.ok) throw new Error(apiErrorMessage(payload, '프로필 이미지를 저장하지 못했습니다.'));
+      setProfile({ ...profile, profileImage: payload.data.profile.profileImage });
+      setDraftProfileImage(payload.data.profile.profileImage ?? '');
+      setToastTone('success');
+      setToast('프로필 이미지를 변경했습니다.');
+      attachmentId = null;
+    } catch (cause) {
+      if (attachmentId) {
+        await fetch(`/api/uploads/${encodeURIComponent(attachmentId)}`, { method: 'DELETE' }).catch(() => undefined);
+      }
+      setToastTone('error');
+      setToast(cause instanceof Error ? cause.message : '프로필 이미지를 변경하지 못했습니다.');
+    } finally {
+      setAvatarUploading(false);
+      setAvatarProgress('');
+    }
+  }
+
+  async function removeAvatar() {
+    if (!profile || avatarUploading) return;
+    setAvatarUploading(true);
+    try {
+      const response = await fetch('/api/profile/avatar', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attachmentId: null }),
+      });
+      const payload = await readApiEnvelope<{ profile: { profileImage: null } }>(response);
+      if (!response.ok || !payload?.ok) throw new Error(apiErrorMessage(payload, '프로필 이미지를 삭제하지 못했습니다.'));
+      setProfile({ ...profile, profileImage: null });
+      setDraftProfileImage('');
+      setToastTone('success');
+      setToast('프로필 이미지를 삭제했습니다.');
+    } catch (cause) {
+      setToastTone('error');
+      setToast(cause instanceof Error ? cause.message : '프로필 이미지를 삭제하지 못했습니다.');
+    } finally {
+      setAvatarUploading(false);
     }
   }
 
@@ -446,7 +551,7 @@ export default function ProfilePage() {
   const currentIgk = igk?.currentIgk ?? profile.currentIgk;
   const lifetimeIgk = igk?.lifetimeIgk ?? profile.lifetimeIgk;
   const level = igk?.level ?? profile.level;
-  const nextThreshold = igk?.nextLevel?.minimumLifetimeIgk ?? null;
+  const nextThreshold = igk?.nextLevel?.minimumCurrentIgk ?? null;
   const progress = igk ? Math.round(igk.progress * 1000) / 10 : 100;
   const otherSessionCount = sessions.filter((session) => !session.current).length;
 
@@ -471,7 +576,7 @@ export default function ProfilePage() {
 
         <section className="min-w-0 space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="현재 등급" value={igkLevelLabel(level, igk?.jojolRank)} detail="활동·받은 선물 누적" icon={<Trophy className="h-4 w-4" />} tone="amber" />
+            <Stat label="현재 등급" value={igkLevelLabel(level)} detail={igk?.igkRank ? `${igk.igkRank}짱 · 보유 IGK 기준` : '보유 IGK 기준'} icon={<Trophy className="h-4 w-4" />} tone="amber" />
             <Stat label="보유 IGK" value={currentIgk.toLocaleString()} detail={`누적 ${lifetimeIgk.toLocaleString()}`} icon={<Gift className="h-4 w-4" />} tone="green" />
             <Stat label="작성한 글" value={profile._count.posts.toLocaleString()} detail="전체 게시판" icon={<Award className="h-4 w-4" />} />
             <Stat label="교내 랭킹" value={igk ? `#${igk.rank}` : '—'} detail={igk ? '보유 IGK 기준' : '랭킹 정보 없음'} icon={<Users className="h-4 w-4" />} tone="slate" />
@@ -479,7 +584,7 @@ export default function ProfilePage() {
         </section>
 
         <aside className="space-y-4 lg:col-span-2 xl:col-span-1">
-          <Card className=""><CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-blue-700">전체 로드맵</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level, igk?.jojolRank)}</span><p className="mt-1 text-lg font-bold text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : igkLevelLabel(level, igk?.jojolRank)}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{lifetimeIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div><p className="mt-3 text-xs leading-5 text-slate-500">{nextThreshold ? <>다음 등급까지 <strong className="text-slate-800">{Math.max(0, nextThreshold - lifetimeIgk).toLocaleString()} IGK</strong>가 필요합니다.</> : '조진 중 보유 IGK 상위 8명은 조졸 · N짱 호칭을 받습니다.'}</p>{typeof igk?.attendanceStreak === 'number' ? <p className="mt-3 border-t border-slate-100 pt-3 text-xs font-bold text-slate-600">출석 스트릭 <strong className="text-emerald-700">{igk.attendanceStreak}일 연속</strong> · 최고 {igk.bestAttendanceStreak ?? igk.attendanceStreak}일</p> : null}<Link href="/igk/roadmap" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">9등급부터 조진까지 보기</Link></div></Card>
+          <Card className=""><CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-blue-700">전체 로드맵</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level)}{igk?.igkRank ? ` · ${igk.igkRank}짱` : ''}</span><p className="mt-1 text-lg font-bold text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : igkLevelLabel(level)}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{currentIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div><p className="mt-3 text-xs leading-5 text-slate-500">{nextThreshold ? <>다음 등급까지 <strong className="text-slate-800">{Math.max(0, nextThreshold - currentIgk).toLocaleString()} IGK</strong>가 필요합니다. 선물이나 구매로 잔액이 줄면 등급도 내려갈 수 있습니다.</> : '최고 등급 조졸입니다. 짱 순위는 보유 IGK 상위 10명에게 별도로 표시됩니다.'}</p>{typeof igk?.attendanceStreak === 'number' ? <p className="mt-3 border-t border-slate-100 pt-3 text-xs font-bold text-slate-600">출석 스트릭 <strong className="text-emerald-700">{igk.attendanceStreak}일 연속</strong> · 최고 {igk.bestAttendanceStreak ?? igk.attendanceStreak}일</p> : null}<Link href="/igk/roadmap" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">9등급부터 조졸까지 보기</Link></div></Card>
           <Card className=""><CardHeader title="재학생 인증" /><div className="p-5"><p className="flex items-center gap-2 text-sm font-semibold text-slate-900"><ShieldCheck className="h-4 w-4 text-emerald-700" />{profile.status === 'ACTIVE' ? '정상 이용 가능' : profile.status}</p><p className="mt-2 text-xs leading-5 text-slate-500">{profile.reverifyDueAt ? `${formatDate(profile.reverifyDueAt)}까지 재인증이 유효합니다.` : '재인증 만료일이 등록되지 않았습니다.'}</p></div></Card>
         </aside>
       </div>
@@ -646,8 +751,57 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="프로필 편집" description={bSideEnabled ? 'B-side에서는 다른 사용자에게 익명 해시로 표시됩니다.' : '학번과 학적은 재학생 인증 정보이므로 변경할 수 없습니다.'} footer={<><Button variant="secondary" onClick={() => setEditOpen(false)}>취소</Button><Button onClick={() => void saveProfile()} disabled={saving}>{saving ? '저장 중…' : '변경사항 저장'}</Button></>}>
-        <form onSubmit={(event) => { event.preventDefault(); void saveProfile(); }} className="space-y-5"><div className="flex items-center gap-4 border border-slate-200 bg-slate-50 p-4"><Avatar name={profile.realName || profile.nickname} imageUrl={draftProfileImage || null} size="lg" tone="blue" className={level >= 10 ? 'top-level-avatar' : undefined} /><div><p className="text-sm font-bold text-slate-900">{profile.realName || profile.nickname}</p><p className="text-xs text-slate-500">인증된 실명</p></div></div><Field label="프로필 이미지 주소" hint="HTTPS 이미지"><Input type="url" value={draftProfileImage} onChange={(event) => setDraftProfileImage(event.target.value)} maxLength={2048} placeholder="https://example.com/profile.jpg" /></Field><Field label="소개" hint={`${draftBio.length}/280`}><Textarea rows={4} value={draftBio} onChange={(event) => setDraftBio(event.target.value)} maxLength={280} /></Field><Field label="관심 분야" hint="쉼표로 구분, 최대 5개"><Input value={interestDraft} onChange={(event) => setInterestDraft(event.target.value)} placeholder="물리, 천문, 과학대회" /></Field><div className="border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-bold text-slate-700">인증 정보</p><p className="mt-2 text-sm text-slate-900">{identityLine}</p><p className="mt-1 text-xs leading-5 text-slate-500">{bSideEnabled ? '본인에게만 실제 정보가 보입니다.' : '게시글과 댓글에 인증된 정보가 표시됩니다.'}</p></div><button type="submit" className="hidden">저장</button></form>
+      <Modal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="프로필 편집"
+        description={bSideEnabled ? 'B-side에서는 공개 설정과 관계없이 익명으로 표시됩니다.' : '공개할 학교 정보는 직접 선택할 수 있습니다.'}
+        footer={<><Button variant="secondary" onClick={() => setEditOpen(false)}>취소</Button><Button onClick={() => void saveProfile()} disabled={saving || avatarUploading}>{saving ? '저장 중…' : '변경사항 저장'}</Button></>}
+      >
+        <form onSubmit={(event) => { event.preventDefault(); void saveProfile(); }} className="space-y-5">
+          <div className="flex items-center gap-4 border border-slate-200 bg-slate-50 p-4">
+            <Avatar name={profile.realName || profile.nickname} imageUrl={draftProfileImage || null} size="lg" tone="blue" className={level >= 10 ? 'top-level-avatar' : undefined} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-slate-900">프로필 이미지</p>
+              <p className="mt-1 text-xs text-slate-500">10MB 이하 JPEG, PNG, WebP, AVIF · 중앙 정사각형으로 안전하게 처리</p>
+              {avatarProgress ? <p className="mt-2 text-xs font-bold text-emerald-700">{avatarProgress}</p> : null}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <label className="inline-flex h-9 cursor-pointer items-center gap-2 border border-emerald-700 bg-emerald-700 px-3 text-xs font-bold text-white hover:bg-emerald-800">
+                  <ImagePlus className="h-4 w-4" />이미지 선택
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/avif"
+                    className="sr-only"
+                    disabled={avatarUploading}
+                    onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadAvatar(file); event.currentTarget.value = ''; }}
+                  />
+                </label>
+                {draftProfileImage ? <Button type="button" variant="secondary" onClick={() => void removeAvatar()} disabled={avatarUploading}><Trash2 className="h-4 w-4" />삭제</Button> : null}
+              </div>
+            </div>
+          </div>
+          <Field label="닉네임" hint="2–16자"><Input value={draftNickname} onChange={(event) => setDraftNickname(event.target.value)} maxLength={16} /></Field>
+          <Field label="소개" hint={`${draftBio.length}/280`}><Textarea rows={4} value={draftBio} onChange={(event) => setDraftBio(event.target.value)} maxLength={280} /></Field>
+          <Field label="관심 분야" hint="쉼표로 구분, 최대 5개"><Input value={interestDraft} onChange={(event) => setInterestDraft(event.target.value)} placeholder="물리, 천문, 과학대회" /></Field>
+          <div className="border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-bold text-slate-700">프로필 공개 설정</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">닉네임, 이미지, 등급·짱, 소개, 관심 분야와 게시 중인 글은 기본 공개됩니다.</p>
+            <div className="mt-3 grid gap-2">
+              {[
+                ['실명 공개', draftShowRealName, setDraftShowRealName],
+                ['학번 공개', draftShowStudentCode, setDraftShowStudentCode],
+                ['게시글·댓글·추천 통계 공개', draftShowActivityStats, setDraftShowActivityStats],
+              ].map(([label, checked, setter]) => (
+                <label key={String(label)} className="flex items-center gap-3 text-sm text-slate-700">
+                  <input type="checkbox" checked={Boolean(checked)} onChange={(event) => (setter as (value: boolean) => void)(event.target.checked)} className="h-4 w-4 accent-emerald-700" />
+                  {String(label)}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="border border-slate-200 bg-white p-4"><p className="text-xs font-bold text-slate-700">인증 정보</p><p className="mt-2 text-sm text-slate-900">{identityLine}</p><p className="mt-1 text-xs leading-5 text-slate-500">{bSideEnabled ? 'B-side에서는 본인 외 사용자에게 항상 숨겨집니다.' : '선택한 항목만 로그인한 학생에게 공개됩니다.'}</p></div>
+          <button type="submit" className="hidden">저장</button>
+        </form>
       </Modal>
       <Modal
         open={Boolean(pendingSessionAction)}

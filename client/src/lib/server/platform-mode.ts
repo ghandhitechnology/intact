@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { ApiError } from '@/lib/server/http';
 import { writeOutboxEvent } from './outbox';
 import { getRedisClient, subscribeRedis } from './redis';
+import { enrichPublicUserTree } from './igk-standing';
 
 export type PlatformMode = {
   bSideEnabled: boolean;
@@ -214,12 +215,14 @@ function maskIdentityTree(value: unknown, viewerId: string, mode: PlatformMode):
 }
 
 export async function maskPublicIdentities<T>(value: T, viewerId: string): Promise<T> {
+  const enriched = await enrichPublicUserTree(value);
   const mode = await getPlatformMode();
-  if (!mode.bSideEnabled) return value;
-  return maskIdentityTree(value, viewerId, mode) as T;
+  if (!mode.bSideEnabled) return enriched;
+  return maskIdentityTree(enriched, viewerId, mode) as T;
 }
 
-export function maskPublicIdentitiesWithMode<T>(value: T, viewerId: string, mode: PlatformMode): T {
-  if (!mode.bSideEnabled) return value;
-  return maskIdentityTree(value, viewerId, mode) as T;
+export async function maskPublicIdentitiesWithMode<T>(value: T, viewerId: string, mode: PlatformMode): Promise<T> {
+  const enriched = await enrichPublicUserTree(value);
+  if (!mode.bSideEnabled) return enriched;
+  return maskIdentityTree(enriched, viewerId, mode) as T;
 }

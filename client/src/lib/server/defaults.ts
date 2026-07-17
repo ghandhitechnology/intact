@@ -70,7 +70,10 @@ let initialization: Promise<void> | null = null;
 async function initialize() {
   await prisma.board.createMany({ data: DEFAULT_BOARDS, skipDuplicates: true });
   await prisma.levelRule.createMany({
-    data: IGK_LEVELS.map((rule) => ({ ...rule })),
+    data: IGK_LEVELS.map((rule) => ({
+      ...rule,
+      minimumLifetimeIgk: rule.minimumCurrentIgk,
+    })),
     skipDuplicates: true,
   });
 

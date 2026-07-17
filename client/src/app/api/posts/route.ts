@@ -158,7 +158,7 @@ export async function GET(request: Request) {
       ? encodeCursor(scope, postCursorPosition(lastPost, sort))
       : null;
     return json({
-      posts: maskPublicIdentitiesWithMode(posts, session.user.id, platformMode),
+      posts: await maskPublicIdentitiesWithMode(posts, session.user.id, platformMode),
       pagination: {
         ...paginationMeta(page, pageSize, total),
         cursor: cursorToken,

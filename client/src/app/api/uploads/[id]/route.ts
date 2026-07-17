@@ -48,6 +48,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             },
           },
         },
+        profileForUser: { select: { id: true, status: true } },
       },
     });
     if (!attachment || !isReadableAttachment(attachment)) {
@@ -59,32 +60,40 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         && (attachment.post.status === 'PUBLISHED' || attachment.post.authorId === session.user.id),
     );
     const canReadMessage = Boolean(attachment.message?.room.members.length);
+    const canReadProfile = attachment.profileForUser?.status === 'ACTIVE';
     const canReadUnattached = !attachment.postId && !attachment.messageId && attachment.uploaderId === session.user.id;
-    if (!canReadPost && !canReadMessage && !canReadUnattached) {
+    if (!canReadPost && !canReadMessage && !canReadProfile && !canReadUnattached) {
       throw new ApiError(404, 'FILE_NOT_FOUND', '파일을 찾을 수 없어요.');
     }
 
     const url = new URL(request.url);
     const requestedWidth = Number(url.searchParams.get('w'));
     const thumbnail = url.searchParams.get('variant') === 'thumb' && [320, 640, 1280].includes(requestedWidth);
-    if (url.searchParams.has('variant') && !thumbnail) {
+    const avatar = url.searchParams.get('variant') === 'avatar';
+    if (url.searchParams.has('variant') && !thumbnail && !avatar) {
       throw new ApiError(400, 'INVALID_IMAGE_VARIANT', '지원하지 않는 이미지 크기입니다.');
     }
     if (thumbnail && !attachment.mimeType.startsWith('image/')) {
       throw new ApiError(400, 'NOT_AN_IMAGE', '이미지 파일만 썸네일을 사용할 수 있습니다.');
     }
+    if (avatar && !canReadProfile) {
+      throw new ApiError(404, 'FILE_NOT_FOUND', '프로필 이미지를 찾을 수 없어요.');
+    }
     const serveDerivative = thumbnail && !legacyAttachment;
-    const etag = `"${attachment.sha256}${thumbnail ? `-thumb-${requestedWidth}` : ''}"`;
+    const variantEtag = thumbnail ? `-thumb-${requestedWidth}` : avatar ? '-avatar-512' : '';
+    const etag = `"${attachment.sha256}${variantEtag}"`;
     if (request.headers.get('if-none-match') === etag) {
       return new Response(null, { status: 304, headers: { ETag: etag } });
     }
 
-    const objectKey = serveDerivative
-      ? `${attachment.storageKey}.thumb-${requestedWidth}.webp`
-      : attachment.storageKey;
+    const objectKey = avatar
+      ? `${attachment.storageKey}.avatar-512.webp`
+      : serveDerivative
+        ? `${attachment.storageKey}.thumb-${requestedWidth}.webp`
+        : attachment.storageKey;
     const asciiName = attachment.originalName.replace(/[^A-Za-z0-9._-]/g, '_') || 'download';
     const inline = url.searchParams.get('download') !== '1' && INLINE_MIME_TYPES.has(attachment.mimeType);
-    const contentType = serveDerivative ? 'image/webp' : attachment.mimeType || 'application/octet-stream';
+    const contentType = serveDerivative || avatar ? 'image/webp' : attachment.mimeType || 'application/octet-stream';
     const disposition = `${inline ? 'inline' : 'attachment'}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(attachment.originalName)}`;
     const signedUrl = presignObjectRequest('GET', objectKey, publicStorageOrigin(request), {
       expiresSeconds: 5 * 60,
@@ -124,6 +133,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
           messageId: true,
           scanStatus: true,
           processingError: true,
+          profileForUser: { select: { id: true } },
         },
       });
       if (!current || current.uploaderId !== session.user.id) {
@@ -137,6 +147,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
           uploaderId: session.user.id,
           postId: null,
           messageId: null,
+          profileForUser: null,
           scanStatus: { not: ATTACHMENT_STATUS.DELETING },
         },
         data: { scanStatus: ATTACHMENT_STATUS.DELETING, processingError: null },
@@ -144,7 +155,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       if (claimed.count !== 1) {
         const raced = await tx.attachment.findUnique({
           where: { id },
-          select: { postId: true, messageId: true },
+          select: { postId: true, messageId: true, profileForUser: { select: { id: true } } },
         });
         if (raced) assertDeleteEligibleAttachment(raced);
         throw new ApiError(409, 'ATTACHMENT_STATE_CONFLICT', '파일 상태가 변경되었습니다. 다시 시도해 주세요.');
@@ -163,6 +174,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
         uploaderId: session.user.id,
         postId: null,
         messageId: null,
+        profileForUser: null,
         scanStatus: ATTACHMENT_STATUS.DELETING,
       },
     });

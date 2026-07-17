@@ -97,9 +97,10 @@ export function isReadableAttachment(attachment: {
 export function assertDeleteEligibleAttachment(attachment: {
   postId: string | null;
   messageId: string | null;
+  profileForUser?: { id: string } | null;
 }) {
-  if (attachment.postId || attachment.messageId) {
-    throw new ApiError(409, 'ATTACHMENT_BOUND', '게시물이나 메시지에 연결된 파일은 직접 삭제할 수 없어요.');
+  if (attachment.postId || attachment.messageId || attachment.profileForUser) {
+    throw new ApiError(409, 'ATTACHMENT_BOUND', '게시물, 메시지 또는 프로필에 연결된 파일은 직접 삭제할 수 없어요.');
   }
 }
 
@@ -306,6 +307,7 @@ export function counterpartStorageKey(storageKey: string) {
 export function attachmentVariantKeys(storageKey: string) {
   return [
     storageKey,
+    `${storageKey}.avatar-512.webp`,
     ...ATTACHMENT_DERIVATIVE_WIDTHS.map((width) => `${storageKey}.thumb-${width}.webp`),
   ];
 }

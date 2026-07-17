@@ -1,16 +1,22 @@
+import type { IgkStanding } from '@/lib/igk-levels';
+
 export type BoardSlug = 'question' | 'contest' | 'resources' | 'equipment' | 'free' | 'photos';
 
 export type MemberCosmetics = {
   nicknameColor?: string;
   avatarRing?: string;
   title?: string;
+  profileTheme?: string;
+  postAccent?: string;
 };
 
 export type Member = {
+  id?: string;
   nickname: string;
   studentId: string;
   level: number;
-  jojolRank?: number | null;
+  igkRank?: number | null;
+  standing?: IgkStanding | null;
   initials: string;
   profileImage?: string | null;
   accent: 'emerald' | 'blue' | 'slate' | 'violet' | 'amber';

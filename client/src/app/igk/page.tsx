@@ -43,7 +43,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { igkLevelLabel } from "@/lib/igk-levels";
+import { igkLevelForBalance, igkLevelLabel, type IgkStanding } from "@/lib/igk-levels";
 import { usePlatformMode } from "@/components/portal/PlatformModeProvider";
 
 const DEMO_MODE = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === "true";
@@ -64,12 +64,13 @@ type Wallet = {
   lifetimeIgk: number;
   igkDebt?: number;
   level: number;
-  jojolRank?: number | null;
+  igkRank?: number | null;
+  standing: IgkStanding;
   rank: number;
   progress: number;
   nextLevel: {
     level: number;
-    minimumLifetimeIgk: number;
+    minimumCurrentIgk: number;
     label: string | null;
   } | null;
 };
@@ -104,9 +105,19 @@ type Ranking = {
   realName: string | null;
   profileImage: string | null;
   level: number;
-  jojolRank?: number | null;
+  igkRank?: number | null;
+  standing?: IgkStanding;
   currentIgk: number;
   lifetimeIgk: number;
+  studentIdentity: { studentCode: string } | null;
+};
+type RecipientSuggestion = {
+  id: string;
+  nickname: string;
+  realName: string | null;
+  profileImage: string | null;
+  level: number;
+  standing: IgkStanding;
   studentIdentity: { studentCode: string } | null;
 };
 
@@ -114,9 +125,10 @@ const demoWallet: Wallet = {
   currentIgk: 2480,
   lifetimeIgk: 2980,
   level: 6,
+  standing: { level: 6, tierLabel: "4등급", rank: null, rankLabel: null },
   rank: 18,
-  progress: (2980 - 2000) / (3500 - 2000),
-  nextLevel: { level: 7, minimumLifetimeIgk: 3500, label: "3등급" },
+  progress: (2480 - 2000) / (3500 - 2000),
+  nextLevel: { level: 7, minimumCurrentIgk: 3500, label: "3등급" },
 };
 const demoTransactions: Transaction[] = [
   {
@@ -155,6 +167,8 @@ const demoRankings: Ranking[] = [
     realName: "강서준",
     profileImage: null,
     level: 9,
+    igkRank: 1,
+    standing: { level: 9, tierLabel: "1등급", rank: 1, rankLabel: "1짱" },
     currentIgk: 7820,
     lifetimeIgk: 7820,
     studentIdentity: { studentCode: "360103" },
@@ -166,6 +180,8 @@ const demoRankings: Ranking[] = [
     realName: "윤지민",
     profileImage: null,
     level: 8,
+    igkRank: 2,
+    standing: { level: 8, tierLabel: "2등급", rank: 2, rankLabel: "2짱" },
     currentIgk: 6540,
     lifetimeIgk: 6540,
     studentIdentity: { studentCode: "331312" },
@@ -177,6 +193,8 @@ const demoRankings: Ranking[] = [
     realName: "임도현",
     profileImage: null,
     level: 8,
+    igkRank: 3,
+    standing: { level: 8, tierLabel: "2등급", rank: 3, rankLabel: "3짱" },
     currentIgk: 6210,
     lifetimeIgk: 6210,
     studentIdentity: { studentCode: "380204" },
@@ -273,6 +291,10 @@ export default function IgkPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [filter, setFilter] = useState("all");
   const [recipient, setRecipient] = useState("");
+  const [selectedRecipient, setSelectedRecipient] = useState<RecipientSuggestion | null>(null);
+  const [recipientSuggestions, setRecipientSuggestions] = useState<RecipientSuggestion[]>([]);
+  const [recipientSearching, setRecipientSearching] = useState(false);
+  const [recipientPickerOpen, setRecipientPickerOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [password, setPassword] = useState("");
@@ -282,6 +304,33 @@ export default function IgkPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [toastTone, setToastTone] = useState<"success" | "error">("success");
   const transferIntentKeyRef = useRef("");
+
+  useEffect(() => {
+    if (bSideEnabled || selectedRecipient || recipient.trim().length < 2) {
+      setRecipientSuggestions([]);
+      setRecipientSearching(false);
+      return undefined;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setRecipientSearching(true);
+      try {
+        const response = await fetch(`/api/users/search?q=${encodeURIComponent(recipient.trim())}`, { cache: "no-store", signal: controller.signal });
+        const payload = await readApiEnvelope<{ users: RecipientSuggestion[] }>(response);
+        if (response.ok && payload?.ok) {
+          setRecipientSuggestions(payload.data.users);
+          setRecipientPickerOpen(true);
+        } else {
+          setRecipientSuggestions([]);
+        }
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) setRecipientSuggestions([]);
+      } finally {
+        if (!controller.signal.aborted) setRecipientSearching(false);
+      }
+    }, 250);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [bSideEnabled, recipient, selectedRecipient]);
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("tab");
@@ -417,11 +466,11 @@ export default function IgkPage() {
     [transactions, filter],
   );
   const transferValid =
-    (bSideEnabled ? /^#[A-F0-9]{8}$/.test(recipient) : /^\d{6}$/.test(recipient)) &&
+    (bSideEnabled ? /^#[A-F0-9]{8}$/.test(recipient) : Boolean(selectedRecipient)) &&
     Number.isInteger(giftAmount) &&
     giftAmount >= 1 &&
     giftAmount <= Math.min(500, balance) &&
-    (!selfStudentCode || recipient !== selfStudentCode);
+    (!selfStudentCode || selectedRecipient?.studentIdentity?.studentCode !== selfStudentCode);
 
   function prepareTransfer(event: FormEvent) {
     event.preventDefault();
@@ -494,6 +543,7 @@ export default function IgkPage() {
       setToast(
         `${payload.data.streak}일 연속 출석! ${payload.data.reward} IGK를 받았습니다.${payload.data.freezeUsed ? " (스트릭 프리즈 1개 사용)" : ""}`,
       );
+      setReloadKey((value) => value + 1);
     } catch (cause) {
       setToastTone("error");
       setToast(cause instanceof Error ? cause.message : "출석 체크에 실패했습니다.");
@@ -508,7 +558,8 @@ export default function IgkPage() {
     try {
       if (DEMO_MODE) {
         const nextBalance = balance - giftAmount;
-        setWallet({ ...wallet, currentIgk: nextBalance });
+        const nextTier = igkLevelForBalance(nextBalance);
+        setWallet({ ...wallet, currentIgk: nextBalance, level: nextTier.level, standing: { ...wallet.standing, level: nextTier.level, tierLabel: nextTier.label } });
         setTransactions((current) => [
           {
             id: `demo-${Date.now()}`,
@@ -529,7 +580,8 @@ export default function IgkPage() {
             "Idempotency-Key": transferIntentKeyRef.current,
           },
           body: JSON.stringify({
-            recipient,
+            recipientId: selectedRecipient?.id,
+            recipient: bSideEnabled ? recipient : undefined,
             amount: giftAmount,
             note: message,
             password: password || undefined,
@@ -538,6 +590,7 @@ export default function IgkPage() {
         const payload = await readApiEnvelope<{
           transferId: string;
           senderBalance: number;
+          senderStanding: IgkStanding;
           recipientNickname: string;
         }>(response);
         if (
@@ -562,7 +615,7 @@ export default function IgkPage() {
           throw new Error(
             apiErrorMessage(payload, "선물을 보내지 못했습니다."),
           );
-        setWallet({ ...wallet, currentIgk: payload.data.senderBalance });
+        setWallet({ ...wallet, currentIgk: payload.data.senderBalance, level: payload.data.senderStanding.level, igkRank: payload.data.senderStanding.rank, standing: payload.data.senderStanding });
         setTransactions((current) => [
           {
             id: payload.data.transferId,
@@ -577,6 +630,8 @@ export default function IgkPage() {
         ]);
       }
       setRecipient("");
+      setSelectedRecipient(null);
+      setRecipientSuggestions([]);
       setAmount("");
       setMessage("");
       setPassword("");
@@ -585,6 +640,7 @@ export default function IgkPage() {
       transferIntentKeyRef.current = "";
       setToastTone("success");
       setToast(`${giftAmount.toLocaleString()} IGK를 선물했습니다.`);
+      if (!DEMO_MODE) setReloadKey((value) => value + 1);
     } catch (cause) {
       setToastTone("error");
       setToast(
@@ -642,7 +698,7 @@ export default function IgkPage() {
     );
   }
 
-  const nextThreshold = wallet.nextLevel?.minimumLifetimeIgk ?? null;
+  const nextThreshold = wallet.nextLevel?.minimumCurrentIgk ?? null;
   const txIcon = (type: Transaction["type"]) =>
     type === "gift-in" ? (
       <ArrowDownLeft className="h-4 w-4" />
@@ -673,8 +729,7 @@ export default function IgkPage() {
               <span className="text-base font-bold text-slate-500">IGK</span>
             </div>
             <p className="mt-2 text-sm text-slate-500">
-              등급 누적 {wallet.lifetimeIgk.toLocaleString()} IGK · 보유 IGK 교내{" "}
-              {wallet.rank}위
+              현재 IGK 기준 교내 {wallet.rank}위 · 평생 획득 {wallet.lifetimeIgk.toLocaleString()} IGK
             </p>
             {wallet.igkDebt ? (
               <p className="mt-2 text-xs text-amber-700">
@@ -686,11 +741,11 @@ export default function IgkPage() {
           <div className="w-full border border-slate-200 bg-slate-50 p-4 md:w-80">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-slate-600">
-                {igkLevelLabel(wallet.level, wallet.jojolRank)}
+                <span className="inline-flex gap-1.5"><Badge tone="green">{wallet.standing.tierLabel}</Badge>{wallet.standing.rankLabel ? <Badge tone="blue">{wallet.standing.rankLabel}</Badge> : null}</span>
               </span>
               {nextThreshold ? (
                 <span className="font-semibold text-slate-800">
-                  {wallet.lifetimeIgk.toLocaleString()} /{" "}
+                  {wallet.currentIgk.toLocaleString()} /{" "}
                   {nextThreshold.toLocaleString()}
                 </span>
               ) : null}
@@ -700,8 +755,8 @@ export default function IgkPage() {
             </div>
             <p className="mt-2 text-xs text-slate-500">
               {nextThreshold
-                ? `다음 등급까지 ${Math.max(0, nextThreshold - wallet.lifetimeIgk).toLocaleString()} IGK`
-                : "최고 등급 조진"}
+                ? `다음 등급까지 ${Math.max(0, nextThreshold - wallet.currentIgk).toLocaleString()} IGK`
+                : "최고 등급 조졸"}
             </p>
           </div>
         </div>
@@ -841,10 +896,10 @@ export default function IgkPage() {
                 <div className="border border-emerald-300 bg-white p-5">
                   <Badge tone="green">현재</Badge>
                   <p className="mt-3 text-lg font-bold">
-                    {igkLevelLabel(wallet.level, wallet.jojolRank)}
+                    <span className="inline-flex gap-1.5"><Badge tone="green">{wallet.standing.tierLabel}</Badge>{wallet.standing.rankLabel ? <Badge tone="blue">{wallet.standing.rankLabel}</Badge> : null}</span>
                   </p>
                   <p className="mt-1 text-xs text-slate-600">
-                    누적 {wallet.lifetimeIgk.toLocaleString()} IGK
+                    현재 {wallet.currentIgk.toLocaleString()} IGK
                   </p>
                 </div>
                 {wallet.nextLevel ? (
@@ -854,8 +909,8 @@ export default function IgkPage() {
                       {wallet.nextLevel.label ?? igkLevelLabel(wallet.nextLevel.level)}
                     </p>
                     <p className="mt-1 text-xs text-slate-600">
-                      누적{" "}
-                      {wallet.nextLevel.minimumLifetimeIgk.toLocaleString()}{" "}
+                      현재{" "}
+                      {wallet.nextLevel.minimumCurrentIgk.toLocaleString()}{" "}
                       IGK부터
                     </p>
                   </div>
@@ -881,8 +936,9 @@ export default function IgkPage() {
               {rankings.map((person, index) => {
                 const displayName = person.realName || person.nickname;
                 return (
-                  <article
+                  <Link
                     key={person.id}
+                    href={`/users/${person.id}`}
                     className="flex items-center gap-3 border-b border-slate-100 px-4 py-3"
                   >
                     <span className="grid h-8 w-8 place-items-center text-sm font-bold">
@@ -911,11 +967,11 @@ export default function IgkPage() {
                         {person.studentIdentity?.studentCode && person.studentIdentity.studentCode !== '------'
                           ? `${person.studentIdentity.studentCode} · `
                           : ''}
-                        {igkLevelLabel(person.level, person.jojolRank)}
+                        <span className="inline-flex gap-1"><Badge tone="green">{person.standing?.tierLabel ?? igkLevelLabel(person.level)}</Badge>{person.standing?.rankLabel ? <Badge tone="blue">{person.standing.rankLabel}</Badge> : null}</span>
                       </p>
                     </div>
                     <strong>{person.currentIgk.toLocaleString()} IGK</strong>
-                  </article>
+                  </Link>
                 );
               })}
               {rankings.length === 0 ? (
@@ -939,33 +995,45 @@ export default function IgkPage() {
             />
             <form onSubmit={prepareTransfer} className="space-y-4 p-5">
               <Field
-                label={bSideEnabled ? "받는 사용자의 익명 해시" : "받는 학생의 6자리 학번"}
+                label={bSideEnabled ? "받는 사용자의 익명 해시" : "받는 학생 이름 또는 닉네임"}
                 required
                 error={
                   recipient &&
-                  (!(bSideEnabled ? /^#[A-F0-9]{8}$/.test(recipient) : /^\d{6}$/.test(recipient)) || recipient === selfStudentCode)
-                    ? recipient === selfStudentCode
-                      ? "본인에게는 선물할 수 없습니다."
-                      : bSideEnabled ? "#으로 시작하는 8자리 익명 해시를 입력하세요." : "6자리 학번을 입력하세요."
+                  (bSideEnabled ? !/^#[A-F0-9]{8}$/.test(recipient) : !selectedRecipient)
+                    ? bSideEnabled ? "#으로 시작하는 8자리 익명 해시를 입력하세요." : "검색 결과에서 받을 학생을 선택하세요."
                     : undefined
                 }
               >
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
-                    inputMode={bSideEnabled ? "text" : "numeric"}
-                    maxLength={bSideEnabled ? 9 : 6}
+                    inputMode="text"
+                    maxLength={bSideEnabled ? 9 : 32}
                     value={recipient}
-                    onChange={(event) =>
+                    role={bSideEnabled ? undefined : "combobox"}
+                    aria-autocomplete={bSideEnabled ? undefined : "list"}
+                    aria-expanded={bSideEnabled ? undefined : recipientPickerOpen}
+                    aria-controls={bSideEnabled ? undefined : "igk-recipient-options"}
+                    onFocus={() => setRecipientPickerOpen(true)}
+                    onChange={(event) => {
+                      setSelectedRecipient(null);
                       setRecipient(
                         bSideEnabled
                           ? event.target.value.toUpperCase().replace(/[^#A-F0-9]/g, "").replace(/(?!^)#/g, "")
-                          : event.target.value.replace(/\D/g, ""),
-                      )
-                    }
+                          : event.target.value,
+                      );
+                    }}
                     className="pl-9"
-                    placeholder={bSideEnabled ? "#A1B2C3D4" : "331101"}
+                    placeholder={bSideEnabled ? "#A1B2C3D4" : "이름 또는 닉네임 2자 이상"}
                   />
+                  {recipientSearching ? <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" /> : null}
+                  {!bSideEnabled && recipientPickerOpen && !selectedRecipient && recipient.trim().length >= 2 ? <div id="igk-recipient-options" role="listbox" className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto border border-slate-300 bg-white shadow-lg">
+                    {recipientSuggestions.map((person) => <button key={person.id} type="button" role="option" aria-selected="false" className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2.5 text-left last:border-0 hover:bg-emerald-50 focus:bg-emerald-50" onClick={() => { setSelectedRecipient(person); setRecipient(person.realName || person.nickname); setRecipientPickerOpen(false); }}>
+                      <Avatar name={person.realName || person.nickname} imageUrl={person.profileImage} size="sm" />
+                      <span className="min-w-0 flex-1"><span className="block truncate text-xs font-black text-slate-900">{person.realName || person.nickname} <span className="font-semibold text-slate-500">@{person.nickname}</span></span><span className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-slate-500">{person.studentIdentity?.studentCode}<Badge tone="green">{person.standing.tierLabel}</Badge>{person.standing.rankLabel ? <Badge tone="blue">{person.standing.rankLabel}</Badge> : null}</span></span>
+                    </button>)}
+                    {!recipientSearching && recipientSuggestions.length === 0 ? <p className="p-3 text-xs text-slate-500">일치하는 학생이 없습니다.</p> : null}
+                  </div> : null}
                 </div>
               </Field>
               <Field label="선물할 금액" required hint="일일 한도 500">
@@ -978,9 +1046,7 @@ export default function IgkPage() {
                 />
               </Field>
               {giftAmount > 0 && giftAmount <= balance ? (
-                <p className="-mt-2 text-right text-xs font-bold text-slate-500">
-                  선물 후 {(balance - giftAmount).toLocaleString()} IGK
-                </p>
+                <div className="-mt-2 text-right text-xs font-bold text-slate-500"><p>선물 후 {(balance - giftAmount).toLocaleString()} IGK</p>{igkLevelForBalance(balance - giftAmount).level < wallet.level ? <p className="mt-1 text-amber-700">등급 하락: {wallet.standing.tierLabel} → {igkLevelForBalance(balance - giftAmount).label}</p> : null}</div>
               ) : null}
               <Field label="메시지" hint={`${message.length}/300`}>
                 <Textarea
@@ -1058,12 +1124,13 @@ export default function IgkPage() {
       >
         <div className="space-y-5">
           <div className="border border-slate-300 bg-white p-5 text-center">
-            <Avatar name={recipient || "학생"} size="lg" tone="green" />
-            <p className="mt-3 text-sm font-bold">{recipient} 학생에게</p>
+            <Avatar name={selectedRecipient?.realName || selectedRecipient?.nickname || recipient || "학생"} imageUrl={selectedRecipient?.profileImage} size="lg" tone="green" />
+            <p className="mt-3 text-sm font-bold">{selectedRecipient ? `${selectedRecipient.realName || selectedRecipient.nickname} (@${selectedRecipient.nickname})` : recipient} 학생에게</p>
             <p className="mt-2 text-3xl font-bold text-emerald-700">
               {giftAmount.toLocaleString()} IGK
             </p>
           </div>
+          {wallet && igkLevelForBalance(balance - giftAmount).level < wallet.level ? <p className="border border-amber-300 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">선물 후 현재 IGK가 낮아져 {wallet.standing.tierLabel}에서 {igkLevelForBalance(balance - giftAmount).label}(으)로 내려갑니다. 짱 순위도 즉시 다시 계산됩니다.</p> : null}
           {passwordRequired ? (
             <Field label="본인 확인 비밀번호" required hint="누적 100 IGK 이상">
               <Input

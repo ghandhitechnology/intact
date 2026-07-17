@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import prisma from '@/lib/prisma';
-import { shopItemById } from '@/lib/igk-shop';
+import { isShopItemAvailable, shopItemById } from '@/lib/igk-shop';
 import { lockIgkAccounts, spendIgk } from '@/lib/server/igk';
 import {
   ApiError,
@@ -12,6 +12,7 @@ import {
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 import { isRetryableTransactionError } from '@/lib/server/transactions';
+import { standingFor, topIgkRankMap } from '@/lib/server/igk-standing';
 
 export const runtime = 'nodejs';
 
@@ -27,6 +28,9 @@ export async function POST(request: Request) {
     const itemId = requiredString(body.itemId, '아이템', { min: 1, max: 60 });
     const item = shopItemById(itemId);
     if (!item) throw new ApiError(404, 'ITEM_NOT_FOUND', '존재하지 않는 상점 아이템입니다.');
+    if (!isShopItemAvailable(item)) {
+      throw new ApiError(409, 'ITEM_NOT_AVAILABLE', '현재 시즌에는 구매할 수 없는 아이템입니다.');
+    }
 
     // Non-consumables can be bought once, so a stable key makes retries safe.
     // Consumable purchases use the caller's Idempotency-Key (or a fresh UUID).
@@ -99,7 +103,17 @@ export async function POST(request: Request) {
         throw error;
       }
     }
-    return json(result!);
+    const [user, rankMap] = await Promise.all([
+      prisma.user.findUniqueOrThrow({
+        where: { id: session.user.id },
+        select: { level: true },
+      }),
+      topIgkRankMap(),
+    ]);
+    return json({
+      ...result!,
+      standing: standingFor(user.level, rankMap.get(session.user.id) ?? null),
+    });
   } catch (error) {
     return jsonError(error);
   }

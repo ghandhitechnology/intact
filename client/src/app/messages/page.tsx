@@ -43,6 +43,7 @@ import { isValidStudentCode, STUDENT_CODE_REQUIREMENTS } from "@/lib/student-cod
 import { fetchWithTimeout, isAbortError, requestErrorMessage } from "@/lib/client/request";
 import { usePortalSession } from "@/components/portal/SessionProvider";
 import { usePlatformMode } from "@/components/portal/PlatformModeProvider";
+import type { IgkStanding } from "@/lib/igk-levels";
 import { io, type Socket } from "socket.io-client";
 import {
   FormEvent,
@@ -87,6 +88,9 @@ type ChatMessage = {
   id: string;
   sender: string;
   studentId: string;
+  senderId?: string;
+  standing?: IgkStanding | null;
+  profileImage?: string | null;
   body: string;
   time: string;
   createdAt?: string;
@@ -102,6 +106,8 @@ type ServerAuthor = {
   nickname: string;
   realName?: string | null;
   studentIdentity?: { studentCode: string } | null;
+  standing?: IgkStanding | null;
+  profileImage?: string | null;
 };
 
 type ServerMessage = {
@@ -212,6 +218,9 @@ function mapServerMessage(
         ? "나"
         : message.sender.realName || message.sender.nickname,
     studentId: message.sender.studentIdentity?.studentCode ?? "",
+    senderId: message.sender.id,
+    standing: message.sender.standing,
+    profileImage: message.sender.profileImage,
     body: message.content,
     time: new Intl.DateTimeFormat("ko-KR", {
       hour: "numeric",
@@ -1723,13 +1732,7 @@ export default function MessagesPage() {
                       )}
                     >
                       {!message.mine && !grouped ? (
-                        <Avatar
-                          name={message.sender}
-                          size="sm"
-                          tone={
-                            message.sender === "박민서" ? "green" : "violet"
-                          }
-                        />
+                        message.senderId ? <Link href={`/users/${message.senderId}`} aria-label={`${message.sender} 프로필`}><Avatar name={message.sender} imageUrl={message.profileImage} size="sm" tone={message.sender === "박민서" ? "green" : "violet"} /></Link> : <Avatar name={message.sender} imageUrl={message.profileImage} size="sm" tone={message.sender === "박민서" ? "green" : "violet"} />
                       ) : !message.mine ? (
                         <span className="w-8 shrink-0" />
                       ) : null}
@@ -1740,13 +1743,14 @@ export default function MessagesPage() {
                         )}
                       >
                         {!message.mine && !grouped ? (
-                          <p className="mb-1.5 text-xs font-bold text-slate-700">
-                            {message.sender}{" "}
+                          <p className="mb-1.5 flex flex-wrap items-center gap-1 text-xs font-bold text-slate-700">
+                            {message.senderId ? <Link href={`/users/${message.senderId}`} className="hover:text-emerald-700">{message.sender}</Link> : message.sender}{" "}
                             {message.studentId && message.studentId !== '------' ? (
                               <span className="ml-1 font-normal text-slate-400">
                                 {message.studentId}
                               </span>
                             ) : null}
+                            {message.standing ? <><Badge tone="green">{message.standing.tierLabel}</Badge>{message.standing.rankLabel ? <Badge tone="blue">{message.standing.rankLabel}</Badge> : null}</> : null}
                           </p>
                         ) : null}
                         <div className="flex items-end gap-2">

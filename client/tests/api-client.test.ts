@@ -8,7 +8,7 @@ const validHome = {
   boards: [{ id: 'board-1', slug: 'free', name: '자유게시판' }],
   notices: [{ id: 'notice-1', title: '공지' }],
   leaders: [{ id: 'user-1', nickname: '학생' }],
-  account: { currentIgk: 120, jojolRank: null, unreadCount: 2 },
+  account: { currentIgk: 120, igkRank: null, unreadCount: 2 },
   generatedAt: '2026-07-17T00:00:00.000Z',
   sectionErrors: {},
 };

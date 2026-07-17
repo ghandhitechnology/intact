@@ -77,6 +77,31 @@ html.b-side {
     0 0 0 4px rgba(16, 185, 129, 0.25);
 }
 
+.shop-ring-orbit { border: 2px solid #0f766e !important; box-shadow: 0 0 0 3px #ccfbf1, 5px -4px 0 -3px #0f766e; }
+.shop-ring-circuit { border: 2px dashed #0284c7 !important; box-shadow: 0 0 0 2px #e0f2fe; }
+.shop-ring-observatory { border: 3px double #818cf8 !important; box-shadow: 0 0 0 2px #172554, 0 0 10px #6366f166; }
+.shop-ring-spring { border: 2px solid #f472b6 !important; box-shadow: 0 0 0 3px #dcfce7; }
+.shop-ring-summer { border: 2px solid #f59e0b !important; box-shadow: 0 0 0 3px #fef3c7; }
+.shop-ring-autumn { border: 2px solid #b45309 !important; box-shadow: 0 0 0 3px #ffedd5; }
+.shop-ring-winter { border: 2px solid #22d3ee !important; box-shadow: 0 0 0 3px #1e3a8a, 0 0 9px #2dd4bf88; }
+
+.shop-theme-observatory { color: #c7d2fe; background-color: #172554; background-image: radial-gradient(circle at 20% 28%, #fff 0 1px, transparent 1.5px), radial-gradient(circle at 75% 62%, #a5b4fc 0 1px, transparent 1.5px), linear-gradient(#ffffff0d 1px, transparent 1px), linear-gradient(90deg, #ffffff0d 1px, transparent 1px); background-size: auto, auto, 18px 18px, 18px 18px; }
+.shop-theme-lab-grid { color: #166534; background-color: #f7fee7; background-image: linear-gradient(#16a34a18 1px, transparent 1px), linear-gradient(90deg, #16a34a18 1px, transparent 1px); background-size: 14px 14px; }
+.shop-theme-circuit { color: #5eead4; background-color: #134e4a; background-image: linear-gradient(90deg, transparent 47%, #2dd4bf33 48% 52%, transparent 53%), linear-gradient(transparent 47%, #2dd4bf33 48% 52%, transparent 53%); background-size: 28px 28px; }
+.shop-theme-campus { color: #7c2d12; background: linear-gradient(155deg, #ffedd5 0 48%, #fdba74 49% 63%, #7c2d12 64%); }
+.shop-theme-spring { color: #166534; background: radial-gradient(circle at 75% 30%, #f9a8d4 0 3px, transparent 4px), linear-gradient(135deg, #fdf2f8, #dcfce7); }
+.shop-theme-summer { color: #67e8f9; background: repeating-linear-gradient(165deg, #082f49 0 12px, #0c4a6e 13px 14px); }
+.shop-theme-autumn { color: #7c2d12; background-color: #fffbeb; background-image: linear-gradient(#92400e1a 1px, transparent 1px), linear-gradient(90deg, #92400e1a 1px, transparent 1px); background-size: 16px 16px; }
+.shop-theme-winter { color: #cffafe; background: linear-gradient(145deg, #172554, #155e75 58%, #0f766e); }
+
+.shop-accent-formula { border-bottom: 4px solid #334155 !important; background-image: linear-gradient(90deg, transparent 65%, #33415518 65%); background-size: 8px 8px; }
+.shop-accent-spectrum { border-bottom: 4px solid transparent !important; border-image: linear-gradient(90deg, #2563eb, #7c3aed, #e11d48, #d97706) 1 !important; }
+.shop-accent-orbit { border-bottom: 4px double #0f766e !important; }
+.shop-accent-spring { border-bottom: 4px solid #84cc16 !important; }
+.shop-accent-summer { border-bottom: 4px solid #0284c7 !important; }
+.shop-accent-autumn { border-bottom: 4px dotted #b45309 !important; }
+.shop-accent-winter { border-bottom: 4px double #06b6d4 !important; }
+
 html {
   scroll-behavior: smooth;
   background: var(--surface-muted);

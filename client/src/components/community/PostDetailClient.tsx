@@ -79,10 +79,13 @@ type ApiComment = {
   accepted?: boolean;
   content?: string;
   author?: {
+    id?: string;
     realName?: string | null;
     nickname?: string | null;
     level?: number;
     profileImage?: string | null;
+    standing?: import('@/lib/igk-levels').IgkStanding | null;
+    igkRank?: number | null;
     studentIdentity?: { studentCode?: string | null } | null;
     items?: Array<{ itemId: string }>;
   };
@@ -95,11 +98,14 @@ function mapApiComment(comment: ApiComment): CommentItem {
     id: String(comment.id || `comment-${createdAt.getTime()}`),
     parentId: comment.parentId || null,
     author: {
+      id: comment.author?.id,
       nickname,
       studentId: comment.author?.studentIdentity?.studentCode || "------",
       level: Number(comment.author?.level || 1),
       initials: nickname.slice(0, 1),
       profileImage: comment.author?.profileImage || null,
+      standing: comment.author?.standing || null,
+      igkRank: Number.isInteger(comment.author?.igkRank) ? Number(comment.author?.igkRank) : null,
       accent: "blue",
       cosmetics: cosmeticsFromItems(comment.author?.items),
     },
@@ -348,18 +354,16 @@ function CommentCard({
         </div>
       )}
       <div className="flex items-start gap-3">
-        <Avatar member={comment.author} />
+        {comment.author.id ? <Link href={`/users/${comment.author.id}`} aria-label={`${comment.author.nickname} 프로필`}><Avatar member={comment.author} /></Link> : <Avatar member={comment.author} />}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-slate-800">
-              {comment.author.nickname}
-            </span>
+            {comment.author.id ? <Link href={`/users/${comment.author.id}`} className="text-sm font-semibold text-slate-800 hover:text-emerald-700">{comment.author.nickname}</Link> : <span className="text-sm font-semibold text-slate-800">{comment.author.nickname}</span>}
             {comment.author.studentId !== '------' ? (
               <span className="text-xs tabular-nums text-slate-400">
                 {comment.author.studentId}
               </span>
             ) : null}
-            <LevelBadge level={comment.author.level} />
+            <LevelBadge level={comment.author.level} standing={comment.author.standing} igkRank={comment.author.igkRank} />
             <span className="text-xs text-slate-400">
               {comment.createdAt}
             </span>
@@ -562,12 +566,15 @@ export default function PostDetailClient({
                 title: item.title,
                 excerpt: item.contentText || "",
                 author: {
+                  id: item?.author?.id,
                   nickname,
                   studentId:
                     item?.author?.studentIdentity?.studentCode || "------",
                   level: Number(item?.author?.level || 1),
                   initials: nickname.slice(0, 1),
                   profileImage: item?.author?.profileImage || null,
+                  standing: item?.author?.standing || null,
+                  igkRank: Number.isInteger(item?.author?.igkRank) ? Number(item.author.igkRank) : null,
                   accent: "emerald" as const,
                   cosmetics: cosmeticsFromItems(item?.author?.items),
                 },
@@ -976,7 +983,7 @@ export default function PostDetailClient({
               </div>
             ) : null}
             <article className="border-t-2 border-slate-800 bg-white">
-              <header className="border-b border-slate-200 px-4 py-4 sm:px-5 sm:py-5">
+              <header className={`border-b border-slate-200 px-4 py-4 sm:px-5 sm:py-5 ${post.author.cosmetics?.postAccent ?? ''}`}>
                 <div className="flex flex-wrap items-center gap-2">
                   {post.notice && (
                     <span className="bg-slate-950 px-2.5 py-1.5 text-xs font-semibold text-white">
@@ -1010,7 +1017,7 @@ export default function PostDetailClient({
                   </h1>
                 )}
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <MemberLine member={post.author} />
+                  {post.author.id && !isNotice ? <Link href={`/users/${post.author.id}`}><MemberLine member={post.author} /></Link> : <MemberLine member={post.author} />}
                   <div className="flex flex-wrap items-center gap-3 text-xs tabular-nums text-slate-500">
                     <span>{post.createdAt}</span>
                     <span className="inline-flex items-center gap-1">
@@ -1411,6 +1418,7 @@ export default function PostDetailClient({
 
           <aside className="grid gap-4 sm:grid-cols-2 xl:sticky xl:top-6 xl:grid-cols-1">
             <section className="border border-slate-200 bg-white p-4">
+              {post.author.cosmetics?.profileTheme ? <div className={`-mx-4 -mt-4 mb-4 h-10 ${post.author.cosmetics.profileTheme}`} aria-hidden="true" /> : null}
               <p className="mb-4 text-xs font-bold text-slate-500">
                 작성자
               </p>
@@ -1426,7 +1434,7 @@ export default function PostDetailClient({
                         운영자
                       </span>
                     ) : (
-                      <LevelBadge level={post.author.level} />
+                      <LevelBadge level={post.author.level} standing={post.author.standing} igkRank={post.author.igkRank} />
                     )}
                   </div>
                   {!isNotice && post.author.studentId !== '------' ? <p className="mt-1 text-xs tabular-nums text-slate-400">학번 {post.author.studentId}</p> : null}
@@ -1440,6 +1448,8 @@ export default function PostDetailClient({
                   <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                   운영 원칙 보기
                 </Link>
+              ) : post.author.id ? (
+                <Link href={`/users/${post.author.id}`} className="mt-5 inline-flex h-9 w-full items-center justify-center gap-1.5 border border-slate-300 text-xs font-bold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">작성자 프로필 보기</Link>
               ) : demoMode ? (
                 <>
                   <dl className="mt-5 grid grid-cols-2 border-y border-slate-100 py-4 text-center">
