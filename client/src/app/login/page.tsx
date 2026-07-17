@@ -11,6 +11,7 @@ import {
   STUDENT_CODE_REQUIREMENTS,
 } from '@/lib/student-code';
 import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
+import { loginPasswordError } from '@/lib/login-credentials';
 
 function safeReturnTo(raw: string | null) {
   if (!raw || raw.includes('\\') || /[\u0000-\u001f]/.test(raw)) return '/';
@@ -41,8 +42,11 @@ export default function LoginPage() {
       setError(STUDENT_CODE_REQUIREMENTS);
       return;
     }
-    if (password.length < 10) {
-      setError('비밀번호는 10자 이상이어야 합니다.');
+    // The current password policy belongs to registration and password changes;
+    // login must continue to accept valid legacy passwords.
+    const passwordError = loginPasswordError(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
@@ -100,6 +104,7 @@ export default function LoginPage() {
               autoComplete="current-password"
               placeholder="비밀번호 입력"
               className="h-12  border-[#c9ccc6] bg-white px-4 pr-16 text-[15px] focus:border-[#28745c] focus:ring-2 focus:ring-[#dcebe5]"
+              maxLength={128}
               value={password}
               disabled={loading}
               onChange={(event) => setPassword(event.target.value)}
