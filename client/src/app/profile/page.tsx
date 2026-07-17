@@ -584,7 +584,7 @@ export default function ProfilePage() {
         </section>
 
         <aside className="space-y-4 lg:col-span-2 xl:col-span-1">
-          <Card className=""><CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-blue-700">전체 로드맵</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level)}{igk?.igkRank ? ` · ${igk.igkRank}짱` : ''}</span><p className="mt-1 text-lg font-bold text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : igkLevelLabel(level)}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{currentIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div><p className="mt-3 text-xs leading-5 text-slate-500">{nextThreshold ? <>다음 등급까지 <strong className="text-slate-800">{Math.max(0, nextThreshold - currentIgk).toLocaleString()} IGK</strong>가 필요합니다. 선물이나 구매로 잔액이 줄면 등급도 내려갈 수 있습니다.</> : '최고 등급 조졸입니다. 짱 순위는 보유 IGK 상위 10명에게 별도로 표시됩니다.'}</p>{typeof igk?.attendanceStreak === 'number' ? <p className="mt-3 border-t border-slate-100 pt-3 text-xs font-bold text-slate-600">출석 스트릭 <strong className="text-emerald-700">{igk.attendanceStreak}일 연속</strong> · 최고 {igk.bestAttendanceStreak ?? igk.attendanceStreak}일</p> : null}<Link href="/igk/roadmap" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">9등급부터 조졸까지 보기</Link></div></Card>
+          <Card className=""><CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-blue-700">전체 로드맵</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level)}{igk?.igkRank ? ` · ${igk.igkRank}짱` : ''}</span><p className="mt-1 text-lg font-bold text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : igkLevelLabel(level)}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{currentIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div>{typeof igk?.attendanceStreak === 'number' ? <p className="mt-3 border-t border-slate-100 pt-3 text-xs font-bold text-slate-600">출석 스트릭 <strong className="text-emerald-700">{igk.attendanceStreak}일 연속</strong> · 최고 {igk.bestAttendanceStreak ?? igk.attendanceStreak}일</p> : null}<Link href="/igk/roadmap" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">9등급부터 조졸까지 보기</Link></div></Card>
           <Card className=""><CardHeader title="재학생 인증" /><div className="p-5"><p className="flex items-center gap-2 text-sm font-semibold text-slate-900"><ShieldCheck className="h-4 w-4 text-emerald-700" />{profile.status === 'ACTIVE' ? '정상 이용 가능' : profile.status}</p><p className="mt-2 text-xs leading-5 text-slate-500">{profile.reverifyDueAt ? `${formatDate(profile.reverifyDueAt)}까지 재인증이 유효합니다.` : '재인증 만료일이 등록되지 않았습니다.'}</p></div></Card>
         </aside>
       </div>
@@ -755,7 +755,7 @@ export default function ProfilePage() {
         open={editOpen}
         onClose={() => setEditOpen(false)}
         title="프로필 편집"
-        description={bSideEnabled ? 'B-side에서는 공개 설정과 관계없이 익명으로 표시됩니다.' : '공개할 학교 정보는 직접 선택할 수 있습니다.'}
+        description={bSideEnabled ? 'B-side에서는 공개 설정과 관계없이 익명으로 표시됩니다.' : undefined}
         footer={<><Button variant="secondary" onClick={() => setEditOpen(false)}>취소</Button><Button onClick={() => void saveProfile()} disabled={saving || avatarUploading}>{saving ? '저장 중…' : '변경사항 저장'}</Button></>}
       >
         <form onSubmit={(event) => { event.preventDefault(); void saveProfile(); }} className="space-y-5">
@@ -785,7 +785,6 @@ export default function ProfilePage() {
           <Field label="관심 분야" hint="쉼표로 구분, 최대 5개"><Input value={interestDraft} onChange={(event) => setInterestDraft(event.target.value)} placeholder="물리, 천문, 과학대회" /></Field>
           <div className="border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-bold text-slate-700">프로필 공개 설정</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">닉네임, 이미지, 등급·짱, 소개, 관심 분야와 게시 중인 글은 기본 공개됩니다.</p>
             <div className="mt-3 grid gap-2">
               {[
                 ['실명 공개', draftShowRealName, setDraftShowRealName],
@@ -799,7 +798,7 @@ export default function ProfilePage() {
               ))}
             </div>
           </div>
-          <div className="border border-slate-200 bg-white p-4"><p className="text-xs font-bold text-slate-700">인증 정보</p><p className="mt-2 text-sm text-slate-900">{identityLine}</p><p className="mt-1 text-xs leading-5 text-slate-500">{bSideEnabled ? 'B-side에서는 본인 외 사용자에게 항상 숨겨집니다.' : '선택한 항목만 로그인한 학생에게 공개됩니다.'}</p></div>
+          <div className="border border-slate-200 bg-white p-4"><p className="text-xs font-bold text-slate-700">인증 정보</p><p className="mt-2 text-sm text-slate-900">{identityLine}</p>{bSideEnabled ? <p className="mt-1 text-xs leading-5 text-slate-500">B-side에서는 본인 외 사용자에게 항상 숨겨집니다.</p> : null}</div>
           <button type="submit" className="hidden">저장</button>
         </form>
       </Modal>

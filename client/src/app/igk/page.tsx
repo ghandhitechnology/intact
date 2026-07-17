@@ -565,7 +565,7 @@ export default function IgkPage() {
             id: `demo-${Date.now()}`,
             type: "gift-out",
             title: `${recipient} 학생에게 선물`,
-            description: message || "함께 성장하는 인텍트 선물",
+            description: message || "IGK 선물",
             amount: -giftAmount,
             date: "방금",
             balance: nextBalance,

@@ -123,7 +123,6 @@ export default function PublicProfilePage() {
     <div className="app-page mx-auto w-full max-w-[1000px] px-4 py-5 sm:px-6">
       <PageHeading
         title="학생 프로필"
-        description="공개를 선택한 정보와 게시 중인 글만 표시합니다."
         actions={<Button variant="secondary" onClick={() => void shareProfile()}><Link2 className="h-4 w-4" />{copied ? '복사됨' : '공유'}</Button>}
       />
       <Card className="mt-4 overflow-hidden">

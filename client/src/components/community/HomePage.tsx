@@ -435,17 +435,14 @@ function SignedOutHome() {
   const features = [
     {
       title: '질문과 자료',
-      description: '수업·연구에서 막힌 지점을 묻고 검증된 자료를 나눠요.',
       icon: Search,
     },
     {
       title: '팀과 대화',
-      description: '대회 팀원을 찾고 필요한 이야기를 실시간으로 이어가요.',
       icon: MessageCircle,
     },
     {
       title: '학교생활 기록',
-      description: '공지, 활동 보상, 알림을 한곳에서 놓치지 않고 확인해요.',
       icon: Trophy,
     },
   ];
@@ -457,9 +454,6 @@ function SignedOutHome() {
         <h1 id="signed-out-title" className="mt-2 max-w-3xl text-3xl font-bold tracking-[-0.045em] text-slate-950 sm:text-4xl">
           학교 안의 질문, 자료, 팀을 한곳에서
         </h1>
-        <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-          학생 인증을 마친 인텍트 계정으로 로그인하면 모든 게시판과 메시지, 알림을 이용할 수 있어요.
-        </p>
         <div className="mt-7 flex flex-col gap-2 sm:flex-row">
           <Link
             href="/login?returnTo=%2F"
@@ -482,7 +476,6 @@ function SignedOutHome() {
           <div key={feature.title} className="border-b border-slate-200 px-5 py-6 last:border-b-0 sm:px-8 md:border-b-0 md:border-r md:last:border-r-0">
             <feature.icon className="h-5 w-5 text-emerald-700" aria-hidden="true" />
             <h2 className="mt-3 text-base font-bold text-slate-900">{feature.title}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{feature.description}</p>
           </div>
         ))}
       </section>

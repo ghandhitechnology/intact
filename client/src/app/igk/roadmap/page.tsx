@@ -44,7 +44,6 @@ export default function IgkRoadmapPage() {
     <div className="app-page mx-auto w-full max-w-[1200px] px-4 py-4 sm:px-6 lg:px-8">
       <PageHeading
         title="등급 로드맵"
-        description="등급은 현재 IGK로 즉시 오르내립니다. 조진과 조졸은 고정 등급이고, 1짱–10짱은 보유 IGK 상위 10명에게 별도로 표시됩니다."
         actions={
           <Link href="/igk" className="inline-flex h-9 items-center gap-2 border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50">
             <ArrowLeft className="h-4 w-4" /> IGK 지갑
@@ -100,7 +99,6 @@ export default function IgkRoadmapPage() {
           <section className="mt-4 border-l-4 border-blue-700 bg-white px-4 py-3">
             <p className="text-xs font-semibold text-blue-800">독립 짱 랭킹</p>
             <div className="mt-1 flex gap-2"><Badge tone="green">{wallet.standing.tierLabel}</Badge>{wallet.standing.rankLabel ? <Badge tone="blue">{wallet.standing.rankLabel}</Badge> : <Badge tone="slate">상위 10명 밖</Badge>}</div>
-            <p className="mt-2 text-xs leading-5 text-slate-600">활성 인증 학생을 현재 IGK, 가입 시각, ID 순으로 정렬합니다. 등급과 짱은 합치지 않고 모든 화면에서 각각 표시합니다.</p>
           </section>
 
           <div className="mt-4 grid gap-2 md:grid-cols-2">

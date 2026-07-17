@@ -226,7 +226,6 @@ export default function PortalShell({ children }: { children: ReactNode }) {
             <div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3">
               <div>
                 <p className="text-sm font-bold text-[var(--ink)]">전체 메뉴</p>
-                <p className="mt-0.5 text-[11px] text-[var(--ink-faint)]">게시판과 내 활동으로 빠르게 이동하세요.</p>
               </div>
               <button type="button" className="icon-button" onClick={() => setMobileOpen(false)} aria-label="전체 메뉴 닫기"><X size={20} /></button>
             </div>
