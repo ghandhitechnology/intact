@@ -653,7 +653,7 @@ export default function IgkPage() {
 
   if (loadState !== "ready" || !wallet) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6">
+      <div className="app-page mx-auto w-full max-w-5xl px-4 py-4 sm:px-6">
         <PageHeading
           title="IGK 지갑"
         />
@@ -711,7 +711,7 @@ export default function IgkPage() {
     );
 
   return (
-    <div className="mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 lg:px-8">
+    <div className="app-page mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 lg:px-8">
       <PageHeading
         title="IGK 지갑"
       />
@@ -791,7 +791,7 @@ export default function IgkPage() {
                   : `지금 출석하면 ${attendance.todayReward} IGK를 받습니다. 연속 출석할수록 보상이 커져요.`}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
               <Button
                 variant="green"
                 onClick={() => void claimAttendance()}
@@ -806,7 +806,7 @@ export default function IgkPage() {
               </Button>
               <Link
                 href="/igk/shop"
-                className="inline-flex h-9 items-center gap-2 border border-slate-300 bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                className="inline-flex min-h-11 items-center justify-center gap-2 border border-slate-300 bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 sm:min-h-9"
               >
                 <ShoppingBag className="h-4 w-4" />
                 IGK 상점

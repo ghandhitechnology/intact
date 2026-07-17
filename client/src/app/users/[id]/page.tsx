@@ -120,7 +120,7 @@ export default function PublicProfilePage() {
   const cosmetics = cosmeticsFromItems(profile.items);
 
   return (
-    <div className="mx-auto w-full max-w-[1000px] px-4 py-5 sm:px-6">
+    <div className="app-page mx-auto w-full max-w-[1000px] px-4 py-5 sm:px-6">
       <PageHeading
         title="학생 프로필"
         description="공개를 선택한 정보와 게시 중인 글만 표시합니다."

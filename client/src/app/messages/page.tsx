@@ -1401,7 +1401,7 @@ export default function MessagesPage() {
 
   if (loadState !== "ready") {
     return (
-      <div className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6">
+      <div className="app-page mx-auto w-full max-w-5xl px-4 py-4 sm:px-6">
         <PageHeading title="메시지" />
         <Card className="mt-4 p-8 text-center">
           <MessageSquare className="mx-auto h-8 w-8 text-blue-700" />

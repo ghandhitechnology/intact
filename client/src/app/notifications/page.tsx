@@ -761,7 +761,7 @@ export default function NotificationsPage() {
     }).length;
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] px-4 py-4 sm:px-6 lg:px-8">
+    <div className="app-page mx-auto w-full max-w-[1200px] px-4 py-4 sm:px-6 lg:px-8">
       <PageHeading
         title="알림"
         actions={

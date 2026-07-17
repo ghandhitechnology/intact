@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Bell,
   BookOpen,
   ChevronRight,
   Coins,
@@ -68,6 +69,22 @@ export default function PortalShell({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
+    if (!mobileOpen && !boardPickerOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMobileOpen(false);
+      setBoardPickerOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [boardPickerOpen, mobileOpen]);
+
+  useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
       const commandShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
       const slashShortcut = event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey;
@@ -110,8 +127,8 @@ export default function PortalShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--surface-muted)] text-[var(--ink)]">
-      <header className={`${isAdmin ? 'hidden' : 'sticky'} top-0 z-50 border-b border-[var(--line-strong)] bg-white`}>
+    <div className={`${isAdmin ? '' : 'portal-shell'} min-h-screen bg-[var(--surface-muted)] text-[var(--ink)]`}>
+      <header inert={boardPickerOpen} className={`portal-header ${isAdmin ? 'hidden' : 'sticky'} top-0 z-50 border-b border-[var(--line-strong)] bg-white`}>
         <div className="utility-bar hidden border-b border-[var(--line)] lg:block">
           <div className="portal-container flex h-7 items-center justify-between text-xs text-[var(--ink-soft)]">
             <span />
@@ -136,6 +153,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
             className="icon-button header-icon-button lg:hidden"
             aria-label={mobileOpen ? '메뉴 닫기' : '메뉴 열기'}
             aria-expanded={mobileOpen}
+            aria-controls="mobile-portal-menu"
             onClick={() => setMobileOpen((value) => !value)}
           >
             {mobileOpen ? <X size={21} /> : <Menu size={21} />}
@@ -175,6 +193,15 @@ export default function PortalShell({ children }: { children: ReactNode }) {
             </Link>
           ) : null}
 
+          {portalNavigationAvailable ? <div className="ml-auto flex items-center md:hidden">
+            <Link href="/search" className="icon-button header-icon-button" aria-label="통합검색">
+              <Search size={20} />
+            </Link>
+            <Link href="/notifications" className="icon-button header-icon-button" aria-label="알림">
+              <Bell size={20} />
+            </Link>
+          </div> : null}
+
         </div>
 
         {portalNavigationAvailable ? <nav className="hidden border-t border-[var(--line)] lg:block" aria-label="주요 게시판">
@@ -195,7 +222,14 @@ export default function PortalShell({ children }: { children: ReactNode }) {
         </nav> : null}
 
         {mobileOpen && (
-          <div className="mobile-menu border-t border-[var(--line-strong)] bg-white lg:hidden">
+          <div id="mobile-portal-menu" className="mobile-menu border-t border-[var(--line-strong)] bg-white lg:hidden">
+            <div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3">
+              <div>
+                <p className="text-sm font-bold text-[var(--ink)]">전체 메뉴</p>
+                <p className="mt-0.5 text-[11px] text-[var(--ink-faint)]">게시판과 내 활동으로 빠르게 이동하세요.</p>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setMobileOpen(false)} aria-label="전체 메뉴 닫기"><X size={20} /></button>
+            </div>
             {portalNavigationAvailable ? <form onSubmit={submitSearch} className="p-4 md:hidden">
               <label className="search-field">
                 <Search size={17} />
@@ -211,6 +245,8 @@ export default function PortalShell({ children }: { children: ReactNode }) {
               <Link href="/igk" className="mobile-nav-link"><Coins size={18} />IGK 지갑</Link>
               <Link href="/igk?tab=ranking" className="mobile-nav-link"><Trophy size={18} />IGK 랭킹</Link>
               <Link href="/igk/roadmap" className="mobile-nav-link"><Trophy size={18} />등급 로드맵</Link>
+              <Link href="/notifications" className="mobile-nav-link"><Bell size={18} />알림</Link>
+              <Link href="/profile" className="mobile-nav-link"><User size={18} />내 프로필</Link>
             </div> : (
               <div className="grid grid-cols-2 border-t border-[var(--line)]">
                 <Link href="/login?returnTo=%2F" className="mobile-nav-link"><User size={18} />로그인</Link>
@@ -232,12 +268,12 @@ export default function PortalShell({ children }: { children: ReactNode }) {
         </div>
       ) : null}
 
-      <main id="main-content" className={isAdmin ? 'min-h-[calc(100vh-120px)]' : 'portal-container min-h-[calc(100vh-220px)] py-4 lg:py-5'}>
+      <main inert={mobileOpen || boardPickerOpen} id="main-content" className={isAdmin ? 'min-h-[calc(100vh-120px)]' : 'portal-container min-h-[calc(100vh-220px)] py-4 lg:py-5'}>
         {children}
       </main>
 
       {!isAdmin && (
-        <footer className="mt-8 border-t border-[var(--line-strong)] bg-white">
+        <footer inert={mobileOpen || boardPickerOpen} className="mt-8 border-t border-[var(--line-strong)] bg-white">
           <div className="portal-container grid gap-6 py-6 md:grid-cols-[1.4fr_1fr_1fr]">
             <div>
               <strong>인텍트</strong>
@@ -263,9 +299,9 @@ export default function PortalShell({ children }: { children: ReactNode }) {
       {!isAdmin && portalNavigationAvailable && (
         <div className={`fixed inset-0 z-[70] lg:hidden ${boardPickerOpen ? '' : 'pointer-events-none'}`} aria-hidden={!boardPickerOpen}>
           <button type="button" aria-label="게시판 선택 닫기" onClick={() => setBoardPickerOpen(false)} className={`absolute inset-0 bg-slate-950/45 transition-opacity ${boardPickerOpen ? 'opacity-100' : 'opacity-0'}`} />
-          <section className={`absolute inset-x-0 bottom-0 border-t border-slate-300 bg-white px-4 pb-[calc(82px+env(safe-area-inset-bottom))] pt-3 transition-transform duration-200 ${boardPickerOpen ? 'translate-y-0' : 'translate-y-full'}`} aria-label="게시판 선택">
+          <section id="mobile-board-picker" role="dialog" aria-modal="true" className={`mobile-bottom-sheet absolute inset-x-0 bottom-0 border-t border-slate-300 bg-white px-4 pb-[calc(88px+env(safe-area-inset-bottom))] pt-3 transition-transform duration-200 ${boardPickerOpen ? 'translate-y-0' : 'translate-y-full'}`} aria-label="게시판 선택">
             <div className="mx-auto mb-4 h-1.5 w-10  bg-slate-200" />
-            <div className="mb-4 flex items-center justify-between px-1"><h2 className="text-lg font-bold tracking-[-0.03em] text-slate-950">게시판 선택</h2><button type="button" onClick={() => setBoardPickerOpen(false)} className="grid h-10 w-10 place-items-center  bg-slate-100 text-slate-600" aria-label="닫기"><X size={18} /></button></div>
+            <div className="mb-4 flex items-center justify-between px-1"><h2 className="text-lg font-bold tracking-[-0.03em] text-slate-950">게시판 선택</h2><button type="button" onClick={() => setBoardPickerOpen(false)} className="grid h-11 w-11 place-items-center bg-slate-100 text-slate-600" aria-label="게시판 선택 닫기"><X size={18} /></button></div>
             <div className="grid grid-cols-2 gap-2">
               {boardNavigation.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-[60px] items-center gap-2.5 border p-3 ${pathname.startsWith(item.href) ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700'}`}><span className="grid h-8 w-8 place-items-center bg-white"><item.icon size={17} /></span><span className="min-w-0 flex-1 text-xs font-semibold">{item.label}</span><ChevronRight size={14} className="text-slate-300" /></Link>)}
             </div>
@@ -274,12 +310,12 @@ export default function PortalShell({ children }: { children: ReactNode }) {
       )}
 
       {!isAdmin && portalNavigationAvailable && (
-        <nav className="mobile-bottom-nav lg:hidden" aria-label="모바일 주요 메뉴">
-          <Link href="/" className={pathname === '/' ? 'is-active' : ''}><Home size={19} /><span>홈</span></Link>
-          <button type="button" onClick={() => setBoardPickerOpen(true)} className={pathname.startsWith('/boards') ? 'is-active' : ''} aria-expanded={boardPickerOpen}><BookOpen size={19} /><span>게시판</span></button>
+        <nav inert={mobileOpen || boardPickerOpen} className="mobile-bottom-nav lg:hidden" aria-label="모바일 주요 메뉴">
+          <Link href="/" aria-current={pathname === '/' ? 'page' : undefined} className={pathname === '/' ? 'is-active' : ''}><Home size={20} /><span>홈</span></Link>
+          <button type="button" onClick={() => setBoardPickerOpen(true)} className={pathname.startsWith('/boards') ? 'is-active' : ''} aria-expanded={boardPickerOpen} aria-controls="mobile-board-picker"><BookOpen size={20} /><span>게시판</span></button>
           <Link href={writeHref}><span className="mobile-compose">+</span><span>글쓰기</span></Link>
-          <Link href="/messages" className={pathname.startsWith('/messages') ? 'is-active' : ''}><MessageSquare size={19} /><span>대화</span></Link>
-          <Link href="/profile" className={pathname.startsWith('/profile') ? 'is-active' : ''}><User size={19} /><span>내 정보</span></Link>
+          <Link href="/messages" aria-current={pathname.startsWith('/messages') ? 'page' : undefined} className={pathname.startsWith('/messages') ? 'is-active' : ''}><MessageSquare size={20} /><span>대화</span></Link>
+          <Link href="/profile" aria-current={pathname.startsWith('/profile') ? 'page' : undefined} className={pathname.startsWith('/profile') ? 'is-active' : ''}><User size={20} /><span>내 정보</span></Link>
         </nav>
       )}
     </div>

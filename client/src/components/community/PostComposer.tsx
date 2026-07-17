@@ -693,7 +693,7 @@ export default function PostComposer({
   }
 
   return (
-    <div className="px-4 py-3 sm:px-6 sm:py-5">
+    <div className="app-page px-4 py-3 sm:px-6 sm:py-5">
       <form onSubmit={submitPost} className="mx-auto max-w-[1180px]">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <Link

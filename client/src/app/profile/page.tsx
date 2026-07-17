@@ -535,7 +535,7 @@ export default function ProfilePage() {
 
   if (loadState !== 'ready' || !profile) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 lg:px-8">
+      <div className="app-page mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 lg:px-8">
         <PageHeading title="내 프로필" />
         <Card className="mt-4 p-8 text-center">
           {loadState === 'loading' ? <><Loader2 className="mx-auto h-7 w-7 animate-spin text-blue-700" /><h2 className="mt-4 text-sm font-semibold text-slate-900">프로필을 불러오는 중입니다.</h2></> : null}
@@ -556,7 +556,7 @@ export default function ProfilePage() {
   const otherSessionCount = sessions.filter((session) => !session.current).length;
 
   return (
-    <div className="mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 lg:px-8">
+    <div className="app-page mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 lg:px-8">
       <PageHeading title="내 프로필" actions={<Button variant="secondary" onClick={openEditor}><Edit3 className="h-4 w-4" />프로필 편집</Button>} />
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_280px]">

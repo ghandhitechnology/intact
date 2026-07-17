@@ -1,5 +1,5 @@
 import './globals.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Wrapper from '@/components/Wrapper';
 import PortalShell from '@/components/portal/PortalShell';
 import PwaRegistration from '@/components/portal/PwaRegistration';
@@ -35,6 +35,14 @@ export const metadata: Metadata = {
     description: '인천과학고 재학생 전용 커뮤니티',
     images: ['/og.png'],
   },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
+  themeColor: '#f5f4ef',
 };
 
 export default function RootLayout({

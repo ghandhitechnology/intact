@@ -42,7 +42,7 @@ export function PageHeading({ title, description, actions }: {
         <h1 className="text-2xl font-bold tracking-[-0.025em] text-slate-950 sm:text-[28px]">{title}</h1>
         {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{description}</p> : null}
       </div>
-      {actions ? <div className="shrink-0">{actions}</div> : null}
+      {actions ? <div className="page-heading-actions w-full shrink-0 sm:w-auto">{actions}</div> : null}
     </div>
   );
 }
@@ -57,7 +57,7 @@ export function CardHeader({ title, description, action, className }: {
   return (
     <div className={cn('flex min-h-[52px] items-center justify-between gap-4 border-b border-slate-200 px-4 py-3', className)}>
       <div className="min-w-0">
-        <h2 className="truncate text-sm font-bold tracking-[-0.01em] text-slate-950">{title}</h2>
+        <h2 className="text-sm font-bold tracking-[-0.01em] text-slate-950 sm:truncate">{title}</h2>
         {description ? <p className="mt-1 text-xs leading-5 text-slate-600">{description}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
@@ -74,23 +74,23 @@ const buttonStyles = {
 };
 
 export function Button({ variant = 'primary', className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof buttonStyles }) {
-  return <button className={cn('inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap px-3.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed', buttonStyles[variant], className)} {...props}>{children}</button>;
+  return <button className={cn('ui-button inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap px-3.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed', buttonStyles[variant], className)} {...props}>{children}</button>;
 }
 
 export function IconButton({ label, className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
-  return <button aria-label={label} title={label} className={cn('inline-flex h-10 w-10 items-center justify-center border border-transparent text-slate-500 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100', className)} {...props}>{children}</button>;
+  return <button aria-label={label} title={label} className={cn('ui-icon-button inline-flex h-10 w-10 items-center justify-center border border-transparent text-slate-500 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100', className)} {...props}>{children}</button>;
 }
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn('h-10 w-full border border-slate-300 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100 disabled:text-slate-500', className)} {...props} />;
+  return <input className={cn('ui-input h-10 w-full border border-slate-300 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100 disabled:text-slate-500', className)} {...props} />;
 }
 
 export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn('h-10 w-full border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props}>{children}</select>;
+  return <select className={cn('ui-select h-10 w-full border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props}>{children}</select>;
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn('w-full resize-none border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props} />;
+  return <textarea className={cn('ui-textarea w-full resize-none border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-950 placeholder:text-slate-400 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100', className)} {...props} />;
 }
 
 export function Field({ label, hint, error, required, children }: {
@@ -140,8 +140,8 @@ export function Tabs<T extends string>({ items, value, onChange, className }: {
   items: ReadonlyArray<{ value: T; label: string; count?: number }>; value: T; onChange: (value: T) => void; className?: string;
 }) {
   return (
-    <div className={cn('flex overflow-x-auto border-b border-slate-200 bg-white', className)} role="tablist">
-      {items.map((item) => <button key={item.value} type="button" role="tab" aria-selected={value === item.value} onClick={() => onChange(item.value)} className={cn('relative flex h-11 shrink-0 items-center gap-2 px-4 text-[13px] font-semibold transition', value === item.value ? 'text-emerald-800 after:absolute after:bottom-0 after:left-3 after:right-3 after:h-0.5 after:bg-emerald-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900')}>{item.label}{typeof item.count === 'number' ? <span className={cn('min-w-[20px] rounded-sm px-1.5 py-0.5 text-xs', value === item.value ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600')}>{item.count}</span> : null}</button>)}
+    <div className={cn('ui-tabs flex overflow-x-auto border-b border-slate-200 bg-white', className)} role="tablist">
+      {items.map((item) => <button key={item.value} type="button" role="tab" aria-selected={value === item.value} onClick={() => onChange(item.value)} className={cn('relative flex h-11 shrink-0 snap-start items-center gap-2 px-4 text-[13px] font-semibold transition', value === item.value ? 'text-emerald-800 after:absolute after:bottom-0 after:left-3 after:right-3 after:h-0.5 after:bg-emerald-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900')}>{item.label}{typeof item.count === 'number' ? <span className={cn('min-w-[20px] rounded-sm px-1.5 py-0.5 text-xs', value === item.value ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600')}>{item.count}</span> : null}</button>)}
     </div>
   );
 }
@@ -204,10 +204,11 @@ export function Modal({ open, title, description, children, footer, onClose, wid
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/55 p-0 sm:items-center sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={cn('max-h-[92vh] w-full overflow-hidden border border-stone-300 bg-white', wide ? 'sm:max-w-3xl' : 'sm:max-w-lg')}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={cn('ui-modal max-h-[92dvh] w-full overflow-hidden border border-stone-300 bg-white', wide ? 'sm:max-w-3xl' : 'sm:max-w-lg')}>
+        <div className="ui-modal-handle mx-auto mt-2 h-1 w-10 bg-slate-300 sm:hidden" aria-hidden="true" />
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6"><div><h2 id={titleId} className="text-lg font-bold tracking-[-0.02em] text-slate-950">{title}</h2>{description ? <p className="mt-1 text-sm leading-5 text-slate-500">{description}</p> : null}</div><IconButton label="닫기" onClick={onClose} className="-mr-2 -mt-1"><X className="h-5 w-5" /></IconButton></div>
         <div className="max-h-[65vh] overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
-        {footer ? <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">{footer}</div> : null}
+        {footer ? <div className="ui-modal-footer flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">{footer}</div> : null}
       </div>
     </div>
   );
@@ -216,7 +217,7 @@ export function Modal({ open, title, description, children, footer, onClose, wid
 export function Toast({ message, tone = 'success', onClose }: { message: string | null; tone?: 'success' | 'error'; onClose: () => void }) {
   useEffect(() => { if (!message) return undefined; const timer = window.setTimeout(onClose, 3200); return () => window.clearTimeout(timer); }, [message, onClose]);
   if (!message) return null;
-  return <div role="status" className={cn('fixed bottom-5 left-1/2 z-[120] flex min-w-[280px] -translate-x-1/2 items-center gap-3 border px-4 py-3 text-sm font-bold ', tone === 'success' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-red-700 bg-red-700 text-white')}>{tone === 'success' ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}<span className="flex-1">{message}</span><button type="button" aria-label="알림 닫기" onClick={onClose}><X className="h-4 w-4" /></button></div>;
+  return <div role="status" className={cn('ui-toast fixed bottom-5 left-1/2 z-[120] flex min-w-[280px] -translate-x-1/2 items-center gap-3 border px-4 py-3 text-sm font-bold ', tone === 'success' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-red-700 bg-red-700 text-white')}>{tone === 'success' ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}<span className="flex-1">{message}</span><button type="button" aria-label="알림 닫기" className="grid h-9 w-9 shrink-0 place-items-center" onClick={onClose}><X className="h-4 w-4" /></button></div>;
 }
 
 export function LoadingLabel({ children }: { children: ReactNode }) { return <><Loader2 className="h-4 w-4 animate-spin" />{children}</>; }

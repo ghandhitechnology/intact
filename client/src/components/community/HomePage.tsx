@@ -233,14 +233,14 @@ function HomeActions() {
     <nav className="grid min-w-0 grid-cols-2 gap-2" aria-label="홈 바로가기">
       <Link
         href="/search"
-        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 border border-slate-300 bg-white px-2 text-xs font-bold text-slate-700 transition-colors hover:border-slate-500 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 border border-slate-300 bg-white px-2 text-xs font-bold text-slate-700 transition-colors hover:border-slate-500 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 sm:min-h-9"
       >
         <Search className="h-3.5 w-3.5" aria-hidden="true" />
         통합검색
       </Link>
       <Link
         href="/boards/free/write"
-        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 bg-emerald-700 px-2 text-xs font-bold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+        className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 bg-emerald-700 px-2 text-xs font-bold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 sm:min-h-9"
       >
         <PenSquare className="h-3.5 w-3.5" aria-hidden="true" />
         글쓰기
@@ -796,7 +796,7 @@ export default function HomePage() {
   if (!demoMode && homeScope !== session?.user?.id) return <HomePageLoading />;
 
   return (
-    <div className="min-w-0 overflow-x-hidden py-2 text-slate-900 sm:py-4">
+    <div className="app-page min-w-0 overflow-x-hidden py-2 text-slate-900 sm:py-4">
       <div className="mx-auto min-w-0 max-w-[1320px]">
         <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0">

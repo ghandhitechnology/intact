@@ -115,7 +115,7 @@ export default function LoginPage() {
           </div>
         </Field>
 
-        <div className="flex items-center justify-between gap-4 text-[13px]">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-[13px]">
           <label className="flex cursor-pointer items-center gap-2.5 text-[var(--ink-soft)]">
             <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="h-4 w-4  accent-[#28745c]" />
             로그인 상태 유지
@@ -128,7 +128,7 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <div className="mt-8 flex items-center justify-between gap-4 text-[13px]">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 text-[13px]">
         <span className="text-[var(--ink-faint)]">처음 방문하셨나요?</span>
         <Link href="/register" className="font-semibold text-[var(--green-deep)] underline underline-offset-4">재학생 인증하고 가입하기</Link>
       </div>

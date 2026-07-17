@@ -41,7 +41,7 @@ export default function IgkRoadmapPage() {
     : 100;
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] px-4 py-4 sm:px-6 lg:px-8">
+    <div className="app-page mx-auto w-full max-w-[1200px] px-4 py-4 sm:px-6 lg:px-8">
       <PageHeading
         title="등급 로드맵"
         description="등급은 현재 IGK로 즉시 오르내립니다. 조진과 조졸은 고정 등급이고, 1짱–10짱은 보유 IGK 상위 10명에게 별도로 표시됩니다."

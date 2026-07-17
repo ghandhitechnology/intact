@@ -357,7 +357,7 @@ export default function SearchClient({
   };
 
   return (
-    <div className="px-4 py-3 sm:px-6 sm:py-5">
+    <div className="app-page px-4 py-3 sm:px-6 sm:py-5">
       <div className="mx-auto max-w-[1320px]">
         <Link
           href="/"

@@ -950,7 +950,7 @@ export default function PostDetailClient({
   }
 
   return (
-    <div className="px-4 py-3 sm:px-6 sm:py-5">
+    <div className="app-page px-4 py-3 sm:px-6 sm:py-5">
       <div className="mx-auto max-w-[1180px]">
         <nav
           className="mb-3 flex items-center gap-2 text-xs text-slate-400"
