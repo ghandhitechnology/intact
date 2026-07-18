@@ -9,7 +9,7 @@ function loaders(overrides: Partial<HomeLoaders> = {}): HomeLoaders {
     notices: async () => ({ notices: [{ id: 'notice-1', title: '공지' }] }),
     leaders: async () => ({ leaders: [{ id: 'leader-1' }] }),
     notifications: async () => ({ unreadCount: 3 }),
-    balance: async () => ({ currentIgk: 500, jojolRank: 2 }),
+    balance: async () => ({ currentIgk: 500, igkRank: 2 }),
     ...overrides,
   };
 }
@@ -45,7 +45,7 @@ test('falls back to session balance independently from notification failures', a
     }),
   });
 
-  assert.deepEqual(data.account, { currentIgk: 120, jojolRank: null, unreadCount: 0 });
+  assert.deepEqual(data.account, { currentIgk: 120, igkRank: null, unreadCount: 0 });
   assert.ok(data.sectionErrors.notifications);
   assert.ok(data.sectionErrors.balance);
   assert.equal(data.boards.length, 1);

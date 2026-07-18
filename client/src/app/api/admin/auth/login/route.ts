@@ -1,5 +1,5 @@
 import prisma from '@/lib/prisma';
-import { privateFingerprint, verifyPassword } from '@/lib/server/crypto';
+import { hashPassword, privateFingerprint, verifyPassword } from '@/lib/server/crypto';
 import { ensureSystemDefaults } from '@/lib/server/defaults';
 import {
   ApiError,
@@ -21,6 +21,8 @@ interface AdminLoginBody {
   identifier?: unknown;
   password?: unknown;
 }
+
+const dummyAdminPasswordHash = hashPassword('invalid-admin-password-timing-sentinel');
 
 export async function POST(request: Request) {
   try {
@@ -58,11 +60,15 @@ export async function POST(request: Request) {
       where: { loginId: identifier },
       include: { studentIdentity: true },
     });
+    const passwordValid = await verifyPassword(
+      password,
+      user?.passwordHash || await dummyAdminPasswordHash,
+    );
     if (
       !user ||
       !['ADMIN', 'DEVELOPER'].includes(user.role) ||
       user.status !== 'ACTIVE' ||
-      !(await verifyPassword(password, user.passwordHash))
+      !passwordValid
     ) {
       throw new ApiError(401, 'INVALID_ADMIN_CREDENTIALS', '관리자 아이디 또는 비밀번호가 올바르지 않습니다.');
     }

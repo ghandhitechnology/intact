@@ -144,13 +144,13 @@ function parseUnreadCount(value: unknown) {
 
 function parseBalance(value: unknown) {
   const source = expectRecord(value, 'home source balance');
-  const jojolRank = source.jojolRank;
-  if (jojolRank !== null && (!Number.isInteger(jojolRank) || Number(jojolRank) < 1)) {
-    throw new ContractParseError(['home source balance.jojolRank: expected positive integer or null']);
+  const igkRank = source.igkRank ?? null;
+  if (igkRank !== null && (!Number.isInteger(igkRank) || Number(igkRank) < 1)) {
+    throw new ContractParseError(['home source balance.igkRank: expected positive integer or null']);
   }
   return {
     currentIgk: expectFiniteNumber(source.currentIgk, 'home source balance.currentIgk'),
-    jojolRank: jojolRank === null ? null : Number(jojolRank),
+    igkRank: igkRank === null ? null : Number(igkRank),
   };
 }
 
@@ -179,7 +179,7 @@ export async function loadHomeData({
   const notices = results.notices.data as HomeData['notices'] | undefined;
   const leaders = results.leaders.data as HomeData['leaders'] | undefined;
   const unreadCount = results.notifications.data as number | undefined;
-  const balance = results.balance.data as { currentIgk: number; jojolRank: number | null } | undefined;
+  const balance = results.balance.data as { currentIgk: number; igkRank: number | null } | undefined;
 
   return {
     boards: boards ?? [],
@@ -187,7 +187,7 @@ export async function loadHomeData({
     leaders: leaders ?? [],
     account: {
       currentIgk: balance?.currentIgk ?? Number(currentIgk || 0),
-      jojolRank: balance?.jojolRank ?? null,
+      igkRank: balance?.igkRank ?? null,
       unreadCount: unreadCount ?? 0,
     },
     generatedAt: now().toISOString(),

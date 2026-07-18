@@ -3,6 +3,7 @@ import { decryptText } from '@/lib/server/crypto';
 import { json, jsonError } from '@/lib/server/http';
 import { requireReadyAdmin } from '@/lib/server/session';
 import { getPlatformMode } from '@/lib/server/platform-mode';
+import { enrichPublicUserTree } from '@/lib/server/igk-standing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -188,7 +189,7 @@ export async function GET(request: Request) {
     const activeSessionCountByUser = new Map(
       activeSessions.map((entry) => [entry.userId, entry._count.id]),
     );
-    const safeUsers = users.map((user) => ({
+    const safeUsers = await enrichPublicUserTree(users.map((user) => ({
       ...user,
       realName: user.studentIdentity
         ? (() => {
@@ -208,7 +209,7 @@ export async function GET(request: Request) {
           }
         : null,
       activeSessionCount: activeSessionCountByUser.get(user.id) ?? 0,
-    }));
+    })));
     const platform = await getPlatformMode();
     return json({
       summary: {

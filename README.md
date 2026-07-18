@@ -4,27 +4,23 @@
 
 - 운영 주소: [https://ishsoutside.com](https://ishsoutside.com)
 - 소스 저장소: [ghandhitechnology/intact](https://github.com/ghandhitechnology/intact)
-- 빠른 배포·오류 해결: [FAST_DEPLOY.md](./FAST_DEPLOY.md)
 - 운영·배포 인수인계: [DEPLOYMENT_HANDOVER.md](./DEPLOYMENT_HANDOVER.md)
 - 시스템 구조와 데이터 흐름: [ARCHITECTURE.md](./ARCHITECTURE.md)
-- 안정성 점검과 읽기 전용 부하 테스트: [STABILITY_REPORT.md](./STABILITY_REPORT.md)
 
-실제 비밀번호, 암호화 키, 운영 DB, 첨부 파일 및 백업은 저장소에 포함하지 않습니다.
+실제 비밀번호, 암호화 키, 운영 DB, 첨부 파일 및 백업은 저장소에 포함하면 안됩니다. 
 
 ## 현재 제공 기능
 
-- 질문·대회 모집·자료·자유·사진·공지 게시판
+- 질문·대회 모집·자료·자유·공지 게시판
 - 게시글 임시저장, 수정 이력, 댓글·답글, 추천, 북마크, 통합 검색
-- private MinIO 기반 첨부 파일 업로드, 검정 배경 전용 미리보기와 원본 다운로드
-- 제목과 최대 12장의 이미지만으로 작성하는 사진게시판, 묶음형 갤러리와 검정 배경 전체화면 미리보기
+- private MinIO 기반 첨부 파일 업로드와 권한이 적용된 다운로드
 - 1:1·그룹 메시지, Socket.IO 실시간 수신, 읽음 상태, 이전 대화 불러오기
 - 게시글·메시지 단위로 묶이는 알림과 Web Push 기반 PWA
-- 활동 보상 IGK, 선물, 원장, 보유 잔액 랭킹과 9등급→조진 로드맵(조진 상위 8명 조졸 · N짱)
-- 매일 출석 체크와 연속 스트릭 보상, IGK 상점(닉네임 색상·아바타 테두리·칭호·스트릭 프리즈)
+- 활동 보상 IGK, 송금, 원장, 누적 기여 랭킹과 레벨
 - 학생 초대·가입·재인증·비밀번호 재설정
-- 관리자 대시보드, 공지, 신고, 제재, 사용자·초대·IGK 잔액 관리와 감사 로그
+- 관리자 대시보드, 공지, 신고, 제재, 사용자·초대 관리와 감사 로그
 
-학생 계정은 다음 범위의 6자리 학번만 허용합니다.
+학생 계정은 다음 범위의 6자리 학번만 허용한다. 
 
 ```text
 ^(31|32|33)(11|12|13|14)(0[1-9]|1[0-9]|20)$
@@ -52,18 +48,10 @@
 ├── Caddyfile                HTTPS and /socket.io reverse proxy
 ├── docker-compose.yml       Complete production stack
 ├── ARCHITECTURE.md          Runtime boundaries and data flows
-├── FAST_DEPLOY.md           Fast production deployment and error lookup
 └── DEPLOYMENT_HANDOVER.md   VPS operations, backup, restore and rollback
 ```
 
 `igwak`, `igwak-portal`, `IGK` 같은 기존 내부 식별자는 운영 DB·Docker 볼륨·보상 단위와의 호환성을 위해 유지합니다. 사용자에게 보이는 서비스명은 `인텍트`입니다.
-
-## UI 원칙
-
-- 장식보다 내용과 조작 대상을 먼저 보이게 하고, 화면 계층은 정렬·간격·구분선으로 표현합니다.
-- 카드, 버튼, 입력창, 모달은 둥근 모서리와 부유하는 그림자를 사용하지 않습니다.
-- 별도 설명 상자와 홍보성 패널을 반복하지 않고 필요한 문장은 제목이나 입력 항목 가까이에 짧게 둡니다.
-- 첨부 파일 미리보기는 콘텐츠에 집중할 수 있도록 검정 배경의 전용 화면을 사용합니다.
 
 ## 빠른 로컬 실행
 
@@ -140,13 +128,7 @@ git diff --check
 docker compose config --quiet
 ```
 
-공개 운영 경로의 5xx, timeout과 응답 지연 분포는 쓰기 작업이 없는 반복 테스트로 확인합니다.
-
-```bash
-node scripts/stress-readonly.mjs --base=https://ishsoutside.com --requests=120 --concurrency=12
-```
-
-운영 배포는 반드시 백업 후 진행하고, `/api/health`, Socket.IO handshake, 로그인, 글·첨부·메시지·알림 경로를 실제 환경에서 확인합니다. 반복 배포와 증상별 최단 복구는 [FAST_DEPLOY.md](./FAST_DEPLOY.md), 최초 구축·복구를 포함한 전체 절차는 [DEPLOYMENT_HANDOVER.md](./DEPLOYMENT_HANDOVER.md)를 따릅니다.
+운영 배포는 반드시 백업 후 진행하고, `/api/health`, Socket.IO handshake, 로그인, 글·첨부·메시지·알림 경로를 실제 환경에서 확인합니다. 전체 절차는 [DEPLOYMENT_HANDOVER.md](./DEPLOYMENT_HANDOVER.md)를 따릅니다.
 
 ## 보안 원칙
 
@@ -158,4 +140,4 @@ node scripts/stress-readonly.mjs --base=https://ishsoutside.com --requests=120 -
 
 ## 문서 갱신 규칙
 
-API 경계나 서비스 구성이 바뀌면 `ARCHITECTURE.md`를, 도메인·서버·볼륨·배포·백업 절차가 바뀌면 `FAST_DEPLOY.md`와 `DEPLOYMENT_HANDOVER.md`를 같은 변경 세트에서 갱신합니다.
+API 경계나 서비스 구성이 바뀌면 `ARCHITECTURE.md`를, 도메인·서버·볼륨·배포·백업 절차가 바뀌면 `DEPLOYMENT_HANDOVER.md`를 같은 변경 세트에서 갱신합니다.

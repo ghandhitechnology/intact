@@ -16,7 +16,13 @@ function cookieValue(request: Request, name: string) {
   const cookies = request.headers.get('cookie') ?? '';
   for (const part of cookies.split(';')) {
     const [key, ...value] = part.trim().split('=');
-    if (key === name) return decodeURIComponent(value.join('='));
+    if (key === name) {
+      try {
+        return decodeURIComponent(value.join('='));
+      } catch {
+        return null;
+      }
+    }
   }
   return null;
 }
@@ -25,9 +31,10 @@ function requestToken(request: Request, cookieName = SESSION_COOKIE) {
   const authorization = request.headers.get('authorization');
   if (authorization?.startsWith('Bearer ')) {
     const token = authorization.slice(7).trim();
-    if (token) return token;
+    if (/^[A-Za-z0-9_-]{43}$/.test(token)) return token;
   }
-  return cookieValue(request, cookieName);
+  const token = cookieValue(request, cookieName);
+  return token && /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null;
 }
 
 export async function createPortalSession(

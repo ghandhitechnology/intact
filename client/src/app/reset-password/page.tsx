@@ -105,7 +105,7 @@ export default function ResetPasswordPage() {
         </form>
       )}
       {step === 'done' && (
-        <div className="border-l-4 border-emerald-700 bg-white py-2 pl-5"><h2 className="text-lg font-bold">비밀번호를 변경했습니다.</h2><p className="mt-2 text-sm leading-6 text-slate-600">기존 로그인은 모두 종료되었습니다. 새 비밀번호로 다시 로그인해 주세요.</p><Link href="/login" className="mt-6 inline-flex h-11 items-center rounded-md bg-blue-800 px-5 text-sm font-semibold text-white">학번 {studentCode}로 로그인</Link></div>
+        <div className="border-l-4 border-emerald-700 bg-white py-2 pl-5"><h2 className="text-lg font-bold">비밀번호를 변경했습니다.</h2><p className="mt-2 text-sm leading-6 text-slate-600">기존 로그인은 모두 종료되었습니다. 새 비밀번호로 다시 로그인해 주세요.</p><Link href="/login" className="mt-6 inline-flex h-11 items-center bg-blue-800 px-5 text-sm font-semibold text-white">학번 {studentCode}로 로그인</Link></div>
       )}
     </AuthFrame>
   );

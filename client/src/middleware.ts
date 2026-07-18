@@ -71,6 +71,25 @@ let maintenanceCache: { enabled: boolean; expiresAt: number } | null = null;
 let pendingMaintenance: Promise<boolean> | null = null;
 const adminVerifyCache = new Map<string, { ok: boolean; expiresAt: number }>();
 
+async function adminCacheKey(token: string) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function cacheAdminVerification(key: string, ok: boolean) {
+  const now = Date.now();
+  for (const [cachedKey, entry] of adminVerifyCache) {
+    if (entry.expiresAt <= now) adminVerifyCache.delete(cachedKey);
+  }
+  adminVerifyCache.delete(key);
+  while (adminVerifyCache.size >= 100) {
+    const oldestKey = adminVerifyCache.keys().next().value as string | undefined;
+    if (!oldestKey) break;
+    adminVerifyCache.delete(oldestKey);
+  }
+  adminVerifyCache.set(key, { ok, expiresAt: now + ADMIN_VERIFY_CACHE_TTL_MS });
+}
+
 function internalUrl(request: NextRequest, pathname: string) {
   const url = request.nextUrl.clone();
   url.pathname = pathname;
@@ -118,7 +137,8 @@ async function maintenanceEnabled(request: NextRequest) {
 async function verifiedAdmin(request: NextRequest) {
   const token = request.cookies.get('igwak_admin_session')?.value;
   if (!token) return false;
-  const cached = adminVerifyCache.get(token);
+  const key = await adminCacheKey(token);
+  const cached = adminVerifyCache.get(key);
   if (cached && Date.now() < cached.expiresAt) return cached.ok;
   try {
     const response = await fetch(selfApiUrl(request, '/api/admin/auth/verify'), {
@@ -126,13 +146,7 @@ async function verifiedAdmin(request: NextRequest) {
       cache: 'no-store',
     });
     const ok = response.status === 204;
-    adminVerifyCache.set(token, { ok, expiresAt: Date.now() + ADMIN_VERIFY_CACHE_TTL_MS });
-    if (adminVerifyCache.size > 100) {
-      const now = Date.now();
-      for (const [key, entry] of adminVerifyCache) {
-        if (entry.expiresAt <= now) adminVerifyCache.delete(key);
-      }
-    }
+    cacheAdminVerification(key, ok);
     return ok;
   } catch {
     return false;

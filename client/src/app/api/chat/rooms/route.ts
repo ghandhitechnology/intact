@@ -61,10 +61,10 @@ export async function GET(request: Request) {
           FROM "Message" AS message
           INNER JOIN "ChatMember" AS membership
             ON membership."roomId" = message."roomId"
-          WHERE membership."userId" = ${session.user.id}
+          WHERE membership."userId" = ${session.user.id}::uuid
             AND membership."leftAt" IS NULL
             AND message."deletedAt" IS NULL
-            AND message."senderId" <> ${session.user.id}
+            AND message."senderId" <> ${session.user.id}::uuid
             AND message."createdAt" >= membership."joinedAt"
             AND message."sequence" > membership."lastReadSequence"
           GROUP BY message."roomId"

@@ -14,6 +14,14 @@ export function getModerationMode(): ModerationMode {
   return value === 'OFF' || value === 'ENFORCE' ? value : 'SHADOW';
 }
 
+export function blockedModerationPostUpdate(deletedAt = new Date()) {
+  return {
+    status: 'DELETED' as const,
+    deletedAt,
+    version: { increment: 1 },
+  };
+}
+
 const ZERO_WIDTH = /[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/gu;
 const SEPARATORS = /[\s\p{P}\p{S}_]+/gu;
 const REPEATED = /(.)\1{2,}/gu;

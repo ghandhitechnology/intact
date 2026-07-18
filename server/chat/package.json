@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "license": "MIT",
   "engines": {
-    "node": ">=20 <23"
+    "node": ">=22 <23"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "8.3.0",
@@ -29,6 +29,8 @@
     "dev": "concurrently \"tsc --watch\" \"nodemon -q dist/index.js\""
   },
   "resolutions": {
+    "braces": "^3.0.3",
+    "picomatch": "^2.3.2",
     "socket.io-adapter": "2.5.8",
     "socket.io-parser": "^4.2.6",
     "ws": "^8.21.0"

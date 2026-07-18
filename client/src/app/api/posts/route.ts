@@ -30,6 +30,7 @@ import { requireUser } from '@/lib/server/session';
 import { getPlatformMode, maskPublicIdentities, maskPublicIdentitiesWithMode } from '@/lib/server/platform-mode';
 import { postVersionEtag } from '@/lib/server/post-version';
 import { getModerationMode, publicModerationStatus, queueModerationSubmission } from '@/lib/server/moderation';
+import { assertAttachmentAllowedOnBoard } from '@/lib/server/multipart-upload';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -157,7 +158,7 @@ export async function GET(request: Request) {
       ? encodeCursor(scope, postCursorPosition(lastPost, sort))
       : null;
     return json({
-      posts: maskPublicIdentitiesWithMode(posts, session.user.id, platformMode),
+      posts: await maskPublicIdentitiesWithMode(posts, session.user.id, platformMode),
       pagination: {
         ...paginationMeta(page, pageSize, total),
         cursor: cursorToken,
@@ -269,7 +270,7 @@ export async function POST(request: Request) {
             postId: null,
             messageId: null,
           },
-          select: { id: true, mimeType: true },
+          select: { id: true, mimeType: true, storageKey: true, sizeBytes: true },
         });
         if (pendingAttachments.length !== attachmentIds.length) {
           throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않아요. 파일을 다시 선택해 주세요.');
@@ -277,6 +278,7 @@ export async function POST(request: Request) {
         if (photoPost && pendingAttachments.some((attachment) => !isPhotoMimeType(attachment.mimeType))) {
           throw new ApiError(400, 'IMAGES_ONLY', '사진게시판에는 이미지만 올릴 수 있어요.');
         }
+        assertAttachmentAllowedOnBoard(board.slug, pendingAttachments);
         await bindEligibleAttachments(tx, {
           attachmentIds,
           uploaderId: session.user.id,

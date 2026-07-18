@@ -24,8 +24,13 @@ if ! command -v yarn >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! command -v python3 >/dev/null 2>&1; then
-  printf 'error: python3 is required for the Riro bridge checks.\n' >&2
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+  printf 'error: Python 3.10 or newer is required for the Riro bridge checks. Set PYTHON_BIN when it is not on PATH.\n' >&2
+  exit 1
+fi
+if ! "$PYTHON_BIN" -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'; then
+  printf 'error: Python 3.10 or newer is required for the Riro bridge checks.\n' >&2
   exit 1
 fi
 
@@ -47,7 +52,13 @@ step "Moderation sidecar syntax" bash -c '
   done < <(find "$1" -type f -name "*.mjs" ! -name "* 2*" -print0)
 ' _ "$MODERATION_DIR"
 
-step "Python dependency consistency" python3 -m pip check
-step "Riro bridge tests" bash -c 'cd "$1" && python3 -m unittest -v test_main.py' _ "$RIRO_DIR"
+RIRO_VENV_DIR="$(mktemp -d "${TMPDIR:-/tmp}/intact-riro-verify.XXXXXX")"
+trap 'rm -rf "$RIRO_VENV_DIR"' EXIT
+step "Riro bridge virtual environment" "$PYTHON_BIN" -m venv "$RIRO_VENV_DIR"
+step "Riro bridge dependencies" "$RIRO_VENV_DIR/bin/python" -m pip install \
+  --disable-pip-version-check --quiet -r "$RIRO_DIR/requirements.txt"
+step "Python dependency consistency" "$RIRO_VENV_DIR/bin/python" -m pip check
+step "Riro bridge tests" bash -c 'cd "$1" && "$2" -m unittest -v test_main.py' \
+  _ "$RIRO_DIR" "$RIRO_VENV_DIR/bin/python"
 
 printf '\nAll verification gates passed.\n'

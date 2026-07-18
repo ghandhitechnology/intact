@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeLocalText, normalizeForModeration } from '../src/lib/server/moderation';
+import {
+  analyzeLocalText,
+  blockedModerationPostUpdate,
+  normalizeForModeration,
+} from '../src/lib/server/moderation';
 import { perceptualHashDistance, sampleFrameIndexes } from '../src/lib/server/image-forensics';
 
 test('removes zero-width and punctuation evasion', () => {
@@ -55,4 +59,13 @@ test('samples the beginning, middle and end of an animated image', () => {
 test('perceptual hash distance tolerates small reviewed-image changes', () => {
   assert.equal(perceptualHashDistance('0000000000000000', '0000000000000003'), 2);
   assert.equal(perceptualHashDistance('0000000000000000', 'ffffffffffffffff'), 64);
+});
+
+test('confirmed harmful new posts are soft-deleted atomically', () => {
+  const deletedAt = new Date('2026-07-17T00:00:00.000Z');
+  assert.deepEqual(blockedModerationPostUpdate(deletedAt), {
+    status: 'DELETED',
+    deletedAt,
+    version: { increment: 1 },
+  });
 });

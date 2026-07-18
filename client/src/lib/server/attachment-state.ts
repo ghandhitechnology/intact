@@ -5,9 +5,12 @@ import type { Prisma } from '@prisma/client';
 import { ApiError } from './http';
 
 export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+export const MAX_RESOURCE_ATTACHMENT_BYTES = 500 * 1024 * 1024;
+export const RESOURCE_UPLOAD_PART_BYTES = 8 * 1024 * 1024;
 export const ATTACHMENT_DERIVATIVE_WIDTHS = [320, 640, 1280] as const;
 
 export const ATTACHMENT_STATUS = {
+  UPLOADING: 'UPLOADING',
   PENDING: 'PENDING',
   PROCESSING: 'PROCESSING',
   CLEAN: 'CLEAN',
@@ -27,6 +30,7 @@ const TERMINAL_STATUSES = new Set<AttachmentStatus>([
 ]);
 
 const TRANSITIONS: Record<AttachmentStatus, ReadonlySet<AttachmentStatus>> = {
+  UPLOADING: new Set([ATTACHMENT_STATUS.PENDING, ATTACHMENT_STATUS.REJECTED, ATTACHMENT_STATUS.DELETING]),
   PENDING: new Set([ATTACHMENT_STATUS.PROCESSING, ATTACHMENT_STATUS.DELETING]),
   PROCESSING: new Set([
     ATTACHMENT_STATUS.PENDING,
@@ -93,9 +97,10 @@ export function isReadableAttachment(attachment: {
 export function assertDeleteEligibleAttachment(attachment: {
   postId: string | null;
   messageId: string | null;
+  profileForUser?: { id: string } | null;
 }) {
-  if (attachment.postId || attachment.messageId) {
-    throw new ApiError(409, 'ATTACHMENT_BOUND', '게시물이나 메시지에 연결된 파일은 직접 삭제할 수 없어요.');
+  if (attachment.postId || attachment.messageId || attachment.profileForUser) {
+    throw new ApiError(409, 'ATTACHMENT_BOUND', '게시물, 메시지 또는 프로필에 연결된 파일은 직접 삭제할 수 없어요.');
   }
 }
 
@@ -165,8 +170,76 @@ const MAGIC_REQUIRED = new Set([
   'video/webm',
 ]);
 
-function normalizedMime(value: string) {
-  return value.split(';', 1)[0]!.trim().toLowerCase().slice(0, 127) || 'application/octet-stream';
+// These formats are ZIP containers. Keep their declared document type after
+// confirming the container signature so downloads do not become generic ZIPs.
+const ZIP_CONTAINER_MIME_TYPES = new Set([
+  'application/epub+zip',
+  'application/java-archive',
+  'application/vnd.hancom.hwpx',
+  'application/vnd.oasis.opendocument.graphics',
+  'application/vnd.oasis.opendocument.presentation',
+  'application/vnd.oasis.opendocument.spreadsheet',
+  'application/vnd.oasis.opendocument.text',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
+  'application/vnd.openxmlformats-officedocument.presentationml.template',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.template',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.template',
+  'application/vnd.ms-excel.addin.macroenabled.12',
+  'application/vnd.ms-excel.sheet.binary.macroenabled.12',
+  'application/vnd.ms-excel.sheet.macroenabled.12',
+  'application/vnd.ms-excel.template.macroenabled.12',
+  'application/vnd.ms-powerpoint.addin.macroenabled.12',
+  'application/vnd.ms-powerpoint.presentation.macroenabled.12',
+  'application/vnd.ms-powerpoint.slideshow.macroenabled.12',
+  'application/vnd.ms-powerpoint.template.macroenabled.12',
+  'application/vnd.ms-word.document.macroenabled.12',
+  'application/vnd.ms-word.template.macroenabled.12',
+]);
+
+export function normalizeAttachmentMime(value: string) {
+  const normalized = value.split(';', 1)[0]!.trim().toLowerCase().slice(0, 127);
+  return /^[a-z0-9][a-z0-9!#$&^_.+-]{0,62}\/[a-z0-9][a-z0-9!#$&^_.+-]{0,62}$/.test(normalized)
+    ? normalized
+    : 'application/octet-stream';
+}
+
+export function validateAttachmentMetadata(input: {
+  prefix: Uint8Array;
+  declaredMimeType: string;
+  actualSize: number | bigint;
+  expectedSize?: number | bigint;
+  maxBytes?: number;
+}) {
+  const actualSize = BigInt(input.actualSize);
+  const maxBytes = BigInt(input.maxBytes ?? MAX_ATTACHMENT_BYTES);
+  if (actualSize < BigInt(1) || actualSize > maxBytes) {
+    throw new AttachmentValidationError('FILE_TOO_LARGE', '파일 크기가 허용 범위를 벗어났습니다.');
+  }
+  if (input.expectedSize != null && actualSize !== BigInt(input.expectedSize)) {
+    throw new AttachmentValidationError('CHECKSUM_MISMATCH', '저장된 파일 크기가 업로드 정보와 다릅니다.');
+  }
+  const declaredMimeType = normalizeAttachmentMime(input.declaredMimeType);
+  const detectedMimeType = detectAttachmentMime(input.prefix);
+  const requiresMagic = declaredMimeType.startsWith('image/') || MAGIC_REQUIRED.has(declaredMimeType);
+  if (requiresMagic && !detectedMimeType) {
+    throw new AttachmentValidationError('MIME_MISMATCH', '선언된 파일 형식과 실제 내용이 다릅니다.');
+  }
+  if (
+    detectedMimeType
+    && declaredMimeType !== 'application/octet-stream'
+    && detectedMimeType !== declaredMimeType
+    && !(detectedMimeType === 'application/zip' && ZIP_CONTAINER_MIME_TYPES.has(declaredMimeType))
+  ) {
+    throw new AttachmentValidationError('MIME_MISMATCH', '선언된 파일 형식과 실제 내용이 다릅니다.');
+  }
+  return {
+    mimeType: declaredMimeType === 'application/octet-stream'
+      ? (detectedMimeType || declaredMimeType)
+      : declaredMimeType,
+  };
 }
 
 export async function validateAttachmentBytes(input: {
@@ -187,16 +260,12 @@ export async function validateAttachmentBytes(input: {
     throw new AttachmentValidationError('CHECKSUM_MISMATCH', '저장된 파일 체크섬이 업로드 정보와 다릅니다.');
   }
 
-  const declaredMimeType = normalizedMime(input.declaredMimeType);
-  const detectedMimeType = detectAttachmentMime(bytes);
-  const requiresMagic = declaredMimeType.startsWith('image/') || MAGIC_REQUIRED.has(declaredMimeType);
-  if (requiresMagic && !detectedMimeType) {
-    throw new AttachmentValidationError('MIME_MISMATCH', '선언된 파일 형식과 실제 내용이 다릅니다.');
-  }
-  if (detectedMimeType && declaredMimeType !== 'application/octet-stream' && detectedMimeType !== declaredMimeType) {
-    throw new AttachmentValidationError('MIME_MISMATCH', '선언된 파일 형식과 실제 내용이 다릅니다.');
-  }
-  const mimeType = detectedMimeType || declaredMimeType;
+  const { mimeType } = validateAttachmentMetadata({
+    prefix: bytes,
+    declaredMimeType: input.declaredMimeType,
+    actualSize: bytes.byteLength,
+    expectedSize: input.expectedSize,
+  });
 
   let width: number | null = null;
   let height: number | null = null;
@@ -215,9 +284,14 @@ export async function validateAttachmentBytes(input: {
   return { sha256, mimeType, width, height };
 }
 
-export function quarantineStorageKey(uploaderId: string, id = randomUUID(), now = new Date()) {
+export function quarantineStorageKey(
+  uploaderId: string,
+  id = randomUUID(),
+  now = new Date(),
+  scope?: 'resources',
+) {
   const date = now.toISOString().slice(0, 10).replace(/-/g, '/');
-  return `quarantine/${date}/${uploaderId}/${id}`;
+  return `quarantine/${scope ? `${scope}/` : ''}${date}/${uploaderId}/${id}`;
 }
 
 export function cleanStorageKey(storageKey: string) {
@@ -233,6 +307,7 @@ export function counterpartStorageKey(storageKey: string) {
 export function attachmentVariantKeys(storageKey: string) {
   return [
     storageKey,
+    `${storageKey}.avatar-512.webp`,
     ...ATTACHMENT_DERIVATIVE_WIDTHS.map((width) => `${storageKey}.thumb-${width}.webp`),
   ];
 }

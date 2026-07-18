@@ -6,6 +6,13 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    if (process.env.PORTAL_DEMO_MODE === 'true') {
+      return json(
+        { bSideEnabled: false, maintenanceEnabled: false, version: 'demo' },
+        200,
+        { 'Cache-Control': 'no-store' },
+      );
+    }
     const mode = await getPlatformMode();
     return json(
       {

@@ -17,7 +17,7 @@ import type {
   PostSummary,
 } from "./demo-data";
 import { formatNumber, getBoard } from "./demo-data";
-import { igkLevelLabel } from "@/lib/igk-levels";
+import { igkLevelLabel, type IgkStanding } from "@/lib/igk-levels";
 
 const avatarStyles: Record<Member["accent"], string> = {
   emerald: "border-emerald-300 bg-white text-emerald-800",
@@ -66,47 +66,61 @@ export function Avatar({
   size = "md",
 }: {
   member: Member;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
 }) {
   const sizes = {
+    xs: "h-6 w-6 text-[10px]",
     sm: "h-7 w-7 text-xs",
     md: "h-9 w-9 text-xs",
     lg: "h-12 w-12 text-sm",
   };
+  const rank = member.standing?.rank ?? member.igkRank ?? null;
   const initials = member.initials === '#'
     ? member.nickname.replace(/^#/, '').slice(0, 1)
     : member.initials;
 
   return (
     <span
-      aria-hidden="true"
-      className={cx(
-        "inline-flex shrink-0 items-center justify-center rounded-full border bg-cover bg-center font-bold",
-        sizes[size],
-        avatarStyles[member.accent],
-        member.level >= 10 && "top-level-avatar",
-        member.cosmetics?.avatarRing,
-      )}
-      style={
-        member.profileImage
-          ? { backgroundImage: `url(${member.profileImage})` }
-          : undefined
-      }
+      className="relative inline-flex shrink-0"
+      aria-label={rank ? `${member.nickname}, ${rank}짱` : member.nickname}
     >
-      {member.profileImage ? (
-        <span className="sr-only">{member.nickname} 프로필 이미지</span>
-      ) : (
-        initials
-      )}
+      <span
+        aria-hidden="true"
+        className={cx(
+          "inline-flex items-center justify-center rounded-full border bg-cover bg-center font-bold",
+          sizes[size],
+          avatarStyles[member.accent],
+          member.level >= 10 && "top-level-avatar",
+          Boolean(rank) && "ring-1 ring-blue-600 ring-offset-1 ring-offset-white",
+          member.cosmetics?.avatarRing,
+        )}
+        style={
+          member.profileImage
+            ? { backgroundImage: `url(${member.profileImage})` }
+            : undefined
+        }
+      >
+        {member.profileImage ? null : initials}
+      </span>
+      {rank ? (
+        <span
+          className={cx(
+            "absolute -bottom-1 -right-1 grid min-w-3.5 place-items-center rounded-full border-2 border-white bg-blue-700 px-0.5 font-black leading-none text-white shadow-sm",
+            size === "xs" ? "h-3.5 text-[8px]" : "h-4 text-[9px]",
+          )}
+          aria-hidden="true"
+        >
+          {rank}
+        </span>
+      ) : null}
     </span>
   );
 }
 
-export function LevelBadge({ level, jojolRank }: { level: number; jojolRank?: number | null }) {
+export function LevelBadge({ level, standing }: { level: number; standing?: IgkStanding | null; igkRank?: number | null }) {
+  const tierLabel = standing?.tierLabel ?? igkLevelLabel(level);
   return (
-    <span className="inline-flex h-5 items-center border-l-2 border-emerald-700 pl-1.5 text-xs font-semibold text-emerald-800">
-      {igkLevelLabel(level, jojolRank)}
-    </span>
+    <span className="inline-flex h-5 items-center border-l-2 border-emerald-700 pl-1.5 text-xs font-semibold text-emerald-800">{tierLabel}</span>
   );
 }
 
@@ -117,22 +131,49 @@ export function MemberLine({
   member: Member;
   compact?: boolean;
 }) {
+  const name = (
+    <span
+      className={cx(
+        "truncate font-medium text-slate-700",
+        member.nickname.startsWith('#') && "font-mono tracking-wide",
+      )}
+      style={
+        member.cosmetics?.nicknameColor
+          ? { color: member.cosmetics.nicknameColor }
+          : undefined
+      }
+    >
+      {member.nickname}
+    </span>
+  );
+
+  if (compact) {
+    return (
+      <span className="inline-flex min-w-0 items-center gap-2 text-xs text-slate-500">
+        <Avatar member={member} size="xs" />
+        <span className="min-w-0 leading-none">
+          <span className="block min-w-0 truncate leading-4">{name}</span>
+          <span className="mt-0.5 flex min-w-0 items-center gap-1 leading-4">
+            {member.studentId !== '------' ? (
+              <span className="shrink-0 tabular-nums text-slate-400">{member.studentId}</span>
+            ) : null}
+            {member.studentId === "ADMIN" ? (
+              <span className="font-semibold text-slate-700">운영자</span>
+            ) : (
+              <span className="truncate font-semibold text-emerald-800">
+                {member.standing?.tierLabel ?? igkLevelLabel(member.level)}
+              </span>
+            )}
+          </span>
+        </span>
+      </span>
+    );
+  }
+
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-slate-500">
-      {!compact && <Avatar member={member} size="sm" />}
-      <span
-        className={cx(
-          "truncate font-medium text-slate-700",
-          member.nickname.startsWith('#') && "font-mono tracking-wide",
-        )}
-        style={
-          member.cosmetics?.nicknameColor
-            ? { color: member.cosmetics.nicknameColor }
-            : undefined
-        }
-      >
-        {member.nickname}
-      </span>
+      <Avatar member={member} size="sm" />
+      {name}
       {member.studentId !== '------' ? (
         <span className="shrink-0 tabular-nums text-slate-400">
           {member.studentId}
@@ -143,7 +184,7 @@ export function MemberLine({
           운영자
         </span>
       ) : (
-        <LevelBadge level={member.level} jojolRank={member.jojolRank} />
+        <LevelBadge level={member.level} standing={member.standing} igkRank={member.igkRank} />
       )}
       {member.cosmetics?.title ? (
         <span className="inline-flex h-5 shrink-0 items-center border-l-2 border-amber-500 pl-1.5 text-xs font-semibold text-amber-800">

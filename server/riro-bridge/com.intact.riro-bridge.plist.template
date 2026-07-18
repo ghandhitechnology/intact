@@ -5,7 +5,9 @@
   <key>Label</key><string>com.intact.riro-bridge</string>
   <key>ProgramArguments</key>
   <array>
-    <string>__INSTALL_DIR__/.venv/bin/uvicorn</string>
+    <string>__INSTALL_DIR__/.venv/bin/python</string>
+    <string>-m</string>
+    <string>uvicorn</string>
     <string>main:app</string>
     <string>--app-dir</string><string>__INSTALL_DIR__</string>
     <string>--host</string><string>__TAILSCALE_IP__</string>
@@ -23,4 +25,3 @@
   <key>StandardErrorPath</key><string>__INSTALL_DIR__/bridge-error.log</string>
 </dict>
 </plist>
-

@@ -81,14 +81,14 @@ test('notification creation persists nothing when every selected channel is disa
 
 test('encrypted Web Push subscriptions are decrypted only at delivery', async () => {
   const previousKey = process.env.PORTAL_ENCRYPTION_KEY;
-  process.env.PORTAL_ENCRYPTION_KEY = 'test-encryption-key-with-at-least-32-characters';
+  process.env.PORTAL_ENCRYPTION_KEY = 'test-encryption-key-with-at-least-32-characters'; // gitleaks:allow -- deterministic test fixture
   const updates: unknown[] = [];
   let delivered: unknown;
   const prisma = {
     pushSubscription: {
       findMany: async () => [{
         id: UUID_C,
-        endpoint: encryptText('https://push.example.test/subscription'),
+        endpoint: encryptText('https://fcm.googleapis.com/fcm/send/subscription'),
         p256dh: encryptText('public-key'),
         auth: encryptText('auth-key'),
       }],
@@ -111,7 +111,7 @@ test('encrypted Web Push subscriptions are decrypted only at delivery', async ()
     else process.env.PORTAL_ENCRYPTION_KEY = previousKey;
   }
   assert.deepEqual((delivered as { subscription: unknown }).subscription, {
-    endpoint: 'https://push.example.test/subscription',
+    endpoint: 'https://fcm.googleapis.com/fcm/send/subscription',
     keys: { p256dh: 'public-key', auth: 'auth-key' },
   });
   assert.equal(updates.length, 1);

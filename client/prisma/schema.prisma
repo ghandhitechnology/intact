@@ -169,8 +169,12 @@ model User {
   realName             String?    @db.VarChar(40)
   passwordHash         String     @map("password_hash") @db.VarChar(255)
   profileImage         String?    @db.VarChar(2048)
+  profileImageAttachmentId String? @unique @db.Uuid
   bio                  String?    @db.VarChar(280)
   interests            String[]   @default([])
+  showRealName         Boolean    @default(false)
+  showStudentCode      Boolean    @default(false)
+  showActivityStats    Boolean    @default(false)
   role                 Role       @default(USER)
   status               UserStatus @default(ACTIVE)
   currentIgk           Int        @default(0)
@@ -192,6 +196,7 @@ model User {
   posts                   Post[]
   postRevisions           PostRevision[]           @relation("RevisionEditor")
   attachments             Attachment[]             @relation("AttachmentUploader")
+  profileImageAttachment  Attachment?              @relation("ProfileImageAttachment", fields: [profileImageAttachmentId], references: [id], onDelete: SetNull)
   comments                Comment[]
   recommendations         Recommendation[]
   bookmarks               Bookmark[]
@@ -548,6 +553,7 @@ model Attachment {
   blurDataUrl     String?   @db.VarChar(1024)
 
   uploader User     @relation("AttachmentUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
+  profileForUser User? @relation("ProfileImageAttachment")
   post     Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
   message  Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
@@ -837,6 +843,7 @@ model IgkLedger {
 model LevelRule {
   level              Int      @id
   minimumLifetimeIgk Int      @unique
+  minimumCurrentIgk  Int      @unique
   label              String?  @db.VarChar(60)
   updatedAt          DateTime @updatedAt @db.Timestamptz(6)
   updatedById        String?  @db.Uuid

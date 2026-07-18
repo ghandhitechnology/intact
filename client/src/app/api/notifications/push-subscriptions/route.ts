@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma';
 import { encryptText } from '@/lib/server/crypto';
 import { ApiError, assertSameOrigin, json, jsonError, readJson, requiredString } from '@/lib/server/http';
 import { pushEndpointHash } from '@/lib/server/notifications';
+import { isTrustedPushEndpoint } from '@/lib/server/push-endpoint';
 import { requireUser } from '@/lib/server/session';
 
 export const runtime = 'nodejs';
@@ -17,14 +18,8 @@ type SubscriptionBody = {
 
 function validEndpoint(value: unknown) {
   const endpoint = requiredString(value, '푸시 구독 주소', { max: 4_096 });
-  let url: URL;
-  try {
-    url = new URL(endpoint);
-  } catch {
-    throw new ApiError(400, 'INVALID_PUSH_ENDPOINT', '푸시 구독 주소가 올바르지 않습니다.');
-  }
-  if (url.protocol !== 'https:' || url.username || url.password || url.hash) {
-    throw new ApiError(400, 'INVALID_PUSH_ENDPOINT', '안전한 HTTPS 푸시 구독 주소만 사용할 수 있습니다.');
+  if (!isTrustedPushEndpoint(endpoint)) {
+    throw new ApiError(400, 'INVALID_PUSH_ENDPOINT', '신뢰할 수 있는 Web Push 서비스 주소만 사용할 수 있습니다.');
   }
   return endpoint;
 }
@@ -93,29 +88,38 @@ export async function POST(request: Request) {
     const encryptedEndpoint = encryptText(endpoint);
     const encryptedP256dh = encryptText(p256dh);
     const encryptedAuth = encryptText(auth);
-    const subscription = await prisma.pushSubscription.upsert({
-      where: { endpointHash },
-      update: {
-        userId: session.user.id,
-        endpoint: encryptedEndpoint,
-        p256dh: encryptedP256dh,
-        auth: encryptedAuth,
-        expiresAt,
-        revokedAt: null,
-        failureCount: 0,
-        lastFailureAt: null,
-        userAgent: request.headers.get('user-agent')?.slice(0, 512) || null,
-      },
-      create: {
-        userId: session.user.id,
-        endpoint: encryptedEndpoint,
-        endpointHash,
-        p256dh: encryptedP256dh,
-        auth: encryptedAuth,
-        expiresAt,
-        userAgent: request.headers.get('user-agent')?.slice(0, 512) || null,
-      },
-      select: { id: true, createdAt: true, updatedAt: true, expiresAt: true },
+    const subscription = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${endpointHash}), hashtext('push-subscription'))`;
+      const existing = await tx.pushSubscription.findUnique({
+        where: { endpointHash },
+        select: { userId: true },
+      });
+      if (existing && existing.userId !== session.user.id) {
+        throw new ApiError(409, 'PUSH_ENDPOINT_OWNED', '이미 다른 계정에 등록된 푸시 구독입니다.');
+      }
+      return tx.pushSubscription.upsert({
+        where: { endpointHash },
+        update: {
+          endpoint: encryptedEndpoint,
+          p256dh: encryptedP256dh,
+          auth: encryptedAuth,
+          expiresAt,
+          revokedAt: null,
+          failureCount: 0,
+          lastFailureAt: null,
+          userAgent: request.headers.get('user-agent')?.slice(0, 512) || null,
+        },
+        create: {
+          userId: session.user.id,
+          endpoint: encryptedEndpoint,
+          endpointHash,
+          p256dh: encryptedP256dh,
+          auth: encryptedAuth,
+          expiresAt,
+          userAgent: request.headers.get('user-agent')?.slice(0, 512) || null,
+        },
+        select: { id: true, createdAt: true, updatedAt: true, expiresAt: true },
+      });
     });
     return json({ subscription }, 201);
   } catch (error) {

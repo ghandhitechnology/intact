@@ -31,6 +31,8 @@ docker compose exec codex-moderation node src/security-probe.mjs
 2. 라벨링한 사례를 확인한 뒤 `MODERATION_MODE=ENFORCE`로 바꾸고 `web`과 `moderation-worker`를 재시작합니다.
 3. 긴급 복구는 `MODERATION_MODE=OFF`입니다. `OFF`에서는 새 심사 제출을 만들지 않고 기존 게시 동작을 사용합니다.
 
+`ENFORCE`에서 두 검사 계층이 모두 고신뢰도로 유해하다고 확정한 새 게시물은 공개되지 않으며 즉시 soft delete(`DELETED`, `deletedAt`)됩니다. 판정 근거와 첨부 관계는 감사 및 오탐 검토를 위해 보존합니다. 불확실한 판정과 검사 실패는 자동 삭제하지 않고 `NEEDS_REVIEW`로 보냅니다.
+
 ```bash
 docker compose up -d --force-recreate web moderation-worker
 ```

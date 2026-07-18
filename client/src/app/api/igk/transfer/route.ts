@@ -5,7 +5,7 @@ import {
   matchesSentTransferReplay,
   transferLedgerKeys,
 } from '@/lib/server/domain/igk-transfer';
-import { lockIgkAccounts, syncLevelForLifetime } from '@/lib/server/igk';
+import { lockIgkAccounts, syncLevelForBalance } from '@/lib/server/igk';
 import {
   ApiError,
   assertSameOrigin,
@@ -21,10 +21,12 @@ import { requireUser } from '@/lib/server/session';
 import { isRetryableTransactionError } from '@/lib/server/transactions';
 import { anonymousNickname, getPlatformMode } from '@/lib/server/platform-mode';
 import { createNotificationWithDelivery } from '@/lib/server/notifications';
+import { standingFor, topIgkRankMap } from '@/lib/server/igk-standing';
 
 export const runtime = 'nodejs';
 
 interface TransferBody {
+  recipientId?: unknown;
   recipient?: unknown;
   amount?: unknown;
   note?: unknown;
@@ -51,13 +53,23 @@ export async function POST(request: Request) {
       failPolicy: 'closed',
     });
     const body = await readJson<TransferBody>(request, 8_192);
-    const recipientIdentifier = requiredString(body.recipient, '받는 사람', { min: 2, max: 32 });
+    const recipientId = typeof body.recipientId === 'string' && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(body.recipientId)
+      ? body.recipientId
+      : null;
+    const recipientIdentifier = recipientId
+      ? null
+      : requiredString(body.recipient, '받는 사람', { min: 2, max: 32 });
     const amount = requiredInteger(body.amount, '선물할 IGK', 1, 500);
     const note = typeof body.note === 'string' ? body.note.trim().slice(0, 300) || null : null;
     const requestKey = request.headers.get('idempotency-key')?.trim().slice(0, 100) || randomUUID();
     const platformMode = await getPlatformMode();
     const identityInclude = { studentIdentity: { select: { studentCode: true } } } as const;
-    const recipient = platformMode.bSideEnabled && /^#[A-F0-9]{8}$/i.test(recipientIdentifier)
+    const recipient = recipientId
+      ? await prisma.user.findFirst({
+          where: { id: recipientId, status: 'ACTIVE', studentIdentity: { isNot: null } },
+          include: identityInclude,
+        })
+      : platformMode.bSideEnabled && /^#[A-F0-9]{8}$/i.test(recipientIdentifier!)
       ? (await prisma.user.findMany({
           where: { status: 'ACTIVE' },
           include: identityInclude,
@@ -65,15 +77,15 @@ export async function POST(request: Request) {
         })).find(
           (candidate) =>
             anonymousNickname(candidate.id, platformMode.bSideEpoch).toLowerCase() ===
-            recipientIdentifier.toLowerCase(),
+            recipientIdentifier!.toLowerCase(),
         ) ?? null
       : await prisma.user.findFirst({
           where: {
             status: 'ACTIVE',
             OR: [
-              { loginId: recipientIdentifier },
-              { nickname: recipientIdentifier },
-              { studentIdentity: { studentCode: recipientIdentifier } },
+              { loginId: recipientIdentifier! },
+              { nickname: recipientIdentifier! },
+              { studentIdentity: { studentCode: recipientIdentifier! } },
             ],
           },
           include: identityInclude,
@@ -99,9 +111,14 @@ export async function POST(request: Request) {
       if (!matchesSentTransferReplay(completed, transferIdentity)) {
         throw new ApiError(409, 'IDEMPOTENCY_KEY_REUSED', '같은 요청 키를 다른 IGK 선물에 다시 사용할 수 없습니다.');
       }
+      const [sender, rankMap] = await Promise.all([
+        prisma.user.findUniqueOrThrow({ where: { id: session.user.id }, select: { level: true } }),
+        topIgkRankMap(),
+      ]);
       return json({
         transferId: completed.transferId ?? completed.id,
         senderBalance: completed.balanceAfter,
+        senderStanding: standingFor(sender.level, rankMap.get(session.user.id) ?? null),
         recipientNickname: recipientPublicNickname,
       });
     }
@@ -136,7 +153,12 @@ export async function POST(request: Request) {
     }
 
     const transferId = randomUUID();
-    let result: { transferId: string; senderBalance: number; recipientNickname: string } | null = null;
+    let result: {
+      transferId: string;
+      senderBalance: number;
+      senderLevel: number;
+      recipientNickname: string;
+    } | null = null;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         result = await prisma.$transaction(
@@ -153,9 +175,14 @@ export async function POST(request: Request) {
                   '같은 요청 키를 다른 IGK 선물에 다시 사용할 수 없습니다.',
                 );
               }
+              const replaySender = await tx.user.findUniqueOrThrow({
+                where: { id: session.user.id },
+                select: { level: true },
+              });
               return {
                 transferId: existing.transferId ?? existing.id,
                 senderBalance: existing.balanceAfter,
+                senderLevel: replaySender.level,
                 recipientNickname: recipientPublicNickname,
               };
             }
@@ -197,6 +224,7 @@ export async function POST(request: Request) {
               throw new ApiError(400, 'INSUFFICIENT_IGK', '보유 IGK가 부족합니다.');
             }
             const sender = await tx.user.findUniqueOrThrow({ where: { id: session.user.id } });
+            await syncLevelForBalance(tx, sender);
             const recipientBefore = await tx.user.findUnique({
               where: { id: recipient.id },
               select: { status: true, igkDebt: true },
@@ -213,7 +241,7 @@ export async function POST(request: Request) {
                 igkDebt: { decrement: receiverDebtPayment },
               },
             });
-            await syncLevelForLifetime(tx, receiver);
+            await syncLevelForBalance(tx, receiver);
             await tx.igkLedger.createMany({
               data: [
                 {
@@ -253,6 +281,7 @@ export async function POST(request: Request) {
             return {
               transferId,
               senderBalance: sender.currentIgk,
+              senderLevel: sender.level,
               recipientNickname: recipientPublicNickname,
             };
           },
@@ -264,7 +293,11 @@ export async function POST(request: Request) {
         throw error;
       }
     }
-    return json(result!);
+    const rankMap = await topIgkRankMap();
+    return json({
+      ...result!,
+      senderStanding: standingFor(result!.senderLevel, rankMap.get(session.user.id) ?? null),
+    });
   } catch (error) {
     return jsonError(error);
   }

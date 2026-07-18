@@ -25,18 +25,43 @@ function applyDocumentMode(enabled: boolean) {
 async function requestPlatformMode() {
   const response = await fetch('/api/platform', { cache: 'no-store' });
   const body = await response.json().catch(() => null);
-  if (!response.ok || !body?.data || typeof body.data.bSideEnabled !== 'boolean') {
+  if (
+    !response.ok
+    || !body?.data
+    || typeof body.data.bSideEnabled !== 'boolean'
+    || typeof body.data.maintenanceEnabled !== 'boolean'
+    || typeof body.data.version !== 'string'
+    || !body.data.version
+  ) {
     throw new Error('PLATFORM_MODE_UNAVAILABLE');
   }
   return body.data as PlatformModeSnapshot;
 }
 
+function storedModeVersion() {
+  try {
+    return window.sessionStorage.getItem(MODE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function storeModeVersion(version: string) {
+  try {
+    window.sessionStorage.setItem(MODE_STORAGE_KEY, version);
+  } catch {
+    // Storage may be disabled by the browser. The in-memory mode still remains safe.
+  }
+}
+
 export default function PlatformModeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<PlatformModeSnapshot | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const currentRef = useRef<PlatformModeSnapshot | null>(null);
 
   const refresh = useCallback(async () => {
+    setRetrying(true);
     try {
       const next = await requestPlatformMode();
       // Push already-connected SPA users out as soon as maintenance turns on.
@@ -49,12 +74,12 @@ export default function PlatformModeProvider({ children }: { children: ReactNode
         }
       }
       const current = currentRef.current;
-      const storedVersion = sessionStorage.getItem(MODE_STORAGE_KEY);
+      const storedVersion = storedModeVersion();
       applyDocumentMode(next.bSideEnabled);
       if ((!current && next.bSideEnabled && storedVersion !== next.version) || (current && current.version !== next.version)) {
         clearClientDataCache();
       }
-      sessionStorage.setItem(MODE_STORAGE_KEY, next.version);
+      storeModeVersion(next.version);
       currentRef.current = next;
       setUnavailable(false);
       setMode(next);
@@ -68,6 +93,8 @@ export default function PlatformModeProvider({ children }: { children: ReactNode
       clearClientDataCache(false);
       setUnavailable(true);
       return undefined;
+    } finally {
+      setRetrying(false);
     }
   }, []);
 
@@ -105,10 +132,31 @@ export default function PlatformModeProvider({ children }: { children: ReactNode
     [mode, refresh],
   );
 
-  if (!value || unavailable) {
+  if (unavailable) {
+    return (
+      <div className="grid min-h-dvh place-items-center bg-[var(--surface-muted)] px-5 text-[var(--ink)]" role="alert">
+        <div className="w-full max-w-sm border-t-2 border-[var(--line-strong)] bg-[var(--surface)] px-5 py-6 text-center">
+          <p className="text-base font-bold">보안 설정을 확인할 수 없어요.</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">
+            개인정보 보호를 위해 화면을 잠시 잠갔어요. 연결을 확인한 뒤 다시 시도해 주세요.
+          </p>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={retrying}
+            className="mt-5 min-h-10 bg-[var(--green)] px-5 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60"
+          >
+            {retrying ? '다시 확인 중…' : '다시 시도'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!value) {
     return (
       <div className="grid min-h-dvh place-items-center bg-[var(--surface-muted)] text-xs font-bold text-[var(--ink-soft)]">
-        {unavailable ? '보안 모드를 확인하는 중' : '인텍트 여는 중'}
+        인텍트 여는 중
       </div>
     );
   }

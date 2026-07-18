@@ -11,6 +11,7 @@ import {
   STUDENT_CODE_REQUIREMENTS,
 } from '@/lib/student-code';
 import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
+import { loginPasswordError } from '@/lib/login-credentials';
 
 function safeReturnTo(raw: string | null) {
   if (!raw || raw.includes('\\') || /[\u0000-\u001f]/.test(raw)) return '/';
@@ -41,8 +42,11 @@ export default function LoginPage() {
       setError(STUDENT_CODE_REQUIREMENTS);
       return;
     }
-    if (password.length < 10) {
-      setError('비밀번호는 10자 이상이어야 합니다.');
+    // The current password policy belongs to registration and password changes;
+    // login must continue to accept valid legacy passwords.
+    const passwordError = loginPasswordError(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
@@ -100,6 +104,7 @@ export default function LoginPage() {
               autoComplete="current-password"
               placeholder="비밀번호 입력"
               className="h-12  border-[#c9ccc6] bg-white px-4 pr-16 text-[15px] focus:border-[#28745c] focus:ring-2 focus:ring-[#dcebe5]"
+              maxLength={128}
               value={password}
               disabled={loading}
               onChange={(event) => setPassword(event.target.value)}
@@ -110,7 +115,7 @@ export default function LoginPage() {
           </div>
         </Field>
 
-        <div className="flex items-center justify-between gap-4 text-[13px]">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-[13px]">
           <label className="flex cursor-pointer items-center gap-2.5 text-[var(--ink-soft)]">
             <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="h-4 w-4  accent-[#28745c]" />
             로그인 상태 유지
@@ -123,7 +128,7 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <div className="mt-8 flex items-center justify-between gap-4 text-[13px]">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 text-[13px]">
         <span className="text-[var(--ink-faint)]">처음 방문하셨나요?</span>
         <Link href="/register" className="font-semibold text-[var(--green-deep)] underline underline-offset-4">재학생 인증하고 가입하기</Link>
       </div>

@@ -9,6 +9,20 @@ fi
 SCRIPT_DIR="${0:A:h}"
 INSTALL_DIR="${HOME}/Library/Application Support/IntactRiroBridge"
 PLIST_PATH="${HOME}/Library/LaunchAgents/com.intact.riro-bridge.plist"
+PYTHON_BIN="${RIRO_PYTHON_BIN:-}"
+if [[ -z "${PYTHON_BIN}" ]]; then
+  if [[ -x /opt/homebrew/bin/python3 ]]; then
+    PYTHON_BIN=/opt/homebrew/bin/python3
+  elif [[ -x /usr/local/bin/python3 ]]; then
+    PYTHON_BIN=/usr/local/bin/python3
+  else
+    PYTHON_BIN="$(command -v python3 || true)"
+  fi
+fi
+if [[ -z "${PYTHON_BIN}" ]] || ! "${PYTHON_BIN}" -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'; then
+  echo "Python 3.10 or newer is required. Set RIRO_PYTHON_BIN to a compatible interpreter." >&2
+  exit 1
+fi
 TAILSCALE_BIN="$(command -v tailscale || true)"
 if [[ -z "${TAILSCALE_BIN}" && -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ]]; then
   TAILSCALE_BIN=/Applications/Tailscale.app/Contents/MacOS/Tailscale
@@ -26,8 +40,10 @@ fi
 mkdir -p "${INSTALL_DIR}" "${HOME}/Library/LaunchAgents"
 chmod 700 "${INSTALL_DIR}"
 cp "${SCRIPT_DIR}/main.py" "${SCRIPT_DIR}/requirements.txt" "${INSTALL_DIR}/"
-python3 -m venv "${INSTALL_DIR}/.venv"
-"${INSTALL_DIR}/.venv/bin/pip" install --disable-pip-version-check --quiet -r "${INSTALL_DIR}/requirements.txt"
+"${PYTHON_BIN}" -m venv "${INSTALL_DIR}/.venv"
+"${INSTALL_DIR}/.venv/bin/python" -m pip install --disable-pip-version-check --quiet --upgrade pip==26.1.2
+"${INSTALL_DIR}/.venv/bin/python" -m pip install --disable-pip-version-check --quiet -r "${INSTALL_DIR}/requirements.txt"
+"${INSTALL_DIR}/.venv/bin/python" -m pip check
 
 sed \
   -e "s|__INSTALL_DIR__|${INSTALL_DIR}|g" \
@@ -37,8 +53,14 @@ sed \
 chmod 600 "${PLIST_PATH}"
 
 launchctl bootout "gui/${UID}/com.intact.riro-bridge" >/dev/null 2>&1 || true
-launchctl bootstrap "gui/${UID}" "${PLIST_PATH}"
-launchctl enable "gui/${UID}/com.intact.riro-bridge"
+if launchctl bootstrap "gui/${UID}" "${PLIST_PATH}"; then
+  launchctl enable "gui/${UID}/com.intact.riro-bridge"
+else
+  # `bootstrap` can return an I/O error in an otherwise valid remote GUI
+  # session. The legacy loader remains supported and starts the same agent.
+  launchctl unload "${PLIST_PATH}" >/dev/null 2>&1 || true
+  launchctl load -w "${PLIST_PATH}"
+fi
 
 for _ in {1..20}; do
   if curl --fail --silent --max-time 2 "http://${TAILSCALE_IP}:8765/health" >/dev/null; then

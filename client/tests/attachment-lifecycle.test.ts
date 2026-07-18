@@ -11,7 +11,9 @@ import {
   isLegacyReadableAttachment,
   isReadableAttachment,
   scanWithClamAv,
+  normalizeAttachmentMime,
   validateAttachmentBytes,
+  validateAttachmentMetadata,
 } from '../src/lib/server/attachment-state';
 
 async function withFakeClamAv(
@@ -52,11 +54,49 @@ async function withFakeClamAv(
 }
 
 test('attachment lifecycle allows only explicit forward and cleanup transitions', () => {
+  assert.equal(canTransitionAttachment(ATTACHMENT_STATUS.UPLOADING, ATTACHMENT_STATUS.PENDING), true);
+  assert.equal(canTransitionAttachment(ATTACHMENT_STATUS.UPLOADING, ATTACHMENT_STATUS.CLEAN), false);
   assert.equal(canTransitionAttachment(ATTACHMENT_STATUS.PENDING, ATTACHMENT_STATUS.PROCESSING), true);
   assert.equal(canTransitionAttachment(ATTACHMENT_STATUS.PROCESSING, ATTACHMENT_STATUS.PENDING), true);
   assert.equal(canTransitionAttachment(ATTACHMENT_STATUS.PROCESSING, ATTACHMENT_STATUS.CLEAN), true);
   assert.equal(canTransitionAttachment(ATTACHMENT_STATUS.CLEAN, ATTACHMENT_STATUS.PROCESSING), false);
   assert.equal(canTransitionAttachment(ATTACHMENT_STATUS.DELETING, ATTACHMENT_STATUS.CLEAN), false);
+});
+
+test('large resource metadata is validated without loading the whole file', () => {
+  const prefix = Buffer.from('%PDF-1.7\n');
+  assert.deepEqual(validateAttachmentMetadata({
+    prefix,
+    declaredMimeType: 'application/pdf',
+    actualSize: 500 * 1024 * 1024,
+    expectedSize: 500 * 1024 * 1024,
+    maxBytes: 500 * 1024 * 1024,
+  }), { mimeType: 'application/pdf' });
+  assert.throws(
+    () => validateAttachmentMetadata({
+      prefix,
+      declaredMimeType: 'application/pdf',
+      actualSize: 500 * 1024 * 1024 + 1,
+      maxBytes: 500 * 1024 * 1024,
+    }),
+    (error: unknown) => error instanceof AttachmentValidationError && error.code === 'FILE_TOO_LARGE',
+  );
+});
+
+test('ZIP-based office documents keep their document MIME type', () => {
+  const zipPrefix = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0, 0, 0]);
+  assert.deepEqual(validateAttachmentMetadata({
+    prefix: zipPrefix,
+    declaredMimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    actualSize: zipPrefix.byteLength,
+  }), {
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
+});
+
+test('attachment MIME normalization cannot inject or persist invalid header values', () => {
+  assert.equal(normalizeAttachmentMime('Application/PDF; charset=binary'), 'application/pdf');
+  assert.equal(normalizeAttachmentMime('application/pdf\r\nx-malicious: yes'), 'application/octet-stream');
 });
 
 test('ClamAV INSTREAM FOUND response rejects EICAR content', async () => {

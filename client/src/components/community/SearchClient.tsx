@@ -200,12 +200,15 @@ export default function SearchClient({
               title: item.title,
               excerpt: item.contentText || "",
               author: {
+                id: item?.author?.id,
                 nickname,
                 studentId:
                   item?.author?.studentIdentity?.studentCode || "------",
                 level: Number(item?.author?.level || 1),
                 initials: nickname.slice(0, 1),
                 profileImage: item?.author?.profileImage || null,
+                standing: item?.author?.standing || null,
+                igkRank: Number.isInteger(item?.author?.igkRank) ? Number(item.author.igkRank) : null,
                 accent: "emerald" as const,
                 cosmetics: cosmeticsFromItems(item?.author?.items),
               },
@@ -225,11 +228,14 @@ export default function SearchClient({
           ? users.map((user) => {
               const nickname = user?.realName || user?.nickname || "알 수 없음";
               return {
+                id: user?.id,
                 nickname,
                 studentId: user?.studentIdentity?.studentCode || "------",
                 level: Number(user?.level || 1),
                 initials: nickname.slice(0, 1),
                 profileImage: user?.profileImage || null,
+                standing: user?.standing || null,
+                igkRank: Number.isInteger(user?.igkRank) ? Number(user.igkRank) : null,
                 accent: "blue" as const,
               };
             })
@@ -351,7 +357,7 @@ export default function SearchClient({
   };
 
   return (
-    <div className="px-4 py-3 sm:px-6 sm:py-5">
+    <div className="app-page px-4 py-3 sm:px-6 sm:py-5">
       <div className="mx-auto max-w-[1320px]">
         <Link
           href="/"
@@ -509,8 +515,9 @@ export default function SearchClient({
             {!searchError && tab === "members" && (
               <div className="grid gap-px bg-slate-100 sm:grid-cols-2">
                 {memberResults.map((member) => (
-                  <article
-                    key={member.studentId}
+                  <Link
+                    key={`${member.nickname}:${member.studentId}`}
+                    href={member.id ? `/users/${member.id}` : '#'}
                     className="flex items-center gap-3 bg-white p-4"
                   >
                     <Avatar member={member} size="lg" />
@@ -519,7 +526,7 @@ export default function SearchClient({
                         <h2 className="truncate text-sm font-bold text-slate-800">
                           {member.nickname}
                         </h2>
-                        <LevelBadge level={member.level} />
+                        <LevelBadge level={member.level} standing={member.standing} igkRank={member.igkRank} />
                       </div>
                       {member.studentId !== '------' ? (
                         <p className="mt-1 text-xs tabular-nums text-slate-400">
@@ -527,7 +534,7 @@ export default function SearchClient({
                         </p>
                       ) : null}
                     </div>
-                  </article>
+                  </Link>
                 ))}
                 {!memberResults.length && (
                   <div className="col-span-2 bg-white px-5 py-20 text-center text-sm text-slate-400">

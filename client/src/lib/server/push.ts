@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import webPush from 'web-push';
 import { decryptText } from './crypto';
+import { isTrustedPushEndpoint } from './push-endpoint';
 
 let configured = false;
 
@@ -66,9 +67,17 @@ export async function deliverNotificationPush(
 
   await Promise.all(subscriptions.map(async (subscription) => {
     try {
+      const endpoint = decryptStored(subscription.endpoint);
+      if (!isTrustedPushEndpoint(endpoint)) {
+        await prisma.pushSubscription.update({
+          where: { id: subscription.id },
+          data: { revokedAt: new Date(), lastFailureAt: new Date(), failureCount: { increment: 1 } },
+        });
+        return;
+      }
       await sendNotification(
         {
-          endpoint: decryptStored(subscription.endpoint),
+          endpoint,
           keys: {
             p256dh: decryptStored(subscription.p256dh),
             auth: decryptStored(subscription.auth),

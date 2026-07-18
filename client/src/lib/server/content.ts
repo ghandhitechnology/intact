@@ -50,6 +50,7 @@ export const publicAuthorSelect = {
   nickname: true,
   realName: true,
   profileImage: true,
+  profileImageAttachmentId: true,
   role: true,
   level: true,
   studentIdentity: { select: { studentCode: true } },

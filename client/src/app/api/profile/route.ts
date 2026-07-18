@@ -10,6 +10,7 @@ import {
   requiredString,
 } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
+import { enrichPublicUserTree } from '@/lib/server/igk-standing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,8 +40,12 @@ export async function GET(request: Request) {
         nickname: true,
         realName: true,
         profileImage: true,
+        profileImageAttachmentId: true,
         bio: true,
         interests: true,
+        showRealName: true,
+        showStudentCode: true,
+        showActivityStats: true,
         role: true,
         status: true,
         currentIgk: true,
@@ -61,7 +66,7 @@ export async function GET(request: Request) {
         _count: { select: { posts: true, comments: true, bookmarks: true } },
       },
     });
-    return json({ profile });
+    return json({ profile: await enrichPublicUserTree(profile) });
   } catch (error) {
     return jsonError(error);
   }
@@ -75,7 +80,15 @@ export async function PATCH(request: Request) {
       limit: 10,
       windowMs: 24 * 60 * 60 * 1_000,
     });
-    const body = await readJson<{ nickname?: unknown; profileImage?: unknown; bio?: unknown; interests?: unknown }>(request, 8_192);
+    const body = await readJson<{
+      nickname?: unknown;
+      profileImage?: unknown;
+      bio?: unknown;
+      interests?: unknown;
+      showRealName?: unknown;
+      showStudentCode?: unknown;
+      showActivityStats?: unknown;
+    }>(request, 8_192);
     const nickname = body.nickname === undefined
       ? undefined
       : requiredString(body.nickname, '닉네임', { min: 2, max: 16 });
@@ -115,12 +128,31 @@ export async function PATCH(request: Request) {
             .slice(0, 5)
             .map((interest) => interest.slice(0, 24))
         : [];
-    if (nickname === undefined && profileImage === undefined && bio === undefined && interests === undefined) {
+    const showRealName = typeof body.showRealName === 'boolean' ? body.showRealName : undefined;
+    const showStudentCode = typeof body.showStudentCode === 'boolean' ? body.showStudentCode : undefined;
+    const showActivityStats = typeof body.showActivityStats === 'boolean' ? body.showActivityStats : undefined;
+    if (
+      nickname === undefined
+      && profileImage === undefined
+      && bio === undefined
+      && interests === undefined
+      && showRealName === undefined
+      && showStudentCode === undefined
+      && showActivityStats === undefined
+    ) {
       throw new ApiError(400, 'NO_CHANGES', '변경할 프로필 항목이 없습니다.');
     }
     const profile = await prisma.user.update({
       where: { id: session.user.id },
-      data: { nickname, profileImage, bio, interests },
+      data: {
+        nickname,
+        profileImage,
+        bio,
+        interests,
+        showRealName,
+        showStudentCode,
+        showActivityStats,
+      },
       select: {
         id: true,
         nickname: true,
@@ -128,6 +160,9 @@ export async function PATCH(request: Request) {
         profileImage: true,
         bio: true,
         interests: true,
+        showRealName: true,
+        showStudentCode: true,
+        showActivityStats: true,
         level: true,
       },
     });

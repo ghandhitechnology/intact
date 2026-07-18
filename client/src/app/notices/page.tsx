@@ -79,7 +79,6 @@ export default function NoticesPage() {
     <div className="mx-auto max-w-5xl">
       <header className="border-b-2 border-slate-800 bg-white px-1 pb-4 pt-2">
         <h1 className="text-2xl font-bold tracking-[-0.03em] text-slate-950">운영 공지</h1>
-        <p className="mt-2 text-sm text-slate-600">인텍트 이용에 필요한 변경 사항과 안내를 전합니다.</p>
       </header>
       <div className="bg-white">
         {loading && <div className="px-6 py-16 text-center text-sm font-bold text-slate-400">공지를 불러오는 중…</div>}

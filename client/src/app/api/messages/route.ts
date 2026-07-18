@@ -23,6 +23,7 @@ import {
 import { toOutboxJson } from '@/lib/server/outbox';
 import { createNotificationsWithDelivery } from '@/lib/server/notifications';
 import { requireUser } from '@/lib/server/session';
+import { assertAttachmentAllowedOnBoard } from '@/lib/server/multipart-upload';
 import {
   isRealtimeGatewayRequest,
   outboxPublicationEnabled,
@@ -126,7 +127,7 @@ export async function GET(request: Request) {
     );
     const platformMode = await getPlatformMode();
     return json({
-      messages: maskPublicIdentitiesWithMode(chronological, session.user.id, platformMode),
+      messages: await maskPublicIdentitiesWithMode(chronological, session.user.id, platformMode),
       hasMore,
       nextCursor: hasMore && oldest ? sequenceCursor(oldest.sequence) : null,
       legacyNextCursor:
@@ -146,7 +147,7 @@ interface MessageBody {
 
 export async function POST(request: Request) {
   try {
-    assertSameOrigin(request);
+    assertSameOrigin(request, { allowRealtimeGateway: true });
     const session = await requireUser(request);
     enforceRateLimit(`message-create:${session.user.id}`, {
       limit: 90,
@@ -255,6 +256,22 @@ export async function POST(request: Request) {
             assertMatchingReplay(existing);
             return { message: existing, replayed: true };
           }
+        }
+
+        if (attachmentIds.length) {
+          const messageAttachments = await tx.attachment.findMany({
+            where: {
+              id: { in: attachmentIds },
+              uploaderId: session.user.id,
+              postId: null,
+              messageId: null,
+            },
+            select: { storageKey: true, sizeBytes: true },
+          });
+          if (messageAttachments.length !== attachmentIds.length) {
+            throw new ApiError(400, 'INVALID_ATTACHMENTS', '첨부 파일 정보가 올바르지 않습니다.');
+          }
+          assertAttachmentAllowedOnBoard('messages', messageAttachments);
         }
 
         const allocatedRoom = await tx.chatRoom.update({
@@ -369,7 +386,7 @@ export async function POST(request: Request) {
     if (fromRealtimeGateway) {
       return json(chatMessageEnvelope(realtimeMessage, replayed), 201, deliveryHeaders);
     }
-    const publicMessage = maskPublicIdentitiesWithMode(
+    const publicMessage = await maskPublicIdentitiesWithMode(
       serializedMessage,
       session.user.id,
       platformMode,
@@ -382,7 +399,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    assertSameOrigin(request);
+    assertSameOrigin(request, { allowRealtimeGateway: true });
     const session = await requireUser(request);
     const body = await readJson<{ roomId?: unknown; messageId?: unknown }>(request, 8_192);
     const roomId = requiredString(body.roomId, 'roomId', { max: 64 });

@@ -60,7 +60,7 @@ type HomeAccountUser = {
   profileImage?: string | null;
 };
 
-type HomeAccountStatus = { currentIgk: number; jojolRank: number | null; unreadCount: number };
+type HomeAccountStatus = { currentIgk: number; igkRank: number | null; unreadCount: number };
 
 function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; accountStatus?: HomeAccountStatus }) {
   const router = useRouter();
@@ -71,7 +71,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
       : null,
   );
   const [currentIgk, setCurrentIgk] = useState(demoMode ? 1840 : 0);
-  const [jojolRank, setJojolRank] = useState<number | null>(null);
+  const [igkRank, setIgkRank] = useState<number | null>(null);
   const [unreadCount, setUnreadCount] = useState(demoMode ? 3 : 0);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -90,7 +90,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
   useEffect(() => {
     if (!accountStatus) return;
     setCurrentIgk(accountStatus.currentIgk);
-    setJojolRank(accountStatus.jojolRank);
+    setIgkRank(accountStatus.igkRank);
     setUnreadCount(accountStatus.unreadCount);
   }, [accountStatus]);
 
@@ -100,7 +100,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
     await fetchWithTimeout('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
     setUser(null);
     setCurrentIgk(0);
-    setJojolRank(null);
+    setIgkRank(null);
     setUnreadCount(0);
     clearClientDataCache();
     await refreshSession();
@@ -143,7 +143,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
     nickname: displayName,
     studentId: studentCode,
     level,
-    jojolRank,
+    igkRank,
     initials: displayName.slice(0, 1),
     profileImage: user.profileImage || null,
     accent: 'emerald' as const,
@@ -156,7 +156,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
         <Avatar member={avatarMember} />
         <span className="min-w-0 flex-1">
           <strong id="home-account-title" className="block truncate text-xs font-bold text-slate-900">{displayName}</strong>
-          <span className="mt-0.5 block truncate text-xs text-slate-500">{studentCode} · {igkLevelLabel(level, jojolRank)}</span>
+          <span className="mt-0.5 flex truncate text-xs text-slate-500">{studentCode} · {igkLevelLabel(level)}{igkRank ? ` · ${igkRank}짱` : ''}</span>
         </span>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" aria-hidden="true" />
       </Link>
@@ -233,14 +233,14 @@ function HomeActions() {
     <nav className="grid min-w-0 grid-cols-2 gap-2" aria-label="홈 바로가기">
       <Link
         href="/search"
-        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 border border-slate-300 bg-white px-2 text-xs font-bold text-slate-700 transition-colors hover:border-slate-500 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 border border-slate-300 bg-white px-2 text-xs font-bold text-slate-700 transition-colors hover:border-slate-500 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 sm:min-h-9"
       >
         <Search className="h-3.5 w-3.5" aria-hidden="true" />
         통합검색
       </Link>
       <Link
         href="/boards/free/write"
-        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 bg-emerald-700 px-2 text-xs font-bold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+        className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 bg-emerald-700 px-2 text-xs font-bold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 sm:min-h-9"
       >
         <PenSquare className="h-3.5 w-3.5" aria-hidden="true" />
         글쓰기
@@ -418,8 +418,88 @@ function LatestActivity({ items }: { items: PostSummary[] }) {
             </div>
           </article>
         ))}
+        {latest.length === 0 ? (
+          <div className="flex min-h-24 flex-col items-center justify-center gap-2 border-t border-slate-100 px-4 py-6 text-center">
+            <p className="text-sm font-semibold text-slate-600">아직 올라온 이야기가 없어요.</p>
+            <Link href="/boards/free/write" className="text-xs font-bold text-emerald-700 underline underline-offset-4">
+              첫 이야기 남기기
+            </Link>
+          </div>
+        ) : null}
       </div>
     </section>
+  );
+}
+
+function SignedOutHome() {
+  const features = [
+    {
+      title: '질문과 자료',
+      icon: Search,
+    },
+    {
+      title: '팀과 대화',
+      icon: MessageCircle,
+    },
+    {
+      title: '학교생활 기록',
+      icon: Trophy,
+    },
+  ];
+
+  return (
+    <div className="py-4 text-slate-900 sm:py-8">
+      <section className="border-t-2 border-slate-900 bg-white px-5 py-8 sm:px-8 sm:py-12" aria-labelledby="signed-out-title">
+        <p className="text-sm font-bold text-emerald-700">인천과학고 재학생 전용</p>
+        <h1 id="signed-out-title" className="mt-2 max-w-3xl text-3xl font-bold tracking-[-0.045em] text-slate-950 sm:text-4xl">
+          학교 안의 질문, 자료, 팀을 한곳에서
+        </h1>
+        <div className="mt-7 flex flex-col gap-2 sm:flex-row">
+          <Link
+            href="/login?returnTo=%2F"
+            className="inline-flex min-h-11 items-center justify-center gap-2 bg-emerald-700 px-6 text-sm font-bold text-white hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+          >
+            <LogIn className="h-4 w-4" aria-hidden="true" />
+            로그인
+          </Link>
+          <Link
+            href="/register"
+            className="inline-flex min-h-11 items-center justify-center border border-slate-300 bg-white px-6 text-sm font-bold text-slate-800 hover:border-slate-500"
+          >
+            학생 인증 후 가입
+          </Link>
+        </div>
+      </section>
+
+      <section className="grid border-y border-slate-200 bg-white md:grid-cols-3" aria-label="인텍트 주요 기능">
+        {features.map((feature) => (
+          <div key={feature.title} className="border-b border-slate-200 px-5 py-6 last:border-b-0 sm:px-8 md:border-b-0 md:border-r md:last:border-r-0">
+            <feature.icon className="h-5 w-5 text-emerald-700" aria-hidden="true" />
+            <h2 className="mt-3 text-base font-bold text-slate-900">{feature.title}</h2>
+          </div>
+        ))}
+      </section>
+
+      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 px-1 text-xs font-semibold text-slate-500">
+        <Link href="/reset-password" className="hover:text-emerald-700">비밀번호 재설정</Link>
+        <Link href="/rules" className="hover:text-emerald-700">커뮤니티 규칙</Link>
+        <Link href="/privacy" className="hover:text-emerald-700">개인정보 처리방침</Link>
+      </div>
+    </div>
+  );
+}
+
+function HomePageLoading() {
+  return (
+    <div className="py-4" aria-label="홈 화면을 불러오는 중" aria-busy="true">
+      <div className="h-5 w-40 animate-pulse bg-slate-200" />
+      <div className="mt-3 h-9 w-72 max-w-full animate-pulse bg-slate-200" />
+      <div className="mt-8 grid gap-4 md:grid-cols-2">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div key={index} className="h-28 animate-pulse border-t-2 border-slate-300 bg-white" />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -491,9 +571,9 @@ function RankingPanel({ items }: { items: RankingMember[] }) {
         <span className="ml-auto text-xs font-semibold text-slate-400">현재 잔액 기준</span>
       </div>
       <ol className="border-t border-slate-900">
-        {items.slice(0, 5).map((member) => (
+        {items.slice(0, 10).map((member) => (
           <li
-            key={member.studentId}
+            key={`${member.nickname}:${member.studentId}`}
             className="grid grid-cols-[24px_32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-100 py-3"
           >
             <span
@@ -504,13 +584,11 @@ function RankingPanel({ items }: { items: RankingMember[] }) {
             >
               {member.rank}
             </span>
-            <Avatar member={member} size="sm" />
+            {member.id ? <Link href={`/users/${member.id}`}><Avatar member={member} size="sm" /></Link> : <Avatar member={member} size="sm" />}
             <span className="min-w-0">
-              <span className="block truncate text-xs font-bold text-slate-700">
-                {member.nickname}
-              </span>
+              {member.id ? <Link href={`/users/${member.id}`} className="block truncate text-xs font-bold text-slate-700 hover:text-emerald-700">{member.nickname}</Link> : <span className="block truncate text-xs font-bold text-slate-700">{member.nickname}</span>}
               <span className="block text-xs text-slate-400">
-                {member.studentId !== '------' ? `${member.studentId} · ` : ''}{igkLevelLabel(member.level, member.jojolRank)}
+                {member.studentId !== '------' ? `${member.studentId} · ` : ''}{member.standing?.tierLabel ?? igkLevelLabel(member.level)}{member.standing?.rankLabel ? ` · ${member.standing.rankLabel}` : ''}
               </span>
             </span>
             <span className="text-xs font-bold tabular-nums text-slate-700">
@@ -536,11 +614,14 @@ function mapHomePost(item: any, slug: PostSummary['board']): PostSummary {
     title: item.title,
     excerpt: item.contentText || '',
     author: {
+      id: item?.author?.id,
       nickname,
       studentId: item?.author?.studentIdentity?.studentCode || '------',
       level: Number(item?.author?.level || 1),
       initials: nickname.slice(0, 1),
       profileImage: item?.author?.profileImage || null,
+      standing: item?.author?.standing || null,
+      igkRank: Number.isInteger(item?.author?.igkRank) ? Number(item.author.igkRank) : null,
       accent: 'emerald',
       cosmetics: cosmeticsFromItems(item?.author?.items),
     },
@@ -566,7 +647,7 @@ function mergeHomeData(previous: HomeData | null, next: HomeData): HomeData {
     leaders: next.sectionErrors.leaders ? previous.leaders : next.leaders,
     account: {
       currentIgk: next.sectionErrors.balance ? previous.account.currentIgk : next.account.currentIgk,
-      jojolRank: next.sectionErrors.balance ? previous.account.jojolRank : next.account.jojolRank,
+      igkRank: next.sectionErrors.balance ? previous.account.igkRank : next.account.igkRank,
       unreadCount: next.sectionErrors.notifications ? previous.account.unreadCount : next.account.unreadCount,
     },
   };
@@ -574,6 +655,9 @@ function mergeHomeData(previous: HomeData | null, next: HomeData): HomeData {
 
 export default function HomePage() {
   const demoMode = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === 'true';
+  const { session, loading: sessionLoading } = usePortalSession();
+  const authenticated = demoMode || session?.authenticated === true;
+  const homeCacheKey = `/api/home:${session?.user?.id ?? 'signed-out'}`;
   const [boardItems, setBoardItems] = useState<BoardDefinition[]>(
     demoMode ? boards : boards.map((board) => ({ ...board, postCount: 0, todayCount: 0 })),
   );
@@ -585,19 +669,34 @@ export default function HomePage() {
   const [homePayload, setHomePayload] = useState<HomeData | null>(null);
   const [homeError, setHomeError] = useState<Error | null>(null);
   const [homeLoading, setHomeLoading] = useState(!demoMode);
+  const [homeScope, setHomeScope] = useState<string | null>(demoMode ? 'demo' : null);
 
   useEffect(() => onResourceInvalidated('/api/home', () => {
     setReloadKey((value) => value + 1);
   }), []);
 
   useEffect(() => {
-    if (demoMode) return undefined;
+    if (demoMode) return;
+    setHomePayload(null);
+    setHomeError(null);
+    setBoardItems(boards.map((board) => ({ ...board, postCount: 0, todayCount: 0 })));
+    setHomePosts([]);
+    setNoticeItems([]);
+    setRankingItems([]);
+    setHomeScope(null);
+    setHomeLoading(Boolean(session?.authenticated));
+    setLoadState(session?.authenticated ? 'loading' : 'ready');
+  }, [demoMode, session?.authenticated, session?.user?.id]);
+
+  useEffect(() => {
+    if (demoMode || sessionLoading || !authenticated) return undefined;
     let active = true;
     const controller = new AbortController();
-    const cachedValue = getCachedResource<unknown>('/api/home', 90_000);
+    const cachedValue = getCachedResource<unknown>(homeCacheKey, 90_000);
     if (cachedValue) {
       try {
         setHomePayload(parseHomeData(cachedValue));
+        setHomeScope(session?.user?.id ?? null);
         setHomeLoading(false);
       } catch {
         // Ignore stale cache entries written before the home contract was introduced.
@@ -613,7 +712,7 @@ export default function HomePage() {
         if (!active) return;
         setHomePayload((previous) => {
           const merged = mergeHomeData(previous, data);
-          setCachedResource('/api/home', merged);
+          setCachedResource(homeCacheKey, merged);
           return merged;
         });
       } catch (cause) {
@@ -621,15 +720,18 @@ export default function HomePage() {
           setHomeError(cause instanceof Error ? cause : new Error('LOAD_FAILED'));
         }
       } finally {
-        if (active) setHomeLoading(false);
+        if (active) {
+          setHomeScope(session?.user?.id ?? null);
+          setHomeLoading(false);
+        }
       }
     }
     void loadHome();
     return () => { active = false; controller.abort(); };
-  }, [demoMode, reloadKey]);
+  }, [authenticated, demoMode, homeCacheKey, reloadKey, session?.user?.id, sessionLoading]);
 
   useEffect(() => {
-    if (demoMode) return undefined;
+    if (demoMode || !authenticated) return undefined;
     if (!homePayload) {
       setLoadState(homeError ? 'error' : 'loading');
       return undefined;
@@ -663,12 +765,14 @@ export default function HomePage() {
             important: notice.priority >= 50,
           })));
           const apiLeaders = homePayload.leaders || [];
-          setRankingItems(apiLeaders.slice(0, 7).map((leader: any, index: number) => ({
+          setRankingItems(apiLeaders.slice(0, 10).map((leader: any, index: number) => ({
+            id: leader.id,
             rank: Number(leader.rank || index + 1),
             nickname: leader.realName || leader.nickname,
             studentId: leader?.studentIdentity?.studentCode || '------',
             level: Number(leader.level || 1),
-            jojolRank: Number.isInteger(leader.jojolRank) ? Number(leader.jojolRank) : null,
+            igkRank: Number.isInteger(leader.igkRank) ? Number(leader.igkRank) : null,
+            standing: leader.standing || null,
             initials: String(leader.realName || leader.nickname || '?').slice(0, 1),
             profileImage: leader.profileImage || null,
             accent: 'emerald',
@@ -678,10 +782,14 @@ export default function HomePage() {
     const hasSectionErrors = Object.keys(homePayload.sectionErrors).length > 0;
     setLoadState(homeError || hasSectionErrors ? 'partial' : 'ready');
     return undefined;
-  }, [demoMode, homeError, homePayload, reloadKey]);
+  }, [authenticated, demoMode, homeError, homePayload, reloadKey]);
+
+  if (!demoMode && sessionLoading) return <HomePageLoading />;
+  if (!authenticated) return <SignedOutHome />;
+  if (!demoMode && homeScope !== session?.user?.id) return <HomePageLoading />;
 
   return (
-    <div className="min-w-0 overflow-x-hidden py-2 text-slate-900 sm:py-4">
+    <div className="app-page min-w-0 overflow-x-hidden py-2 text-slate-900 sm:py-4">
       <div className="mx-auto min-w-0 max-w-[1320px]">
         <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0">

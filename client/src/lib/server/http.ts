@@ -2,6 +2,8 @@ import { REQUEST_ID_HEADER, requestId } from '@/lib/request-id';
 import { logStructuredError } from '@/lib/server/observability';
 import { consumeRedisTokenBucket, type RateLimitFailPolicy } from '@/lib/server/rate-limit-redis';
 import type { ApiFailure, ApiSuccess, PaginationMeta } from '@/types/api';
+import { isIP } from 'node:net';
+import { secureStringEqual } from './crypto';
 
 export { requestId } from '@/lib/request-id';
 
@@ -163,7 +165,12 @@ export function requiredInteger(
   min: number,
   max: number,
 ) {
-  const number = typeof value === 'number' ? value : Number(value);
+  const number =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && /^-?\d+$/.test(value.trim())
+        ? Number(value)
+        : Number.NaN;
   if (!Number.isSafeInteger(number) || number < min || number > max) {
     throw new ApiError(
       400,
@@ -195,15 +202,20 @@ export function paginationMeta(page: number, pageSize: number, total: number): P
 }
 
 export function getClientIp(request: Request) {
-  const runtimeIp = (request as Request & { ip?: string }).ip?.trim();
-  if (runtimeIp) return runtimeIp.slice(0, 64);
+  const validIp = (value: string | null | undefined) => {
+    const normalized = value?.trim();
+    if (!normalized || normalized.length > 64) return null;
+    const unwrapped = normalized.startsWith('[') && normalized.endsWith(']')
+      ? normalized.slice(1, -1)
+      : normalized;
+    return isIP(unwrapped) ? unwrapped : null;
+  };
+  const runtimeIp = validIp((request as Request & { ip?: string }).ip);
+  if (runtimeIp) return runtimeIp;
   if (process.env.TRUST_PROXY === 'true') {
-    const forwarded = request.headers.get('x-forwarded-for');
-    return (
-      forwarded?.split(',')[0]?.trim().slice(0, 64) ||
-      request.headers.get('x-real-ip')?.trim().slice(0, 64) ||
-      'trusted-proxy-unknown'
-    );
+    // The deployment proxy overwrites X-Real-IP. X-Forwarded-For can contain
+    // a caller-supplied chain, so it must never select the rate-limit identity.
+    return validIp(request.headers.get('x-real-ip')) || 'trusted-proxy-unknown';
   }
   // Never trust caller-controlled forwarding headers on a directly published port.
   return 'direct-unproxied';
@@ -231,9 +243,27 @@ export async function enforceDistributedClientIpRateLimit(
   return enforceDistributedRateLimit(`${prefix}:${ip}`, options);
 }
 
-export function assertSameOrigin(request: Request) {
+export function assertSameOrigin(
+  request: Request,
+  options: { allowRealtimeGateway?: boolean } = {},
+) {
   const origin = request.headers.get('origin');
-  if (!origin) return;
+  if (!origin) {
+    const internalSecret = process.env.INTERNAL_API_SECRET;
+    const realtimeSecret = request.headers.get('x-igwak-realtime-origin');
+    if (
+      options.allowRealtimeGateway
+      && internalSecret
+      && realtimeSecret
+      && secureStringEqual(internalSecret, realtimeSecret)
+    ) return;
+
+    // CSRF does not apply to a non-cookie API client that supplies its token
+    // explicitly. A bad token is still rejected by requireUser afterwards.
+    const authorization = request.headers.get('authorization') || '';
+    if (/^Bearer\s+\S+$/i.test(authorization) && !request.headers.get('cookie')) return;
+    throw new ApiError(403, 'MISSING_ORIGIN', '출처를 확인할 수 없는 요청입니다.');
+  }
   let expectedOrigin = new URL(request.url).origin;
   const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL;
   if (configuredOrigin) {

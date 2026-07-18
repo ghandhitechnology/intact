@@ -55,11 +55,14 @@ function mapApiPost(item: any, board: BoardDefinition): PostSummary {
     title: item.title,
     excerpt: item.contentText || "",
     author: {
+      id: item?.author?.id,
       nickname,
       studentId: studentCode,
       level: Number(item?.author?.level || 1),
       initials: nickname.slice(0, 1),
       profileImage: item?.author?.profileImage || null,
+      standing: item?.author?.standing || null,
+      igkRank: Number.isInteger(item?.author?.igkRank) ? Number(item.author.igkRank) : null,
       accent: "emerald",
       cosmetics: cosmeticsFromItems(item?.author?.items),
     },
@@ -335,7 +338,7 @@ export default function BoardListClient({
     board.weeklyCommentCount ?? (demoMode ? board.todayCount * 13 + 11 : null);
 
   return (
-    <div className="py-2 sm:py-4">
+    <div className="app-page py-2 sm:py-4">
       <div className="mx-auto max-w-[1320px]">
         <Link
           href="/"
@@ -416,7 +419,7 @@ export default function BoardListClient({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={`${board.shortTitle}에서 검색`}
-                  className="h-9 w-full border border-slate-300 bg-white pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                  className="h-11 w-full border border-slate-300 bg-white pl-9 pr-3 text-base text-slate-800 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 sm:h-9 sm:text-xs"
                 />
               </label>
               <label className="relative block">
@@ -428,7 +431,7 @@ export default function BoardListClient({
                 <select
                   value={sort}
                   onChange={(event) => setSort(event.target.value as Sort)}
-                  className="h-9 w-full appearance-none border border-slate-300 bg-white pl-9 pr-3 text-xs font-bold text-slate-700 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                  className="h-11 w-full appearance-none border border-slate-300 bg-white pl-9 pr-3 text-base font-bold text-slate-700 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 sm:h-9 sm:text-xs"
                 >
                   {(Object.keys(sortLabels) as Sort[]).map((item) => (
                     <option key={item} value={item}>
@@ -498,7 +501,7 @@ export default function BoardListClient({
                   type="button"
                   disabled={page <= 1 || isRefreshing}
                   onClick={() => setPage((value) => Math.max(1, value - 1))}
-                  className="inline-flex h-8 w-8 items-center justify-center border border-slate-200 text-slate-300 disabled:cursor-not-allowed"
+                  className="inline-flex h-11 w-11 items-center justify-center border border-slate-200 text-slate-300 disabled:cursor-not-allowed sm:h-8 sm:w-8"
                   aria-label="이전 페이지"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -511,7 +514,7 @@ export default function BoardListClient({
                     disabled={isRefreshing}
                     aria-current={pageNumber === page ? "page" : undefined}
                     className={cx(
-                      "h-8 min-w-[32px] border px-2 text-xs font-bold",
+                      "h-11 min-w-[44px] border px-2 text-xs font-bold sm:h-8 sm:min-w-[32px]",
                       pageNumber === page
                         ? "border-emerald-700 bg-emerald-700 text-white"
                         : "border-slate-200 bg-white text-slate-500 hover:border-slate-400",
@@ -528,7 +531,7 @@ export default function BoardListClient({
                       Math.min(pagination.pageCount, value + 1),
                     )
                   }
-                  className="inline-flex h-8 w-8 items-center justify-center border border-slate-200 text-slate-500 hover:border-slate-400"
+                  className="inline-flex h-11 w-11 items-center justify-center border border-slate-200 text-slate-500 hover:border-slate-400 sm:h-8 sm:w-8"
                   aria-label="다음 페이지"
                 >
                   <ChevronRight className="h-4 w-4" />

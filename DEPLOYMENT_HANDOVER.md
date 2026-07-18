@@ -1,6 +1,6 @@
 # 인텍트 운영·배포 인수인계서
 
-마지막 현장 확인: 2026-07-15 (Asia/Seoul)
+마지막 현장 확인: 2026-07-17 (Asia/Seoul)
 
 이 문서는 새 개발자나 자동화 에이전트가 별도 대화 기록 없이 인텍트를 로컬에서 실행하고, 운영 VPS에 안전하게 배포하고, 장애 복구까지 수행할 수 있도록 현재 구성을 정리한 기준 문서입니다. 비밀번호, 세션 키, 암호화 키 같은 실제 비밀값은 절대 이 문서나 Git에 기록하지 않습니다.
 
@@ -22,7 +22,7 @@
 | 운영체제 | Ubuntu 24.04 LTS, x86_64 |
 | Docker | 29.x |
 | Docker Compose | 2.40.x |
-| 방화벽 공개 포트 | SSH, TCP 80/443, UDP 443 |
+| 방화벽 공개 포트 | key-only SSH, TCP 80/443, UDP 443 |
 | 웹 내부 바인딩 | `127.0.0.1:3000` |
 | 실시간 내부 바인딩 | `127.0.0.1:3001` |
 | MinIO 콘솔 | `127.0.0.1:9001` |
@@ -55,7 +55,7 @@ intact/
 ├── client/prisma/           PostgreSQL 스키마와 순차 migration
 ├── server/chat/             Socket.IO 실시간 게이트웨이
 ├── deploy/                  백업 스크립트와 systemd unit
-├── Caddyfile                HTTPS와 /socket.io 프록시
+├── Caddyfile                HTTPS, 서명 object 전송과 /socket.io 프록시
 ├── docker-compose.yml       운영 서비스 정의
 ├── .env.example             운영 환경변수 템플릿
 ├── FAST_DEPLOY.md           반복 배포와 증상별 최단 복구
@@ -74,6 +74,8 @@ intact/
 | `redis` | 실시간 fan-out, 세션성/속도 제한 데이터 | `redis_data` |
 | `minio` | 비공개 첨부 파일 저장 | `object_data` |
 | `minio-init` | bucket 생성 및 public access 차단 | 일회 실행 |
+| `attachment-worker` | 격리 파일 스트리밍 검사·승격·미완료 upload 정리 | PostgreSQL/MinIO 사용 |
+| `clamav` | 첨부 악성코드 검사 | `clamav_data` |
 
 현재 운영 볼륨의 정확한 이름:
 
@@ -85,14 +87,17 @@ igwak-portal_postgres_data
 igwak-portal_redis_data
 ```
 
-Caddy는 `/socket.io/*`만 `realtime:3001`로 보내고 나머지는 `web:3000`으로 보냅니다. Web, realtime, MinIO 콘솔 포트는 localhost에만 바인딩되며 인터넷에 직접 노출하면 안 됩니다.
+Caddy는 `/socket.io/*`를 `realtime:3001`로, 서명된 `/<S3_BUCKET>/*` GET/HEAD/PUT을 `minio:9000`으로, 나머지를 `web:3000`으로 보냅니다. MinIO bucket은 계속 private이고 Web이 발급한 짧은 SigV4 URL만 통과합니다. Web, realtime, MinIO 콘솔 포트는 localhost에만 바인딩되며 인터넷에 직접 노출하면 안 됩니다.
+
+같은 Caddy 컨테이너가 `raufriend.online`도 Tailscale Mac mini로 프록시합니다. Caddy를 재생성할 때 해당 블록을 제거하지 말고, 배포 전후 두 도메인의 HTTP 200을 함께 확인합니다.
 
 ## 3. 필요한 도구
 
 로컬 개발:
 
-- Node.js 20
+- Node.js 22
 - Corepack 및 Yarn 1.22.22
+- Python 3.10 이상 (리로스쿨 브리지 검증, 필요하면 `PYTHON_BIN` 지정)
 - Docker Engine/Compose 또는 별도 PostgreSQL 16, Redis, MinIO
 - Prisma CLI는 `client`의 dev dependency 사용
 
@@ -249,11 +254,29 @@ WHERE substring("studentCode", 1, 2) NOT IN ('31', '32', '33')
 1. Ubuntu 24.04에 Docker Engine과 Compose plugin을 설치합니다.
 2. 배포 전용 ED25519 공개키를 `root` 또는 별도 deploy 사용자에게 등록합니다.
 3. UFW에서 SSH, TCP 80/443, UDP 443만 엽니다.
-4. DNS `A` 레코드로 `ishsoutside.com`과 `www.ishsoutside.com`을 VPS IP에 연결합니다.
-5. 코드를 `/opt/ishsoutside`에 배치합니다.
-6. `.env.example`을 `.env`로 복사하고 모든 비밀값과 공개 URL을 교체합니다.
-7. `.env` 권한을 제한합니다.
-8. 전체 stack을 빌드·시작합니다.
+4. 배포 key로 새 SSH 세션이 열리는 것을 확인한 뒤 key-only SSH와 Fail2ban을 적용합니다.
+   설정 전에 반드시 `sshd -t`를 통과해야 하며 기존 세션을 닫기 전에 두 번째 key 세션을 엽니다.
+
+```bash
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y fail2ban
+install -o root -g root -m 0644 \
+  deploy/00-ishsoutside-sshd-hardening.conf \
+  /etc/ssh/sshd_config.d/00-ishsoutside-hardening.conf
+install -o root -g root -m 0644 \
+  deploy/fail2ban-sshd.local \
+  /etc/fail2ban/jail.d/ishsoutside-sshd.local
+sshd -t
+systemctl reload ssh
+fail2ban-client -t
+systemctl enable --now fail2ban
+```
+
+5. DNS `A` 레코드로 `ishsoutside.com`과 `www.ishsoutside.com`을 VPS IP에 연결합니다.
+6. 코드를 `/opt/ishsoutside`에 배치합니다.
+7. `.env.example`을 `.env`로 복사하고 모든 비밀값과 공개 URL을 교체합니다.
+8. `.env` 권한을 제한합니다.
+9. 전체 stack을 빌드·시작합니다.
 
 ```bash
 cd /opt/ishsoutside
@@ -383,7 +406,7 @@ curl -fsS 'https://ishsoutside.com/socket.io/?EIO=4&transport=polling'
 docker run --rm \
   -v "$PWD/scripts:/work:ro" \
   -w /work \
-  node:20-alpine \
+  node:22-alpine \
   node stress-readonly.mjs \
     --base=https://ishsoutside.com \
     --requests=120 \
@@ -394,10 +417,10 @@ network error 또는 5xx가 있으면 스크립트가 실패합니다. p95가 �
 
 기대 결과:
 
-- `/api/health`: HTTP 200, `status=ok`, `database=connected`
+- `/api/health`: HTTP 200, `status=ok`, `database=connected`, `redis=connected`
 - manifest: `name`과 `short_name`이 `인텍트`
 - Socket.IO: HTTP 200과 `sid`, `upgrades:["websocket"]`
-- 비로그인 `/`: `/login?returnTo=%2F`로 307 리디렉션
+- 비로그인 `/`: HTTP 200, 학생 전용 안내와 로그인·회원가입 동선 표시, 인증 API 오류 미표시
 - `/login` 브라우저 제목: `인텍트 · 인천과학고 생활 포털`
 
 ### 인증 회귀 검사
@@ -416,7 +439,7 @@ curl -sS -i https://ishsoutside.com/api/auth/login \
 로그인된 staging/test 계정으로 추가 확인:
 
 - 글 작성·임시저장·수정·삭제
-- 20MB 이하 파일 업로드, 게시글 연결, 다운로드, 삭제
+- 일반 20MB 이하 파일과 자료공유 500MB multipart 파일의 업로드, 안전 검사, 게시글 연결, Range 다운로드, 삭제
 - 다른 로그인 사용자로 이미지 inline 미리보기와 `?download=1` 원본 다운로드
 - 사진게시판에 여러 이미지 게시, 묶음 펼치기와 전체화면 미리보기
 - 메시지 방 전환, 100개 최근 내역, 이전 내역 로딩, 자동 스크롤, 읽음 상태
@@ -424,7 +447,7 @@ curl -sS -i https://ishsoutside.com/api/auth/login \
 - 관리자 초대 발급 시 학번 범위와 중복 차단
 - 관리자 IGK 지급·회수 후 잔액, 원장, 사용자 알림과 감사 로그 일치
 - IGK 선물 후 수신자의 `currentIgk`, `lifetimeIgk`, 등급이 함께 갱신되고 랭킹이 현재 잔액 순으로 바뀌는지 확인
-- `/igk/roadmap`에 9등급부터 조진까지 10단계가 표시되고, 조진 상위 8명 조졸 · N짱 안내가 보이는지 확인
+- `/igk/roadmap`에 현재 IGK 기준 9등급부터 조진·조졸까지 11단계가 표시되고, 1짱–10짱이 등급과 별도 배지로 보이는지 확인
 - 테스트 데이터 정리
 
 ## 10. 백업
@@ -540,7 +563,7 @@ docker system df
 
 - `web` unhealthy: DB 연결, migration 실패, 잘못된 env, Next 런타임 예외
 - 브라우저는 열리나 채팅 불가: `NEXT_PUBLIC_REALTIME_URL`, `/socket.io/*` 프록시, realtime 내부 secret 확인
-- 첨부 실패: MinIO health, private bucket, S3 key, 20MB 제한 확인
+- 첨부 실패: MinIO/ClamAV/attachment-worker health, private bucket, S3 key, Caddy 서명 object route, 일반 20MB·자료 500MB 제한 확인
 - Prisma UUID 오류: board slug를 UUID field에 직접 조회하지 않았는지 확인
 - advisory lock 오류: 결과 row가 필요 없는 PostgreSQL lock은 Prisma `$executeRaw` 사용
 - 새 공개 env가 반영되지 않음: `NEXT_PUBLIC_*` 변경 후 Web 이미지 재빌드
@@ -548,6 +571,8 @@ docker system df
 ## 14. 보안과 운영 원칙
 
 - `.env`, DB dump, 업로드 backup, private key를 Git에 추가하지 않습니다.
+- SSH는 public key만 허용하고 password, X11, agent/TCP forwarding을 허용하지 않습니다.
+- Fail2ban, UFW, unattended security upgrades, backup timer가 항상 active인지 확인합니다.
 - production에서 `prisma db push`, demo mode, public MinIO bucket을 사용하지 않습니다.
 - 실제 사용자 계정으로 자동화 테스트 메시지를 보내지 않습니다. 전용 test/staging 계정을 사용합니다.
 - 관리자 조치와 초대 발급은 감사 로그를 유지합니다.
