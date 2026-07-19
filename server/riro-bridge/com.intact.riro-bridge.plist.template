@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.intact.riro-bridge</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__INSTALL_DIR__/.venv/bin/python</string>
+    <string>-m</string>
+    <string>uvicorn</string>
+    <string>main:app</string>
+    <string>--app-dir</string><string>__INSTALL_DIR__</string>
+    <string>--host</string><string>__TAILSCALE_IP__</string>
+    <string>--port</string><string>8765</string>
+    <string>--no-access-log</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>RIRO_BRIDGE_SECRET</key><string>__BRIDGE_SECRET__</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ProcessType</key><string>Background</string>
+  <key>StandardOutPath</key><string>__INSTALL_DIR__/bridge.log</string>
+  <key>StandardErrorPath</key><string>__INSTALL_DIR__/bridge-error.log</string>
+</dict>
+</plist>

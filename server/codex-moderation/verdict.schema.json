@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision", "confidence", "categories", "targetSpans", "evidence", "safeContext", "evasionDetected", "explanationKo"],
+  "properties": {
+    "decision": { "type": "string", "enum": ["ALLOW", "NEEDS_REVIEW", "BLOCK"] },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "categories": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["TARGETED_PROFANITY", "HARASSMENT", "THREAT", "HUMILIATING_IMAGE", "MANIPULATED_PERSON_IMAGE", "SEXUAL_CONTENT", "GRAPHIC_VIOLENCE", "DOXXING", "FILTER_EVASION", "NONE"] }
+    },
+    "targetSpans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "start", "end", "text"],
+        "properties": {
+          "source": { "type": "string", "enum": ["original", "reconstructed", "ocr", "image"] },
+          "start": { "type": "integer", "minimum": 0 },
+          "end": { "type": "integer", "minimum": 0 },
+          "text": { "type": "string", "maxLength": 200 }
+        }
+      }
+    },
+    "evidence": { "type": "array", "items": { "type": "string", "maxLength": 500 }, "maxItems": 20 },
+    "safeContext": { "type": "boolean" },
+    "evasionDetected": { "type": "boolean" },
+    "explanationKo": { "type": "string", "minLength": 1, "maxLength": 1000 }
+  }
+}

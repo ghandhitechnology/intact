@@ -1,0 +1,356 @@
+name: igwak-portal
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      S3_BUCKET: ${S3_BUCKET:-igwak-uploads}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+      realtime:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    networks: [edge]
+
+  web:
+    build:
+      context: ./client
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        NEXT_PUBLIC_REALTIME_URL: ${NEXT_PUBLIC_REALTIME_URL:-http://localhost:3001}
+        NEXT_PUBLIC_PORTAL_DEMO_MODE: ${NEXT_PUBLIC_PORTAL_DEMO_MODE:-false}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-igwak}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-igwak}?schema=public
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: ${S3_BUCKET:-igwak-uploads}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_REGION: ${S3_REGION:-auto}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      INTERNAL_API_URL: http://127.0.0.1:3000
+      REALTIME_INTERNAL_URL: http://realtime:3001
+      OUTBOX_ENABLED: ${OUTBOX_ENABLED:-false}
+      REALTIME_DIRECT_PUBLISH_FALLBACK: ${REALTIME_DIRECT_PUBLISH_FALLBACK:-false}
+      TRUST_PROXY: "true"
+      NOTICE_REQUEST_SCHEDULER_FALLBACK: ${NOTICE_REQUEST_SCHEDULER_FALLBACK:-false}
+      RIRO_AUTH_MODE: ${RIRO_AUTH_MODE:-OFF}
+      RIRO_BRIDGE_URL: ${RIRO_BRIDGE_URL:-http://100.85.99.14:8765}
+      RIRO_BRIDGE_SECRET: ${RIRO_BRIDGE_SECRET}
+      MODERATION_MODE: ${MODERATION_MODE:-SHADOW}
+      CODEX_MODERATION_SECRET: ""
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3000/api/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [edge, backend]
+
+  migrate:
+    build:
+      context: ./client
+      target: migrator
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-igwak}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-igwak}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
+
+  moderation-worker:
+    build:
+      context: ./client
+      target: moderation-worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-igwak}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-igwak}?schema=public
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: ${S3_BUCKET:-igwak-uploads}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_REGION: ${S3_REGION:-auto}
+      MODERATION_MODE: ${MODERATION_MODE:-SHADOW}
+      CODEX_MODERATION_URL: http://codex-moderation:8787
+      CODEX_MODERATION_SECRET: ${CODEX_MODERATION_SECRET}
+      MODERATION_POLL_MS: ${MODERATION_POLL_MS:-1500}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+      codex-moderation:
+        condition: service_started
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
+
+  outbox-worker:
+    build:
+      context: ./client
+      target: outbox-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-igwak}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-igwak}?schema=public
+      REDIS_URL: redis://redis:6379
+      REALTIME_INTERNAL_URL: http://realtime:3001
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      PORTAL_ENCRYPTION_KEY: ${PORTAL_ENCRYPTION_KEY}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.invalid}
+      PUSH_ENDPOINT_HOSTS: ${PUSH_ENDPOINT_HOSTS:-}
+      OUTBOX_POLL_MS: ${OUTBOX_POLL_MS:-1000}
+      NOTICE_SCHEDULER_INTERVAL_MS: ${NOTICE_SCHEDULER_INTERVAL_MS:-15000}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      realtime:
+        condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
+
+  attachment-worker:
+    build:
+      context: ./client
+      target: attachment-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-igwak}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-igwak}?schema=public
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: ${S3_BUCKET:-igwak-uploads}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_REGION: ${S3_REGION:-auto}
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
+      CLAMAV_TIMEOUT_MS: ${CLAMAV_TIMEOUT_MS:-600000}
+      ATTACHMENT_POLL_MS: ${ATTACHMENT_POLL_MS:-1500}
+      ATTACHMENT_LEASE_MS: ${ATTACHMENT_LEASE_MS:-300000}
+      ATTACHMENT_MAX_ATTEMPTS: ${ATTACHMENT_MAX_ATTEMPTS:-3}
+      ATTACHMENT_UPLOAD_CLEANUP_MS: ${ATTACHMENT_UPLOAD_CLEANUP_MS:-900000}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+      clamav:
+        condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
+
+  platform-alias-backfill:
+    profiles: ["tools"]
+    build:
+      context: ./client
+      target: worker
+    restart: "no"
+    command: ["yarn", "platform-aliases:backfill"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-igwak}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-igwak}?schema=public
+      PORTAL_ENCRYPTION_KEY: ${PORTAL_ENCRYPTION_KEY}
+      PLATFORM_ALIAS_BATCH_SIZE: ${PLATFORM_ALIAS_BATCH_SIZE:-500}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
+
+  codex-moderation:
+    build:
+      context: ./server/codex-moderation
+    restart: unless-stopped
+    environment:
+      CODEX_HOME: /var/lib/intact-codex
+      CODEX_MODERATION_SECRET: ${CODEX_MODERATION_SECRET}
+      PORT: 8787
+    volumes:
+      - codex_auth:/var/lib/intact-codex
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 12s
+      retries: 3
+      start_period: 10s
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
+
+  codex-auth:
+    profiles: ["tools"]
+    build:
+      context: ./server/codex-moderation
+    environment:
+      CODEX_HOME: /var/lib/intact-codex
+    volumes:
+      - codex_auth:/var/lib/intact-codex
+    command: ["/app/node_modules/.bin/codex", "login", "--device-auth"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [backend]
+
+  realtime:
+    build:
+      context: ./server/chat
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      WEB_ORIGIN: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      INTERNAL_API_URL: http://web:3000
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      REDIS_URL: redis://redis:6379
+      REDIS_REQUIRED: "true"
+    depends_on:
+      web:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "127.0.0.1:${REALTIME_PORT:-3001}:3001"
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [edge, backend]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-igwak}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-igwak}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-igwak} -d ${POSTGRES_DB:-igwak}"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+    networks: [backend]
+
+  redis:
+    image: redis@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 4s
+      retries: 8
+    networks: [backend]
+
+  minio:
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    volumes:
+      - object_data:/data
+    ports:
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks: [edge, backend]
+
+  minio-init:
+    image: minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET:-igwak-uploads}
+    entrypoint: >
+      /bin/sh -c "
+      attempt=0;
+      until mc alias set local http://minio:9000 $$S3_ACCESS_KEY $$S3_SECRET_KEY; do
+        attempt=$$((attempt + 1));
+        if [ $$attempt -ge 30 ]; then echo 'MinIO did not become ready' >&2; exit 1; fi;
+        sleep 2;
+      done;
+      mc mb --ignore-existing local/$$S3_BUCKET;
+      mc anonymous set none local/$$S3_BUCKET;
+      "
+    networks: [backend]
+
+  clamav:
+    image: clamav/clamav:1.4.5
+    restart: unless-stopped
+    environment:
+      CLAMD_CONF_StreamMaxLength: 550M
+      CLAMD_CONF_MaxScanSize: 550M
+      CLAMD_CONF_MaxFileSize: 550M
+      CLAMD_STARTUP_TIMEOUT: 600
+      FRESHCLAM_CHECKS: 24
+    volumes:
+      - clamav_data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    networks: [backend]
+
+networks:
+  edge:
+  backend:
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  redis_data:
+  object_data:
+  clamav_data:
+  codex_auth:

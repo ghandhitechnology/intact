@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily In-Gwak Outside backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Asia/Seoul
+Persistent=true
+RandomizedDelaySec=10m
+Unit=ishsoutside-backup.service
+
+[Install]
+WantedBy=timers.target

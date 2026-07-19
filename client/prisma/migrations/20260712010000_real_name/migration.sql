@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "realName" VARCHAR(40);

@@ -1,0 +1,12 @@
+[Unit]
+Description=Back up In-Gwak Outside database and uploads
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/ishsoutside/.env
+ExecStart=/usr/local/sbin/backup-ishsoutside
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

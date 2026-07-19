@@ -1,0 +1,76 @@
+www.ishsoutside.com {
+	redir https://ishsoutside.com{uri} permanent
+}
+
+ishsoutside.com {
+	encode zstd gzip
+
+	@object_storage {
+		path /{$S3_BUCKET:igwak-uploads}/*
+		method GET HEAD PUT
+	}
+	handle @object_storage {
+		# Browser uploads are split into 8 MiB signed parts. Capping each
+		# request prevents a signed URL from becoming an unbounded body path.
+		request_body {
+			max_size 10MB
+		}
+		header {
+			X-Content-Type-Options "nosniff"
+			Referrer-Policy "no-referrer"
+			Cache-Control "private, no-store"
+		}
+		reverse_proxy minio:9000 {
+			# SigV4 signs the public host; preserve it across the private hop.
+			header_up Host {host}
+		}
+	}
+
+	@realtime path /socket.io/*
+	handle @realtime {
+		reverse_proxy realtime:3001 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+	handle {
+		# All large file data travels directly to signed, 8 MiB object-storage
+		# parts. Bound the application path before a chunked multipart body can
+		# force Next.js to buffer unbounded data.
+		request_body {
+			max_size 25MB
+		}
+		reverse_proxy web:3000 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+}
+
+# This Caddy container also fronts the Raufriend app on the Tailscale Mac mini.
+# Keep this block when deploying Intact so the shared proxy does not drop that site.
+www.raufriend.online {
+	redir https://raufriend.online{uri} permanent
+}
+
+raufriend.online {
+	encode zstd gzip
+
+	reverse_proxy https://pyus-mac-mini.tailde5380.ts.net {
+		header_up Host pyus-mac-mini.tailde5380.ts.net
+		header_up X-Forwarded-Proto https
+		transport http {
+			tls_server_name pyus-mac-mini.tailde5380.ts.net
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+	}
+}
