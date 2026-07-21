@@ -113,7 +113,7 @@ export default function LoginPage() {
               type="button"
               onClick={() => setShowPassword((value) => !value)}
               aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
-              className="absolute inset-y-1 right-1 grid min-w-12 place-items-center rounded-lg px-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:scale-95"
+              className="absolute inset-y-1 right-1 grid min-w-12 place-items-center rounded-lg px-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900"
             >
               {showPassword ? '숨기기' : '보기'}
             </button>

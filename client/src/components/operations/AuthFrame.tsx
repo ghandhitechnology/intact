@@ -30,7 +30,7 @@ export default function AuthFrame({
           </span>
         </Link>
 
-        <section className="anim-rise anim-delay-1 mt-8 w-full max-w-[440px] rounded-3xl border border-[var(--line)] bg-[var(--surface)] px-6 py-8 shadow-[var(--shadow-sm)] sm:px-9 sm:py-10">
+        <section className="anim-rise anim-delay-1 mt-8 w-full max-w-[440px] rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-6 py-8 shadow-[var(--shadow-sm)] sm:px-9 sm:py-10">
           <p className="text-[11px] font-bold tracking-[0.16em] text-[var(--green)]">
             {mode === 'login' ? '재학생 로그인' : '재학생 확인 후 가입'}
           </p>

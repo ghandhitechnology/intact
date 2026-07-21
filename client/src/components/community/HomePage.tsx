@@ -54,9 +54,9 @@ import {
 const cardClass =
   'rounded-2xl border border-slate-200/90 bg-white shadow-[var(--shadow-xs)]';
 const cardMotionClass =
-  'transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-sm)]';
+  'transition-colors duration-150 hover:shadow-[var(--shadow-sm)]';
 const rowMotionClass =
-  'transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-50/80';
+  'transition-colors duration-150 hover:bg-slate-50/80';
 
 /**
  * Cascades children in with .stagger on first mount, then settles so poll
@@ -180,7 +180,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
   };
 
   const quickActionClass =
-    'flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-white text-xs font-bold text-slate-600 shadow-[var(--shadow-xs)] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:text-emerald-700 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]';
+    'flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-white text-xs font-bold text-slate-600 shadow-[var(--shadow-xs)] transition-colors duration-150 hover:text-emerald-700 hover:shadow-[var(--shadow-sm)]';
 
   return (
     <section className={cx(cardClass, 'p-4')} aria-labelledby="home-account-title">
@@ -195,7 +195,7 @@ function HomeAccountPanel({ demoMode, accountStatus }: { demoMode: boolean; acco
           <span className="mt-0.5 flex truncate text-xs text-slate-500">{studentCode} · {igkLevelLabel(level)}{igkRank ? ` · ${igkRank}짱` : ''}</span>
         </span>
         <ChevronRight
-          className="h-3.5 w-3.5 text-slate-300 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0.5 group-hover:text-emerald-600"
+          className="h-3.5 w-3.5 text-slate-300 transition-colors duration-150 group-hover:text-emerald-600"
           aria-hidden="true"
         />
       </Link>
@@ -256,7 +256,7 @@ function AttendanceBanner({ demoMode }: { demoMode: boolean }) {
   return (
     <Link
       href="/igk"
-      className="anim-rise flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 shadow-[var(--shadow-xs)] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-100 hover:shadow-[var(--shadow-sm)]"
+      className="anim-rise flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 shadow-[var(--shadow-xs)] transition-colors duration-150 hover:border-emerald-300 hover:bg-emerald-100 hover:shadow-[var(--shadow-sm)]"
       aria-label="오늘의 출석 체크 하러 가기"
     >
       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white shadow-[var(--shadow-xs)]">
@@ -402,7 +402,7 @@ function BoardCard({ board, items }: { board: BoardDefinition; items: PostSummar
       >
         <span>{formatNumber(board.postCount)}개의 이야기 보기</span>
         <ArrowRight
-          className="h-4 w-4 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-1"
+          className="h-4 w-4 transition-colors duration-150"
           aria-hidden="true"
         />
       </Link>

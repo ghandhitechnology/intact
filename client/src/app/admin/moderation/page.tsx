@@ -99,7 +99,7 @@ export default function ModerationConsole() {
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" className="text-slate-300 hover:bg-white/10 hover:text-white" onClick={() => void load()}><RefreshCw className="h-4 w-4" /> 새로고침</Button>
-            <Link href="/admin" className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 px-3.5 text-xs font-bold text-slate-200 transition-all hover:border-white/30 hover:bg-white/10 hover:text-white active:scale-[0.97]"><ArrowLeft className="h-4 w-4" /> 운영 콘솔</Link>
+            <Link href="/admin" className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 px-3.5 text-xs font-bold text-slate-200 transition-all hover:border-white/30 hover:bg-white/10 hover:text-white"><ArrowLeft className="h-4 w-4" /> 운영 콘솔</Link>
           </div>
         </div>
       </header>
@@ -148,7 +148,7 @@ export default function ModerationConsole() {
 
         <Card className="overflow-hidden"><CardHeader title="검토된 규칙" description="Luna 제안만으로 활성화되지 않습니다." /><div className="space-y-3 border-b border-slate-100 bg-slate-50/60 p-4"><Select value={ruleKind} onChange={(event) => setRuleKind(event.target.value)}><option>TERM</option><option>REGEX</option><option>ALLOWLIST</option><option>TARGET_ALIAS</option><option>IMAGE_HASH</option></Select><Input value={rulePattern} onChange={(event) => setRulePattern(event.target.value)} placeholder="표현, 별칭, 정규식 또는 pHash" /><Button className="w-full" variant="secondary" onClick={() => void createRule()}>비활성 규칙으로 추가</Button></div><div className="max-h-[calc(100vh-390px)] overflow-y-auto">{rules.map((rule) => <div key={rule.id} className="border-b border-slate-100 p-3.5 last:border-b-0"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><Badge tone={rule.enabled ? "green" : "slate"}>{rule.kind}</Badge><p className="mt-2 break-all text-xs font-bold text-slate-900">{rule.pattern}</p><p className="mt-1 text-xs text-slate-500">위험도 {rule.severity}</p></div><button onClick={() => void toggleRule(rule)} className={`shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors ${rule.enabled ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}>{rule.enabled ? "끄기" : "검토 후 켜기"}</button></div></div>)}</div></Card>
       </div>
-      {message ? <button onClick={() => setMessage("")} className="anim-pop fixed bottom-4 right-4 z-50 max-w-md rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-left text-xs font-bold text-white shadow-[var(--shadow-lg)] transition-transform hover:-translate-y-0.5">{message}</button> : null}
+      {message ? <button onClick={() => setMessage("")} className="anim-pop fixed bottom-4 right-4 z-50 max-w-md rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-left text-xs font-bold text-white shadow-[var(--shadow-lg)] transition-transform">{message}</button> : null}
     </main>
   );
 }

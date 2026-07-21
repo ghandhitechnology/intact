@@ -134,7 +134,7 @@ export default function RegisterPage() {
           </span>
           <span className="relative h-px flex-1 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
             <span
-              className="absolute inset-y-0 left-0 rounded-full bg-emerald-700 transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+              className="absolute inset-y-0 left-0 rounded-full bg-emerald-700 transition-[width] duration-500"
               style={{ width: verification ? '100%' : '0%' }}
             />
           </span>
@@ -159,7 +159,7 @@ export default function RegisterPage() {
           </span>
           <h2 className="mt-5 text-lg font-bold tracking-[-0.02em] text-slate-950">{verification?.profile.name}님, 가입을 마쳤습니다.</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">로그인할 때 사용할 학번은 <strong className="font-bold text-slate-900">{studentCode}</strong>입니다.</p>
-          <Link href="/" className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 text-[15px] font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]">
+          <Link href="/" className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 text-[15px] font-semibold text-white shadow-[var(--shadow-xs)] transition-colors duration-150 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]">
             인텍트 시작하기 <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -200,7 +200,7 @@ export default function RegisterPage() {
                 type="button"
                 onClick={() => setShowPassword((value) => !value)}
                 aria-label="비밀번호 표시 전환"
-                className="absolute inset-y-1 right-1 grid w-10 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:scale-90"
+                className="absolute inset-y-1 right-1 grid w-10 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>

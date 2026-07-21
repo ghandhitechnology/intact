@@ -1536,7 +1536,7 @@ export default function AdminPage() {
             </Button>
             <Link
               href="/admin/moderation"
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-500/40 px-3.5 text-xs font-bold text-emerald-200 transition-all hover:border-emerald-400/60 hover:bg-emerald-500/10 active:scale-[0.97]"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-500/40 px-3.5 text-xs font-bold text-emerald-200 transition-all hover:border-emerald-400/60 hover:bg-emerald-500/10"
             >
               <ShieldCheck className="h-4 w-4" />
               <span className="hidden sm:inline">이중망</span>
@@ -2648,7 +2648,7 @@ export default function AdminPage() {
                 href={"/post/" + selectedContent.postId}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-9 shrink-0 items-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-blue-700 shadow-[var(--shadow-xs)] transition-all hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50"
+                className="inline-flex h-9 shrink-0 items-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-blue-700 shadow-[var(--shadow-xs)] transition-all hover:border-slate-300 hover:bg-slate-50"
               >
                 사용자 화면 열기
               </Link>
@@ -2762,7 +2762,7 @@ export default function AdminPage() {
                     href={report.href}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-9 items-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-blue-700 shadow-[var(--shadow-xs)] transition-all hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50"
+                    className="inline-flex h-9 items-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-blue-700 shadow-[var(--shadow-xs)] transition-all hover:border-slate-300 hover:bg-slate-50"
                   >
                     원문 열기
                   </Link>

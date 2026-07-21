@@ -682,7 +682,7 @@ export default function IgkPage() {
                 <p className="mt-4 text-sm font-bold text-slate-800">로그인이 필요합니다.</p>
                 <Link
                   href="/login"
-                  className="mt-5 inline-flex h-10 items-center rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]"
+                  className="mt-5 inline-flex h-10 items-center rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition-colors duration-150 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]"
                 >
                   로그인하기
                 </Link>
@@ -828,7 +828,7 @@ export default function IgkPage() {
               </Button>
               <Link
                 href="/igk/shop"
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 shadow-[var(--shadow-xs)] transition-all duration-200 hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50 hover:shadow-[var(--shadow-sm)] active:scale-[0.97] sm:min-h-9"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 shadow-[var(--shadow-xs)] transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50 hover:shadow-[var(--shadow-sm)] sm:min-h-9"
               >
                 <ShoppingBag className="h-4 w-4" />
                 IGK 상점
@@ -948,7 +948,7 @@ export default function IgkPage() {
               </div>
               <Link
                 href="/igk/roadmap"
-                className="mt-4 flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 shadow-[var(--shadow-xs)] transition-all duration-200 hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50 hover:shadow-[var(--shadow-sm)] active:scale-[0.98]"
+                className="mt-4 flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 shadow-[var(--shadow-xs)] transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50 hover:shadow-[var(--shadow-sm)]"
               >
                 전체 등급 로드맵 보기
               </Link>

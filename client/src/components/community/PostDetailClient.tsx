@@ -96,31 +96,31 @@ const easeOut = "ease-[cubic-bezier(0.22,1,0.36,1)]";
 
 const primaryButtonClass = cx(
   "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 px-4 text-[13px] font-semibold text-white",
-  "shadow-[var(--shadow-xs)] transition-all duration-200",
+  "shadow-[var(--shadow-xs)] transition-colors duration-150",
   easeOut,
-  "hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]",
-  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 active:scale-[0.97]",
-  "disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300 disabled:shadow-none disabled:hover:translate-y-0 disabled:active:scale-100",
+  "hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]",
+  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200",
+  "disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300 disabled:shadow-none",
 );
 
 const secondaryButtonClass = cx(
   "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-600",
-  "shadow-[var(--shadow-xs)] transition-all duration-200",
+  "shadow-[var(--shadow-xs)] transition-colors duration-150",
   easeOut,
-  "hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 hover:shadow-[var(--shadow-sm)]",
-  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200 active:scale-[0.97]",
-  "disabled:cursor-not-allowed disabled:text-slate-300 disabled:shadow-none disabled:hover:translate-y-0 disabled:active:scale-100",
+  "hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 hover:shadow-[var(--shadow-sm)]",
+  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200",
+  "disabled:cursor-not-allowed disabled:text-slate-300 disabled:shadow-none",
 );
 
 const ghostActionClass = cx(
-  "inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs font-bold text-slate-400 transition-all duration-200",
+  "inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs font-bold text-slate-400 transition-colors duration-150",
   easeOut,
-  "hover:bg-slate-100 hover:text-slate-700 active:scale-[0.97] disabled:text-slate-300 disabled:hover:bg-transparent disabled:active:scale-100",
+  "hover:bg-slate-100 hover:text-slate-700 disabled:text-slate-300 disabled:hover:bg-transparent",
 );
 
 const fieldClass = cx(
   "w-full rounded-xl border border-slate-200 bg-slate-50/60 text-sm text-slate-950",
-  "placeholder:text-slate-400 transition-all duration-200",
+  "placeholder:text-slate-400 transition-colors duration-150",
   easeOut,
   "hover:border-slate-300 focus:border-emerald-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-600/10",
 );
@@ -391,7 +391,7 @@ function CommentCard({
         </div>
       )}
       <div className="flex items-start gap-3">
-        {comment.author.id ? <Link href={`/users/${comment.author.id}`} aria-label={`${comment.author.nickname} 프로필`} className="transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.04] active:scale-95"><Avatar member={comment.author} /></Link> : <Avatar member={comment.author} />}
+        {comment.author.id ? <Link href={`/users/${comment.author.id}`} aria-label={`${comment.author.nickname} 프로필`} className="transition-colors duration-150"><Avatar member={comment.author} /></Link> : <Avatar member={comment.author} />}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             {comment.author.id ? <Link href={`/users/${comment.author.id}`} className="text-sm font-semibold text-slate-800 transition-colors hover:text-emerald-700">{comment.author.nickname}</Link> : <span className="text-sm font-semibold text-slate-800">{comment.author.nickname}</span>}
@@ -455,9 +455,9 @@ function CommentCard({
               disabled={pending}
               aria-pressed={liked}
               className={cx(
-                "inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs font-bold transition-all duration-200",
+                "inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs font-bold transition-colors duration-150",
                 easeOut,
-                "active:scale-[0.97] disabled:opacity-60",
+                "disabled:opacity-60",
                 liked
                   ? "text-emerald-700"
                   : "text-slate-400 hover:bg-slate-100 hover:text-slate-700",
@@ -1097,7 +1097,7 @@ export default function PostDetailClient({
                               setEditConflict(null);
                               setActionError("");
                             }}
-                            className="rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 font-bold transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-amber-50 active:scale-[0.97]"
+                            className="rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 font-bold transition-colors duration-150 hover:bg-amber-50"
                           >
                             서버 내용 불러오기
                           </button>
@@ -1108,7 +1108,7 @@ export default function PostDetailClient({
                               setEditConflict(null);
                               setActionError("");
                             }}
-                            className="rounded-lg border border-amber-700 bg-amber-700 px-2.5 py-1.5 font-bold text-white transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-amber-800 active:scale-[0.97]"
+                            className="rounded-lg border border-amber-700 bg-amber-700 px-2.5 py-1.5 font-bold text-white transition-colors duration-150 hover:bg-amber-800"
                           >
                             내 내용 유지
                           </button>
@@ -1219,7 +1219,7 @@ export default function PostDetailClient({
                             </a>
                             <a
                               href={`/api/uploads/${encodeURIComponent(attachment.id)}?download=1`}
-                              className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-bold text-slate-500 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-100 hover:text-blue-700 active:scale-[0.97]"
+                              className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-bold text-slate-500 transition-colors duration-150 hover:bg-slate-100 hover:text-blue-700"
                             >
                               <Download className="h-3.5 w-3.5" />
                               받기
@@ -1244,12 +1244,12 @@ export default function PostDetailClient({
                     disabled={actionPending}
                     aria-pressed={liked}
                     className={cx(
-                      "inline-flex h-10 items-center gap-2 rounded-full border px-4 text-[13px] font-semibold transition-all duration-200",
+                      "inline-flex h-10 items-center gap-2 rounded-full border px-4 text-[13px] font-semibold transition-colors duration-150",
                       easeOut,
-                      "active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60",
+                      "disabled:cursor-not-allowed disabled:opacity-60",
                       liked
                         ? "border-emerald-700 bg-emerald-700 text-white shadow-[var(--shadow-xs)]"
-                        : "border-slate-200 bg-white text-slate-600 shadow-[var(--shadow-xs)] hover:-translate-y-px hover:border-emerald-600 hover:text-emerald-700 hover:shadow-[var(--shadow-sm)]",
+                        : "border-slate-200 bg-white text-slate-600 shadow-[var(--shadow-xs)] hover:border-emerald-600 hover:text-emerald-700 hover:shadow-[var(--shadow-sm)]",
                     )}
                   >
                     <ThumbsUp className="h-4 w-4" aria-hidden="true" />
@@ -1267,12 +1267,12 @@ export default function PostDetailClient({
                     disabled={actionPending}
                     aria-pressed={bookmarked}
                     className={cx(
-                      "inline-flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-200",
+                      "inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors duration-150",
                       easeOut,
-                      "active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60",
+                      "disabled:cursor-not-allowed disabled:opacity-60",
                       bookmarked
                         ? "border-blue-700 bg-blue-700 text-white shadow-[var(--shadow-xs)]"
-                        : "border-slate-200 bg-white text-slate-500 shadow-[var(--shadow-xs)] hover:-translate-y-px hover:border-blue-300 hover:text-blue-700 hover:shadow-[var(--shadow-sm)]",
+                        : "border-slate-200 bg-white text-slate-500 shadow-[var(--shadow-xs)] hover:border-blue-300 hover:text-blue-700 hover:shadow-[var(--shadow-sm)]",
                     )}
                     aria-label={bookmarked ? "스크랩 취소" : "스크랩"}
                   >
@@ -1353,10 +1353,9 @@ export default function PostDetailClient({
                     onClick={() => setCommentSort("recommended")}
                     aria-pressed={commentSort === "recommended"}
                     className={cx(
-                      "rounded-full px-3 py-1.5 transition-all duration-200",
+                      "rounded-full px-3 py-1.5 transition-colors duration-150",
                       easeOut,
-                      "active:scale-[0.97]",
-                      commentSort === "recommended"
+                                            commentSort === "recommended"
                         ? "bg-white text-emerald-700 shadow-[var(--shadow-xs)]"
                         : "text-slate-400 hover:text-slate-700",
                     )}
@@ -1368,10 +1367,9 @@ export default function PostDetailClient({
                     onClick={() => setCommentSort("latest")}
                     aria-pressed={commentSort === "latest"}
                     className={cx(
-                      "rounded-full px-3 py-1.5 transition-all duration-200",
+                      "rounded-full px-3 py-1.5 transition-colors duration-150",
                       easeOut,
-                      "active:scale-[0.97]",
-                      commentSort === "latest"
+                                            commentSort === "latest"
                         ? "bg-white text-emerald-700 shadow-[var(--shadow-xs)]"
                         : "text-slate-400 hover:text-slate-700",
                     )}
@@ -1574,7 +1572,7 @@ export default function PostDetailClient({
                     <Link
                       key={item.id}
                       href={`/post/${item.id}`}
-                      className="group -mx-2 block rounded-xl px-2 py-3 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-50/80"
+                      className="group -mx-2 block rounded-xl px-2 py-3 transition-colors duration-150 hover:bg-slate-50/80"
                     >
                       <p className="line-clamp-2 text-xs font-bold leading-5 text-slate-700 transition-colors group-hover:text-emerald-700">
                         {item.title}
@@ -1605,10 +1603,9 @@ export default function PostDetailClient({
                       type="button"
                       onClick={() => setFollowing((value) => !value)}
                       className={cx(
-                        "mt-3 inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition-all duration-200",
+                        "mt-3 inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition-colors duration-150",
                         easeOut,
-                        "active:scale-[0.97]",
-                        following
+                                                following
                           ? "border-emerald-700 bg-emerald-700 text-white shadow-[var(--shadow-xs)]"
                           : "border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50",
                       )}

@@ -105,27 +105,27 @@ const easeOut = "ease-[cubic-bezier(0.22,1,0.36,1)]";
 
 const fieldClass = cx(
   "w-full rounded-xl border border-slate-200 bg-slate-50/60 text-sm text-slate-950",
-  "placeholder:text-slate-400 transition-all duration-200",
+  "placeholder:text-slate-400 transition-colors duration-150",
   easeOut,
   "hover:border-slate-300 focus:border-emerald-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-600/10",
 );
 
 const primaryButtonClass = cx(
   "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 px-4 text-[13px] font-semibold text-white",
-  "shadow-[var(--shadow-xs)] transition-all duration-200",
+  "shadow-[var(--shadow-xs)] transition-colors duration-150",
   easeOut,
-  "hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]",
-  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 active:scale-[0.97]",
-  "disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300 disabled:shadow-none disabled:hover:translate-y-0 disabled:active:scale-100",
+  "hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]",
+  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200",
+  "disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300 disabled:shadow-none",
 );
 
 const secondaryButtonClass = cx(
   "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-600",
-  "shadow-[var(--shadow-xs)] transition-all duration-200",
+  "shadow-[var(--shadow-xs)] transition-colors duration-150",
   easeOut,
-  "hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 hover:shadow-[var(--shadow-sm)]",
-  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200 active:scale-[0.97]",
-  "disabled:cursor-not-allowed disabled:text-slate-300 disabled:shadow-none disabled:hover:translate-y-0 disabled:active:scale-100",
+  "hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 hover:shadow-[var(--shadow-sm)]",
+  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200",
+  "disabled:cursor-not-allowed disabled:text-slate-300 disabled:shadow-none",
 );
 
 const toolbar = [
@@ -817,10 +817,9 @@ export default function PostComposer({
                         onClick={() => setMode(item)}
                         aria-pressed={mode === item}
                         className={cx(
-                          "rounded-full px-3.5 py-1.5 text-xs font-bold transition-all duration-200",
+                          "rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors duration-150",
                           easeOut,
-                          "active:scale-[0.97]",
-                          mode === item
+                                                    mode === item
                             ? "bg-white text-slate-800 shadow-[var(--shadow-xs)]"
                             : "text-slate-400 hover:text-slate-600",
                         )}
@@ -831,7 +830,7 @@ export default function PostComposer({
                   </div>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-slate-200 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] focus-within:border-emerald-600 focus-within:ring-4 focus-within:ring-emerald-600/10">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 transition-colors duration-150 focus-within:border-emerald-600 focus-within:ring-4 focus-within:ring-emerald-600/10">
                   <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-100 bg-slate-50/60 p-2">
                     {toolbar.map((item) => {
                       const Icon = item.icon;
@@ -849,9 +848,9 @@ export default function PostComposer({
                           title={item.label}
                           aria-label={item.label}
                           className={cx(
-                            "inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-all duration-200",
+                            "inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors duration-150",
                             easeOut,
-                            "hover:bg-white hover:text-slate-900 hover:shadow-[var(--shadow-xs)] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-90",
+                            "hover:bg-white hover:text-slate-900 hover:shadow-[var(--shadow-xs)] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
                           )}
                         >
                           <Icon className="h-4 w-4" />
@@ -864,9 +863,9 @@ export default function PostComposer({
                     />
                     <label
                       className={cx(
-                        "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-slate-500 transition-all duration-200",
+                        "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-slate-500 transition-colors duration-150",
                         easeOut,
-                        "hover:bg-white hover:text-slate-900 hover:shadow-[var(--shadow-xs)] active:scale-[0.97]",
+                        "hover:bg-white hover:text-slate-900 hover:shadow-[var(--shadow-xs)]",
                       )}
                       title="이미지 첨부"
                     >
@@ -926,7 +925,7 @@ export default function PostComposer({
                     <span>태그</span>
                     <span className="font-normal text-slate-400">최대 5개</span>
                   </label>
-                  <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] focus-within:border-emerald-600 focus-within:ring-4 focus-within:ring-emerald-600/10">
+                  <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white transition-colors duration-150 focus-within:border-emerald-600 focus-within:ring-4 focus-within:ring-emerald-600/10">
                     <input
                       id="post-tags"
                       value={tagInput}
@@ -967,7 +966,7 @@ export default function PostComposer({
                             )
                           }
                           aria-label={`${tag} 태그 삭제`}
-                          className="grid h-5 w-5 place-items-center rounded-full transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-emerald-100 active:scale-90"
+                          className="grid h-5 w-5 place-items-center rounded-full transition-colors duration-150 hover:bg-emerald-100"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -986,10 +985,9 @@ export default function PostComposer({
                     </span>
                   </span>
                   <label className={cx(
-                    "flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed text-xs font-bold transition-all duration-200",
+                    "flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed text-xs font-bold transition-colors duration-150",
                     easeOut,
-                    "active:scale-[0.99]",
-                    photoMode
+                                        photoMode
                       ? "min-h-24 border-violet-300 bg-violet-50/40 text-violet-700 hover:border-violet-400 hover:bg-violet-50"
                       : "h-11 border-slate-300 bg-slate-50/60 text-slate-600 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-700",
                   )}>
@@ -1042,8 +1040,8 @@ export default function PostComposer({
                               onClick={() => void removeAttachment(item)}
                               aria-label={`${item.name} 제거`}
                               className={photoMode
-                                ? "absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-slate-950/60 text-white backdrop-blur-sm transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-rose-600 active:scale-90"
-                                : "grid h-6 w-6 shrink-0 place-items-center rounded-full text-slate-400 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-rose-50 hover:text-rose-600 active:scale-90"}
+                                ? "absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-slate-950/60 text-white backdrop-blur-sm transition-colors duration-150 hover:bg-rose-600"
+                                : "grid h-6 w-6 shrink-0 place-items-center rounded-full text-slate-400 transition-colors duration-150 hover:bg-rose-50 hover:text-rose-600"}
                             >
                               <X className="h-3.5 w-3.5" />
                             </button>

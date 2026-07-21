@@ -316,7 +316,7 @@ export default function SupportPage() {
                   key={ticket.id}
                   type="button"
                   onClick={() => void openTicket(ticket.id)}
-                  className={`block w-full rounded-xl border px-3.5 py-3 text-left transition-all duration-200 ${
+                  className={`block w-full rounded-xl border px-3.5 py-3 text-left transition-colors duration-150 ${
                     selected?.id === ticket.id
                       ? "border-emerald-200 bg-emerald-50/70 shadow-[var(--shadow-xs)]"
                       : "border-transparent hover:border-slate-200 hover:bg-slate-50/80"

@@ -39,7 +39,7 @@ export default function MaintenancePage() {
     <div className="grid min-h-screen place-items-center bg-[var(--surface-muted)] px-4 py-10">
       <main className="anim-rise w-full max-w-md">
         {/* A hastily taped-up paper notice */}
-        <div className="relative -rotate-1 rounded-lg border border-slate-300/80 bg-[#fffdf3] p-7 shadow-[var(--shadow-lg)] transition-transform duration-500 ease-[cubic-bezier(0.34,1.32,0.5,1)] hover:rotate-0 sm:p-9">
+        <div className="relative -rotate-1 rounded-lg border border-slate-300/80 bg-[#fffdf3] p-7 shadow-[var(--shadow-lg)] transition-transform duration-200 hover:rotate-0 sm:p-9">
           <span
             aria-hidden="true"
             className="absolute -top-3 left-1/2 h-7 w-24 -translate-x-1/2 rotate-2 rounded-sm bg-amber-200/70 shadow-sm"

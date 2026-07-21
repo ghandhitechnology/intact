@@ -1457,7 +1457,7 @@ export default function MessagesPage() {
               </p>
               <Link
                 href="/login"
-                className="mt-5 inline-flex h-10 items-center rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]"
+                className="mt-5 inline-flex h-10 items-center rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition-colors duration-150 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]"
               >
                 로그인하기
               </Link>
@@ -1540,7 +1540,7 @@ export default function MessagesPage() {
                   type="button"
                   onClick={() => selectRoom(item.id)}
                   className={cn(
-                    "flex w-full gap-3 rounded-2xl px-3 py-3 text-left transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-100/80 active:scale-[0.99]",
+                    "flex w-full gap-3 rounded-2xl px-3 py-3 text-left transition-colors duration-150 hover:bg-slate-100/80",
                     selectedId === item.id && "bg-emerald-50 hover:bg-emerald-50",
                   )}
                 >
@@ -1749,7 +1749,7 @@ export default function MessagesPage() {
                     type="button"
                     onClick={() => void loadOlderMessages()}
                     disabled={olderMessagesLoading}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 shadow-[var(--shadow-xs)] transition-all duration-200 hover:border-emerald-300 hover:text-emerald-700 hover:shadow-[var(--shadow-sm)] active:scale-[0.97] disabled:opacity-60"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 shadow-[var(--shadow-xs)] transition-colors duration-150 hover:border-emerald-300 hover:text-emerald-700 hover:shadow-[var(--shadow-sm)] disabled:opacity-60"
                   >
                     {olderMessagesLoading ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1920,7 +1920,7 @@ export default function MessagesPage() {
               <button
                 type="button"
                 onClick={() => scrollToLatest("smooth")}
-                className="anim-pop absolute bottom-[84px] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-emerald-800 bg-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-[var(--shadow-md)] transition-all duration-200 hover:bg-emerald-800 active:scale-95"
+                className="anim-pop absolute bottom-[84px] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-emerald-800 bg-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-[var(--shadow-md)] transition-colors duration-150 hover:bg-emerald-800"
               >
                 <ArrowDown className="h-3.5 w-3.5" />새 메시지
               </button>
@@ -1948,7 +1948,7 @@ export default function MessagesPage() {
                   </button>
                 </div>
               ) : null}
-              <div className="flex items-end gap-1.5 rounded-full border border-slate-200 bg-slate-50/80 p-1 transition-all duration-200 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-600/10">
+              <div className="flex items-end gap-1.5 rounded-full border border-slate-200 bg-slate-50/80 p-1 transition-colors duration-150 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-600/10">
                 <div className="flex">
                   <input
                     ref={fileInputRef}
@@ -2015,7 +2015,7 @@ export default function MessagesPage() {
                     sendingMessage ||
                     (!draft.trim() && !messageFile)
                   }
-                  className="grid h-10 w-10 shrink-0 place-items-center self-end rounded-full bg-emerald-700 text-white shadow-[var(--shadow-sm)] transition-all duration-200 ease-[cubic-bezier(0.34,1.32,0.5,1)] hover:bg-emerald-800 hover:shadow-[var(--shadow-md)] active:scale-90 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:active:scale-100"
+                  className="grid h-10 w-10 shrink-0 place-items-center self-end rounded-full bg-emerald-700 text-white shadow-[var(--shadow-sm)] transition-colors duration-150 hover:bg-emerald-800 hover:shadow-[var(--shadow-md)] disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
                 >
                   <Send className="h-4 w-4 -translate-x-px" />
                 </button>
@@ -2081,7 +2081,7 @@ export default function MessagesPage() {
                       }
                       className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500 transition-colors hover:text-slate-800"
                     >
-                      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700 transition-all duration-200 hover:bg-slate-200 active:scale-90">
+                      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700 transition-colors duration-150 hover:bg-slate-200">
                         {room.muted ? (
                           <BellOff className="h-4 w-4" />
                         ) : (
@@ -2103,7 +2103,7 @@ export default function MessagesPage() {
                       }
                       className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500 transition-colors hover:text-slate-800"
                     >
-                      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700 transition-all duration-200 hover:bg-slate-200 active:scale-90">
+                      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700 transition-colors duration-150 hover:bg-slate-200">
                         <Pin className="h-4 w-4" />
                       </span>
                       데모 고정
@@ -2112,7 +2112,7 @@ export default function MessagesPage() {
                       type="button"
                       className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500 transition-colors hover:text-slate-800"
                     >
-                      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700 transition-all duration-200 hover:bg-slate-200 active:scale-90">
+                      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700 transition-colors duration-150 hover:bg-slate-200">
                         <Search className="h-4 w-4" />
                       </span>
                       검색

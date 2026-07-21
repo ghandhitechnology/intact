@@ -48,7 +48,7 @@ const easeOut = "ease-[cubic-bezier(0.22,1,0.36,1)]";
 
 const fieldClass = cx(
   "h-11 w-full rounded-xl border border-slate-200 bg-slate-50/60 text-sm text-slate-950",
-  "placeholder:text-slate-400 transition-all duration-200",
+  "placeholder:text-slate-400 transition-colors duration-150",
   easeOut,
   "hover:border-slate-300 focus:border-emerald-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-600/10",
 );
@@ -110,7 +110,7 @@ function mapApiPost(item: any, board: BoardDefinition): PostSummary {
 
 function PhotoPostCard({ post }: { post: PostSummary }) {
   return (
-    <article className="px-3 py-4 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-50/80 sm:px-4">
+    <article className="px-3 py-4 transition-colors duration-150 hover:bg-slate-50/80 sm:px-4">
       <div className="mb-3 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <Link
@@ -143,7 +143,7 @@ function PhotoPostCard({ post }: { post: PostSummary }) {
 
 function PostRow({ post }: { post: PostSummary }) {
   return (
-    <article className="px-4 py-3.5 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-50/80">
+    <article className="px-4 py-3.5 transition-colors duration-150 hover:bg-slate-50/80">
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_165px_154px] lg:items-center lg:gap-5">
         <div className="min-w-0">
           <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
@@ -404,10 +404,10 @@ export default function BoardListClient({
               href={`/boards/${board.slug}/write`}
               className={cx(
                 "inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 px-4 text-[13px] font-semibold text-white",
-                "shadow-[var(--shadow-xs)] transition-all duration-200",
+                "shadow-[var(--shadow-xs)] transition-colors duration-150",
                 easeOut,
-                "hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]",
-                "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 active:scale-[0.97]",
+                "hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]",
+                "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200",
               )}
             >
               <PenSquare className="h-4 w-4" aria-hidden="true" />
@@ -431,9 +431,9 @@ export default function BoardListClient({
                     onClick={() => setFilter(item.value)}
                     aria-pressed={filter === item.value}
                     className={cx(
-                      "h-9 shrink-0 snap-start rounded-xl px-3.5 text-[13px] font-semibold transition-all duration-200",
+                      "h-9 shrink-0 snap-start rounded-xl px-3.5 text-[13px] font-semibold transition-colors duration-150",
                       easeOut,
-                      "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-100 active:scale-[0.97]",
+                      "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-100",
                       filter === item.value
                         ? "bg-white text-slate-950 shadow-[var(--shadow-sm)]"
                         : "text-slate-500 hover:bg-white/60 hover:text-slate-900",
@@ -540,9 +540,9 @@ export default function BoardListClient({
                   disabled={page <= 1 || isRefreshing}
                   onClick={() => setPage((value) => Math.max(1, value - 1))}
                   className={cx(
-                    "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-all duration-200",
+                    "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors duration-150",
                     easeOut,
-                    "hover:border-slate-300 hover:bg-slate-50 active:scale-[0.97] disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:border-slate-200 disabled:hover:bg-transparent",
+                    "hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:border-slate-200 disabled:hover:bg-transparent",
                   )}
                   aria-label="이전 페이지"
                 >
@@ -556,10 +556,9 @@ export default function BoardListClient({
                     disabled={isRefreshing}
                     aria-current={pageNumber === page ? "page" : undefined}
                     className={cx(
-                      "h-9 min-w-[36px] rounded-lg border px-2 text-xs font-bold tabular-nums transition-all duration-200",
+                      "h-9 min-w-[36px] rounded-lg border px-2 text-xs font-bold tabular-nums transition-colors duration-150",
                       easeOut,
-                      "active:scale-[0.97]",
-                      pageNumber === page
+                                            pageNumber === page
                         ? "border-emerald-700 bg-emerald-700 text-white shadow-[var(--shadow-xs)]"
                         : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
                     )}
@@ -576,9 +575,9 @@ export default function BoardListClient({
                     )
                   }
                   className={cx(
-                    "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-all duration-200",
+                    "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors duration-150",
                     easeOut,
-                    "hover:border-slate-300 hover:bg-slate-50 active:scale-[0.97] disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:border-slate-200 disabled:hover:bg-transparent",
+                    "hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:border-slate-200 disabled:hover:bg-transparent",
                   )}
                   aria-label="다음 페이지"
                 >
@@ -605,10 +604,9 @@ export default function BoardListClient({
                     onClick={() => setTag(tag === item ? null : item)}
                     aria-pressed={tag === item}
                     className={cx(
-                      "inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-semibold transition-all duration-200",
+                      "inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-semibold transition-colors duration-150",
                       easeOut,
-                      "active:scale-[0.97]",
-                      tag === item
+                                            tag === item
                         ? "border-emerald-600 bg-emerald-50 text-emerald-700"
                         : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700",
                     )}

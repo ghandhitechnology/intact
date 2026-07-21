@@ -565,7 +565,7 @@ export default function ProfilePage() {
               <>
                 <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-50 text-emerald-700"><LogIn className="h-5 w-5" /></span>
                 <h2 className="mt-4 text-sm font-semibold text-slate-900">로그인이 필요합니다.</h2>
-                <Link href="/login" className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]">로그인하기</Link>
+                <Link href="/login" className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-xs)] transition-colors duration-150 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]">로그인하기</Link>
               </>
             ) : null}
             {loadState === 'error' ? (
@@ -599,7 +599,7 @@ export default function ProfilePage() {
           <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
             <Link
               href="/igk"
-              className="ui-button inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-emerald-800/60 bg-emerald-700 px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 active:scale-[0.97]"
+              className="ui-button inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-emerald-800/60 bg-emerald-700 px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-xs)] transition-colors duration-150 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200"
             >
               <Coins className="h-4 w-4" />
               IGK 대시보드
@@ -862,7 +862,7 @@ export default function ProfilePage() {
               <p className="mt-1 text-xs text-slate-500">10MB 이하 JPEG, PNG, WebP, AVIF · 중앙 정사각형으로 안전하게 처리</p>
               {avatarProgress ? <p className="anim-fade mt-2 text-xs font-bold text-emerald-700">{avatarProgress}</p> : null}
               <div className="mt-3 flex flex-wrap gap-2">
-                <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 px-3.5 text-xs font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]">
+                <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 px-3.5 text-xs font-semibold text-white shadow-[var(--shadow-xs)] transition-colors duration-150 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]">
                   <ImagePlus className="h-4 w-4" />이미지 선택
                   <input
                     type="file"

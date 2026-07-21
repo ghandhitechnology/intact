@@ -16,7 +16,7 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <section className="anim-rise mx-auto mt-16 max-w-lg rounded-3xl border border-slate-200/90 bg-white px-7 py-14 text-center shadow-[var(--shadow-sm)]">
+    <section className="anim-rise mx-auto mt-16 max-w-lg rounded-2xl border border-slate-200/90 bg-white px-7 py-14 text-center shadow-[var(--shadow-sm)]">
       <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-amber-50 text-amber-600 ring-8 ring-amber-50/40">
         <AlertTriangle size={30} />
       </span>

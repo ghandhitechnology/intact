@@ -47,7 +47,7 @@ export default function AdminChangePasswordPage() {
         <span className="text-[11px] font-medium tracking-[0.14em] text-slate-500">운영 도구</span>
       </div>
 
-      <div className="anim-rise anim-delay-1 mt-8 w-full max-w-[440px] rounded-3xl border border-slate-800 bg-white p-6 shadow-[var(--shadow-lg)] sm:p-8">
+      <div className="anim-rise anim-delay-1 mt-8 w-full max-w-[440px] rounded-2xl border border-slate-800 bg-white p-6 shadow-[var(--shadow-lg)] sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <Badge tone="amber">초기 설정</Badge>
           <ShieldAlert className="h-5 w-5 text-amber-600" />

@@ -160,7 +160,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
           </button> : null}
 
           <Link href="/" className="group flex shrink-0 items-center gap-3" aria-label="인텍트 홈">
-            <span className="block text-[20px] font-bold leading-none tracking-[-0.045em] text-[var(--ink)] transition-transform duration-200 ease-[cubic-bezier(0.34,1.32,0.5,1)] group-active:scale-95 lg:text-[22px]">
+            <span className="block text-[20px] font-bold leading-none tracking-[-0.045em] text-[var(--ink)] transition-colors duration-150 group-lg:text-[22px]">
               인텍트
             </span>
             <span className="hidden border-l border-[var(--line-strong)] pl-3 text-xs leading-4 text-[var(--ink-soft)] sm:block">
@@ -188,7 +188,7 @@ export default function PortalShell({ children }: { children: ReactNode }) {
               <kbd className="hidden lg:inline" aria-hidden="true">/</kbd>
             </label>
           </form> : signedOut ? (
-            <Link href="/login?returnTo=%2F" className="ml-auto hidden min-h-9 items-center rounded-full bg-[var(--green)] px-5 text-xs font-bold text-white shadow-[var(--shadow-xs)] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:bg-[var(--green-deep)] hover:shadow-[var(--shadow-sm)] active:scale-95 sm:inline-flex">
+            <Link href="/login?returnTo=%2F" className="ml-auto hidden min-h-9 items-center rounded-full bg-[var(--green)] px-5 text-xs font-bold text-white shadow-[var(--shadow-xs)] transition-colors duration-150 hover:bg-[var(--green-deep)] hover:shadow-[var(--shadow-sm)] sm:inline-flex">
               로그인
             </Link>
           ) : null}
@@ -298,11 +298,11 @@ export default function PortalShell({ children }: { children: ReactNode }) {
       {!isAdmin && portalNavigationAvailable && (
         <div className={`fixed inset-0 z-[70] lg:hidden ${boardPickerOpen ? '' : 'pointer-events-none'}`} aria-hidden={!boardPickerOpen}>
           <button type="button" aria-label="게시판 선택 닫기" onClick={() => setBoardPickerOpen(false)} className={`absolute inset-0 bg-slate-950/45 transition-opacity ${boardPickerOpen ? 'opacity-100' : 'opacity-0'}`} />
-          <section id="mobile-board-picker" role="dialog" aria-modal="true" className={`mobile-bottom-sheet absolute inset-x-0 bottom-0 border-t border-slate-200 bg-white px-4 pb-[calc(88px+env(safe-area-inset-bottom))] pt-3 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${boardPickerOpen ? 'translate-y-0' : 'translate-y-full'}`} aria-label="게시판 선택">
+          <section id="mobile-board-picker" role="dialog" aria-modal="true" className={`mobile-bottom-sheet absolute inset-x-0 bottom-0 border-t border-slate-200 bg-white px-4 pb-[calc(88px+env(safe-area-inset-bottom))] pt-3 transition-opacity duration-150 ${boardPickerOpen ? 'translate-y-0' : 'translate-y-full'}`} aria-label="게시판 선택">
             <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-slate-200" />
-            <div className="mb-4 flex items-center justify-between px-1"><h2 className="text-lg font-bold tracking-[-0.03em] text-slate-950">게시판 선택</h2><button type="button" onClick={() => setBoardPickerOpen(false)} className="grid h-11 w-11 place-items-center rounded-xl bg-slate-100 text-slate-600 transition-transform active:scale-90" aria-label="게시판 선택 닫기"><X size={18} /></button></div>
+            <div className="mb-4 flex items-center justify-between px-1"><h2 className="text-lg font-bold tracking-[-0.03em] text-slate-950">게시판 선택</h2><button type="button" onClick={() => setBoardPickerOpen(false)} className="grid h-11 w-11 place-items-center rounded-xl bg-slate-100 text-slate-600 transition-transform" aria-label="게시판 선택 닫기"><X size={18} /></button></div>
             <div className="grid grid-cols-2 gap-2">
-              {boardNavigation.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-[60px] items-center gap-2.5 rounded-2xl border p-3 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97] ${pathname.startsWith(item.href) ? 'border-emerald-200 bg-emerald-50 text-emerald-900 shadow-[var(--shadow-xs)]' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:shadow-[var(--shadow-xs)]'}`}><span className="grid h-8 w-8 place-items-center rounded-lg bg-white"><item.icon size={17} /></span><span className="min-w-0 flex-1 text-xs font-semibold">{item.label}</span><ChevronRight size={14} className="text-slate-300" /></Link>)}
+              {boardNavigation.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-[60px] items-center gap-2.5 rounded-2xl border p-3 transition-colors duration-150 ${pathname.startsWith(item.href) ? 'border-emerald-200 bg-emerald-50 text-emerald-900 shadow-[var(--shadow-xs)]' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:shadow-[var(--shadow-xs)]'}`}><span className="grid h-8 w-8 place-items-center rounded-lg bg-white"><item.icon size={17} /></span><span className="min-w-0 flex-1 text-xs font-semibold">{item.label}</span><ChevronRight size={14} className="text-slate-300" /></Link>)}
             </div>
           </section>
         </div>

@@ -794,7 +794,7 @@ export default function NotificationsPage() {
                     type="button"
                     onClick={() => setCategory(item.value)}
                     className={cn(
-                      "flex min-w-0 w-full items-center gap-2 rounded-xl px-2 py-2 text-left text-xs font-bold transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] md:gap-3 md:px-3",
+                      "flex min-w-0 w-full items-center gap-2 rounded-xl px-2 py-2 text-left text-xs font-bold transition-colors duration-150 md:gap-3 md:px-3",
                       category === item.value
                         ? "bg-emerald-50 text-emerald-700"
                         : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
@@ -875,7 +875,7 @@ export default function NotificationsPage() {
                 <p className="mt-4 text-sm font-bold text-slate-800">로그인이 필요합니다.</p>
                 <Link
                   href="/login"
-                  className="mt-5 inline-flex h-10 items-center rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]"
+                  className="mt-5 inline-flex h-10 items-center rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition-colors duration-150 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]"
                 >
                   로그인하기
                 </Link>
@@ -1017,7 +1017,7 @@ export default function NotificationsPage() {
                           >
                             <ChevronDown
                               className={cn(
-                                "h-4 w-4 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                                "h-4 w-4 transition-transform duration-300",
                                 expanded && "rotate-180",
                               )}
                             />
@@ -1146,13 +1146,13 @@ export default function NotificationsPage() {
                       }))
                     }
                     className={cn(
-                      "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                      "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-150",
                       settings[key] ? "bg-emerald-600" : "bg-slate-300",
                     )}
                   >
                     <span
                       className={cn(
-                        "absolute top-1 h-4 w-4 rounded-full bg-white shadow-[var(--shadow-sm)] transition-all duration-200 ease-[cubic-bezier(0.34,1.32,0.5,1)]",
+                        "absolute top-1 h-4 w-4 rounded-full bg-white shadow-[var(--shadow-sm)] transition-colors duration-150",
                         settings[key] ? "left-6" : "left-1",
                       )}
                     />
@@ -1183,13 +1183,13 @@ export default function NotificationsPage() {
                 setSettings((current) => ({ ...current, push: !current.push }))
               }
               className={cn(
-                "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] disabled:cursor-not-allowed disabled:opacity-50",
+                "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50",
                 settings.push ? "bg-emerald-600" : "bg-slate-300",
               )}
             >
               <span
                 className={cn(
-                  "absolute top-1 h-4 w-4 rounded-full bg-white shadow-[var(--shadow-sm)] transition-all duration-200 ease-[cubic-bezier(0.34,1.32,0.5,1)]",
+                  "absolute top-1 h-4 w-4 rounded-full bg-white shadow-[var(--shadow-sm)] transition-colors duration-150",
                   settings.push ? "left-6" : "left-1",
                 )}
               />
@@ -1207,13 +1207,13 @@ export default function NotificationsPage() {
                 aria-checked={quietHours.enabled}
                 onClick={() => setQuietHours((current) => ({ ...current, enabled: !current.enabled }))}
                 className={cn(
-                  "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-150",
                   quietHours.enabled ? "bg-emerald-600" : "bg-slate-300",
                 )}
               >
                 <span
                   className={cn(
-                    "absolute top-1 h-4 w-4 rounded-full bg-white shadow-[var(--shadow-sm)] transition-all duration-200 ease-[cubic-bezier(0.34,1.32,0.5,1)]",
+                    "absolute top-1 h-4 w-4 rounded-full bg-white shadow-[var(--shadow-sm)] transition-colors duration-150",
                     quietHours.enabled ? "left-6" : "left-1",
                   )}
                 />

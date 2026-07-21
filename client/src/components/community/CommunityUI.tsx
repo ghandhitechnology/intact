@@ -250,7 +250,7 @@ export function BoardBadge({ slug }: { slug: BoardSlug }) {
   return (
     <Link
       href={`/boards/${board.slug}`}
-      className="inline-flex h-6 items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-semibold text-slate-600 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800"
+      className="inline-flex h-6 items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-semibold text-slate-600 transition-colors duration-150 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800"
     >
       {board.shortTitle}
     </Link>

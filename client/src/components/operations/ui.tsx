@@ -51,7 +51,7 @@ export function Card({ className, children, ...props }: HTMLAttributes<HTMLDivEl
   return (
     <section
       className={cn(
-        'rounded-2xl border border-slate-200/90 bg-white shadow-[var(--shadow-xs)] transition-shadow duration-300',
+        'rounded-2xl border border-slate-200/90 bg-white shadow-[var(--shadow-xs)] transition-shadow duration-150',
         className,
       )}
       {...props}
@@ -76,17 +76,17 @@ export function CardHeader({ title, description, action, className }: {
 }
 
 const buttonBase =
-  'ui-button inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 text-[13px] font-semibold transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] focus-visible:outline-none focus-visible:ring-4 active:scale-[0.97] active:transition-none disabled:cursor-not-allowed disabled:active:scale-100';
+  'ui-button inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 text-[13px] font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed';
 
 const buttonStyles = {
   primary:
-    'border border-emerald-800/60 bg-emerald-700 text-white shadow-[var(--shadow-xs)] hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] focus-visible:ring-emerald-200 disabled:border-slate-300 disabled:bg-slate-300 disabled:shadow-none disabled:hover:translate-y-0',
+    'border border-emerald-800/60 bg-emerald-700 text-white shadow-[var(--shadow-xs)] hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] focus-visible:ring-emerald-200 disabled:border-slate-300 disabled:bg-slate-300 disabled:shadow-none',
   secondary:
-    'border border-slate-200 bg-white text-slate-700 shadow-[var(--shadow-xs)] hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 hover:shadow-[var(--shadow-sm)] focus-visible:ring-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:hover:translate-y-0',
+    'border border-slate-200 bg-white text-slate-700 shadow-[var(--shadow-xs)] hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 hover:shadow-[var(--shadow-sm)] focus-visible:ring-slate-200 disabled:text-slate-400 disabled:shadow-none',
   green:
-    'border border-emerald-800/60 bg-emerald-700 text-white shadow-[var(--shadow-xs)] hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] focus-visible:ring-emerald-200 disabled:border-slate-300 disabled:bg-slate-300 disabled:shadow-none disabled:hover:translate-y-0',
+    'border border-emerald-800/60 bg-emerald-700 text-white shadow-[var(--shadow-xs)] hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] focus-visible:ring-emerald-200 disabled:border-slate-300 disabled:bg-slate-300 disabled:shadow-none',
   danger:
-    'border border-red-200 bg-red-50 text-red-700 hover:-translate-y-px hover:border-red-300 hover:bg-red-100 hover:shadow-[var(--shadow-xs)] focus-visible:ring-red-200 disabled:text-red-300 disabled:hover:translate-y-0',
+    'border border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100 hover:shadow-[var(--shadow-xs)] focus-visible:ring-red-200 disabled:text-red-300',
   ghost:
     'border border-transparent bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-slate-200 disabled:text-slate-300',
 };
@@ -101,7 +101,7 @@ export function IconButton({ label, className, children, ...props }: ButtonHTMLA
       aria-label={label}
       title={label}
       className={cn(
-        'ui-icon-button inline-flex h-10 w-10 items-center justify-center rounded-xl border border-transparent text-slate-500 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-slate-200 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-100 active:scale-90',
+        'ui-icon-button inline-flex h-10 w-10 items-center justify-center rounded-xl border border-transparent text-slate-500 transition-colors duration-150 hover:border-slate-200 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-100',
         className,
       )}
       {...props}
@@ -112,7 +112,7 @@ export function IconButton({ label, className, children, ...props }: ButtonHTMLA
 }
 
 const fieldBase =
-  'w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 text-sm text-slate-950 placeholder:text-slate-400 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-slate-300 focus:border-emerald-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-600/10 disabled:bg-slate-100 disabled:text-slate-500';
+  'w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 text-sm text-slate-950 placeholder:text-slate-400 transition-colors duration-150 hover:border-slate-300 focus:border-emerald-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-600/10 disabled:bg-slate-100 disabled:text-slate-500';
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn('ui-input h-11', fieldBase, className)} {...props} />;
@@ -185,7 +185,7 @@ export function Progress({ value, tone = 'blue' }: { value: number; tone?: 'blue
   return (
     <div className="h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={value}>
       <div
-        className={cn('h-full rounded-full transition-[width] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]', tone === 'blue' ? 'bg-blue-600' : 'bg-emerald-600')}
+        className={cn('h-full rounded-full transition-[width] duration-300', tone === 'blue' ? 'bg-blue-600' : 'bg-emerald-600')}
         style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
       />
     </div>
@@ -205,7 +205,7 @@ export function Tabs<T extends string>({ items, value, onChange, className }: {
           aria-selected={value === item.value}
           onClick={() => onChange(item.value)}
           className={cn(
-            'flex h-9 shrink-0 snap-start items-center gap-2 rounded-xl px-3.5 text-[13px] font-semibold transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97]',
+            'flex h-9 shrink-0 snap-start items-center gap-2 rounded-xl px-3.5 text-[13px] font-semibold transition-colors duration-150',
             value === item.value
               ? 'bg-white text-slate-950 shadow-[var(--shadow-sm)]'
               : 'text-slate-500 hover:bg-white/60 hover:text-slate-900',
@@ -228,7 +228,7 @@ export function Stat({ label, value, detail, icon, tone = 'blue' }: {
 }) {
   const tones = { blue: 'text-blue-700', green: 'text-emerald-700', amber: 'text-amber-700', slate: 'text-slate-700' };
   return (
-    <div className="rounded-2xl border border-slate-200/90 bg-white px-5 py-4 shadow-[var(--shadow-xs)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-sm)]">
+    <div className="rounded-2xl border border-slate-200/90 bg-white px-5 py-4 shadow-[var(--shadow-xs)] transition-colors duration-150 hover:shadow-[var(--shadow-sm)]">
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs font-semibold text-slate-500">{label}</p>
         {icon ? <span className={cn('mt-0.5', tones[tone])}>{icon}</span> : null}
@@ -299,7 +299,7 @@ export function Modal({ open, title, description, children, footer, onClose, wid
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={cn('ui-modal max-h-[92dvh] w-full overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[var(--shadow-lg)]', wide ? 'sm:max-w-3xl' : 'sm:max-w-lg')}
+        className={cn('ui-modal max-h-[92dvh] w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[var(--shadow-lg)]', wide ? 'sm:max-w-3xl' : 'sm:max-w-lg')}
       >
         <div className="ui-modal-handle mx-auto mt-2.5 h-1 w-10 rounded-full bg-slate-300 sm:hidden" aria-hidden="true" />
         <div className="flex items-start justify-between gap-4 px-5 pb-2 pt-4 sm:px-6">
@@ -323,7 +323,7 @@ export function Toast({ message, tone = 'success', onClose }: { message: string 
     <div
       role="status"
       className={cn(
-        'ui-toast fixed bottom-5 left-1/2 z-[120] flex min-w-[280px] -translate-x-1/2 items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-bold shadow-[var(--shadow-lg)]',
+        'ui-toast fixed bottom-5 left-1/2 z-[120] flex min-w-[280px] -translate-x-1/2 items-center gap-3 rounded-xl border px-4 py-3 text-sm font-bold shadow-[var(--shadow-lg)]',
         tone === 'success' ? 'border-emerald-800 bg-emerald-800 text-white' : 'border-red-800 bg-red-700 text-white',
       )}
     >

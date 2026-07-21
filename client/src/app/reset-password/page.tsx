@@ -100,7 +100,7 @@ export default function ResetPasswordPage() {
           </span>
           <span className="relative h-px flex-1 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
             <span
-              className="absolute inset-y-0 left-0 rounded-full bg-emerald-700 transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+              className="absolute inset-y-0 left-0 rounded-full bg-emerald-700 transition-[width] duration-500"
               style={{ width: step === 'password' ? '100%' : '0%' }}
             />
           </span>
@@ -144,7 +144,7 @@ export default function ResetPasswordPage() {
                 type="button"
                 aria-label="비밀번호 표시 전환"
                 onClick={() => setShowPassword((value) => !value)}
-                className="absolute inset-y-1 right-1 grid w-10 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:scale-90"
+                className="absolute inset-y-1 right-1 grid w-10 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -168,7 +168,7 @@ export default function ResetPasswordPage() {
           <p className="mt-2 text-sm leading-6 text-slate-600">기존 로그인은 모두 종료되었습니다. 새 비밀번호로 다시 로그인해 주세요.</p>
           <Link
             href="/login"
-            className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 text-[15px] font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]"
+            className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 text-[15px] font-semibold text-white shadow-[var(--shadow-xs)] transition-colors duration-150 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]"
           >
             학번 {studentCode}로 로그인
           </Link>

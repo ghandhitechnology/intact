@@ -25,13 +25,13 @@
   --danger: #b63b3b;
   --warning: #98620b;
 
-  /* Motion system — the single source of smoothness */
+  /* Motion system — short, subdued transitions */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-spring: cubic-bezier(0.34, 1.32, 0.5, 1);
-  --dur-1: 160ms;
-  --dur-2: 260ms;
-  --dur-3: 420ms;
+  --ease-spring: cubic-bezier(0.34, 1.08, 0.5, 1);
+  --dur-1: 100ms;
+  --dur-2: 160ms;
+  --dur-3: 220ms;
 
   /* Depth */
   --shadow-xs: 0 1px 2px rgb(24 32 27 / 0.05);
@@ -254,13 +254,13 @@ textarea {
 input:not([type='checkbox']):not([type='radio']):not([type='file']),
 select,
 textarea {
-  border-radius: 12px;
+  border-radius: 8px;
   background-color: var(--surface-subtle) !important;
 }
 
 /*
  * One interaction language for the whole app:
- * fast settle, no linear-feeling snaps, tactile press feedback.
+ * short color/shadow transitions; minimal transform feedback.
  */
 button,
 a,
@@ -270,21 +270,15 @@ select,
 textarea {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition-property: color, background-color, border-color, box-shadow, transform, opacity, filter;
+  transition-property: color, background-color, border-color, box-shadow, opacity;
   transition-duration: var(--dur-1);
   transition-timing-function: var(--ease-out);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .pressable:hover {
-    transform: translateY(-1px);
-  }
 }
 
 .pressable:active,
 button:active,
 a:active {
-  transition-duration: 60ms;
+  transition-duration: 40ms;
 }
 
 button:focus-visible,
@@ -311,7 +305,7 @@ input[type='number']::-webkit-outer-spin-button {
 /* ---------- Motion primitives ---------- */
 
 @keyframes rise-in {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -321,7 +315,7 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 @keyframes pop-in {
-  0% { opacity: 0; transform: scale(0.96) translateY(10px); }
+  0% { opacity: 0; transform: scale(0.99) translateY(3px); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
@@ -336,54 +330,54 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 @keyframes toast-in {
-  from { opacity: 0; transform: translate(-50%, 12px) scale(0.97); }
-  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .anim-rise {
-    animation: rise-in var(--dur-3) var(--ease-out) both;
+    animation: rise-in var(--dur-2) var(--ease-out) both;
   }
 
   .anim-fade {
-    animation: fade-in var(--dur-2) var(--ease-out) both;
+    animation: fade-in var(--dur-1) var(--ease-out) both;
   }
 
   .anim-pop {
-    animation: pop-in var(--dur-3) var(--ease-spring) both;
+    animation: pop-in var(--dur-2) var(--ease-out) both;
   }
 
-  .anim-delay-1 { animation-delay: 60ms; }
-  .anim-delay-2 { animation-delay: 120ms; }
-  .anim-delay-3 { animation-delay: 180ms; }
-  .anim-delay-4 { animation-delay: 240ms; }
-  .anim-delay-5 { animation-delay: 300ms; }
+  .anim-delay-1 { animation-delay: 30ms; }
+  .anim-delay-2 { animation-delay: 60ms; }
+  .anim-delay-3 { animation-delay: 90ms; }
+  .anim-delay-4 { animation-delay: 120ms; }
+  .anim-delay-5 { animation-delay: 150ms; }
 
   /* Staggered children — apply to a list container */
   .stagger > * {
-    animation: rise-in var(--dur-3) var(--ease-out) both;
+    animation: rise-in var(--dur-2) var(--ease-out) both;
   }
   .stagger > *:nth-child(1) { animation-delay: 0ms; }
-  .stagger > *:nth-child(2) { animation-delay: 45ms; }
-  .stagger > *:nth-child(3) { animation-delay: 90ms; }
-  .stagger > *:nth-child(4) { animation-delay: 135ms; }
-  .stagger > *:nth-child(5) { animation-delay: 180ms; }
-  .stagger > *:nth-child(6) { animation-delay: 225ms; }
-  .stagger > *:nth-child(7) { animation-delay: 270ms; }
-  .stagger > *:nth-child(n + 8) { animation-delay: 315ms; }
+  .stagger > *:nth-child(2) { animation-delay: 25ms; }
+  .stagger > *:nth-child(3) { animation-delay: 50ms; }
+  .stagger > *:nth-child(4) { animation-delay: 75ms; }
+  .stagger > *:nth-child(5) { animation-delay: 100ms; }
+  .stagger > *:nth-child(6) { animation-delay: 125ms; }
+  .stagger > *:nth-child(7) { animation-delay: 150ms; }
+  .stagger > *:nth-child(n + 8) { animation-delay: 160ms; }
 
   .ui-modal {
-    animation: pop-in var(--dur-3) var(--ease-spring) both;
+    animation: pop-in var(--dur-2) var(--ease-out) both;
   }
 
   .ui-toast {
-    animation: toast-in var(--dur-3) var(--ease-spring) both;
+    animation: toast-in var(--dur-2) var(--ease-out) both;
   }
 }
 
 /* Soft shimmer loading — replaces the harsh animate-pulse look */
 .skeleton {
-  border-radius: 10px;
+  border-radius: 6px;
   background: linear-gradient(
     90deg,
     var(--surface-subtle) 25%,
@@ -391,7 +385,7 @@ input[type='number']::-webkit-outer-spin-button {
     var(--surface-subtle) 75%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.4s linear infinite;
+  animation: shimmer 1.8s linear infinite;
 }
 
 .portal-container {
@@ -409,7 +403,7 @@ input[type='number']::-webkit-outer-spin-button {
   top: -80px;
   z-index: 100;
   border: 2px solid var(--ink);
-  border-radius: 10px;
+  border-radius: 8px;
   background: white;
   padding: 10px 16px;
   color: var(--ink);
@@ -436,9 +430,9 @@ input[type='number']::-webkit-outer-spin-button {
   height: 42px;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 8px;
   color: var(--ink-soft);
-  transition: all var(--dur-1) var(--ease-out);
+  transition: color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
 }
 
 .icon-button:hover {
@@ -448,7 +442,7 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 .icon-button:active {
-  transform: scale(0.92);
+  opacity: 0.85;
 }
 
 .notification-dot {
@@ -472,7 +466,7 @@ input[type='number']::-webkit-outer-spin-button {
   background: var(--surface-subtle);
   padding: 0 16px;
   color: var(--ink-faint);
-  transition: all var(--dur-2) var(--ease-out);
+  transition: border-color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
 }
 
 .search-field:hover {
@@ -545,7 +539,7 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 @keyframes mobile-menu-enter {
-  from { opacity: 0; transform: translateY(-10px); }
+  from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -582,12 +576,12 @@ input[type='number']::-webkit-outer-spin-button {
 
 .mobile-bottom-nav a svg,
 .mobile-bottom-nav button svg {
-  transition: transform var(--dur-2) var(--ease-spring);
+  transition: opacity var(--dur-1) var(--ease-out);
 }
 
 .mobile-bottom-nav a:active svg,
 .mobile-bottom-nav button:active svg {
-  transform: scale(0.85);
+  opacity: 0.7;
 }
 
 .mobile-bottom-nav a.is-active,
@@ -597,7 +591,7 @@ input[type='number']::-webkit-outer-spin-button {
 
 .mobile-bottom-nav a.is-active svg,
 .mobile-bottom-nav button.is-active svg {
-  transform: translateY(-1px);
+  opacity: 1;
 }
 
 .mobile-bottom-nav a.is-active::before,
@@ -616,18 +610,18 @@ input[type='number']::-webkit-outer-spin-button {
   height: 34px;
   place-items: center;
   background: var(--green);
-  border-radius: 12px;
-  box-shadow: 0 5px 14px rgb(29 91 70 / 0.28);
+  border-radius: 8px;
+  box-shadow: 0 3px 10px rgb(29 91 70 / 0.22);
   color: white;
   font-size: 20px;
   font-weight: 500;
   line-height: 1;
-  transition: transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) var(--ease-out);
+  transition: opacity var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
 }
 
 a:active .mobile-compose,
 button:active .mobile-compose {
-  transform: scale(0.9);
+  opacity: 0.85;
 }
 
 .ui-tabs {
@@ -648,10 +642,10 @@ button:active .mobile-compose {
   justify-content: center;
   gap: 7px;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 0 14px;
   font-weight: 800;
-  transition: all var(--dur-1) var(--ease-out);
+  transition: color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
 }
 
 .primary-button {
@@ -664,11 +658,10 @@ button:active .mobile-compose {
 .primary-button:hover {
   background: var(--green-deep);
   box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
 }
 
 .primary-button:active {
-  transform: translateY(0) scale(0.98);
+  opacity: 0.92;
 }
 
 .secondary-button {
@@ -680,7 +673,6 @@ button:active .mobile-compose {
 .secondary-button:hover {
   border-color: var(--blue);
   color: var(--blue);
-  transform: translateY(-1px);
   box-shadow: var(--shadow-xs);
 }
 
@@ -692,7 +684,7 @@ button:active .mobile-compose {
 
 .surface-card {
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 10px;
   background: var(--surface);
   box-shadow: var(--shadow-xs);
 }
@@ -816,7 +808,7 @@ button:active .mobile-compose {
 
   .ui-modal {
     max-height: min(90dvh, calc(100dvh - env(safe-area-inset-top) - 12px));
-    border-radius: 24px 24px 0 0;
+    border-radius: 14px 14px 0 0;
     border-bottom: 0;
   }
 
@@ -834,14 +826,14 @@ button:active .mobile-compose {
     bottom: calc(80px + env(safe-area-inset-bottom));
     width: calc(100% - 24px);
     min-width: 0;
-    border-radius: 16px;
+    border-radius: 10px;
     box-shadow: 0 10px 30px rgb(15 23 42 / 0.22);
   }
 
   .mobile-bottom-sheet {
     max-height: min(78dvh, 640px);
     overflow-y: auto;
-    border-radius: 24px 24px 0 0;
+    border-radius: 14px 14px 0 0;
     box-shadow: 0 -12px 40px rgb(15 23 42 / 0.18);
   }
 

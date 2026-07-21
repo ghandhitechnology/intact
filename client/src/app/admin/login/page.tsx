@@ -49,7 +49,7 @@ export default function AdminLoginPage() {
         <span className="text-[11px] font-medium tracking-[0.14em] text-slate-500">운영 도구</span>
       </div>
 
-      <div className="anim-rise anim-delay-1 mt-8 w-full max-w-[400px] rounded-3xl border border-slate-800 bg-white p-6 shadow-[var(--shadow-lg)] sm:p-8">
+      <div className="anim-rise anim-delay-1 mt-8 w-full max-w-[400px] rounded-2xl border border-slate-800 bg-white p-6 shadow-[var(--shadow-lg)] sm:p-8">
         <Badge tone="green">관리자 전용</Badge>
         <h1 className="mt-3 text-[22px] font-bold tracking-[-0.03em] text-slate-950">인텍트 운영 도구</h1>
         <p className="mt-2 text-xs leading-5 text-slate-500">관리자 세션은 일반 포털 로그인과 분리되며 45분 후 만료됩니다.</p>
@@ -69,7 +69,7 @@ export default function AdminLoginPage() {
                 type="button"
                 onClick={() => setShowPassword((value) => !value)}
                 aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
-                className="absolute inset-y-1 right-1 grid w-10 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:scale-90"
+                className="absolute inset-y-1 right-1 grid w-10 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>

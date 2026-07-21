@@ -45,7 +45,7 @@ export default function IgkRoadmapPage() {
       <PageHeading
         title="등급 로드맵"
         actions={
-          <Link href="/igk" className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 shadow-[var(--shadow-xs)] transition-all duration-200 hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]">
+          <Link href="/igk" className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 shadow-[var(--shadow-xs)] transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50 hover:shadow-[var(--shadow-sm)]">
             <ArrowLeft className="h-4 w-4" /> IGK 지갑
           </Link>
         }
@@ -116,7 +116,7 @@ export default function IgkRoadmapPage() {
               return (
                 <article
                   key={rule.level}
-                  className={`grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border p-4 transition-all duration-200 ${
+                  className={`grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border p-4 transition-colors duration-150 ${
                     current
                       ? 'border-emerald-300 bg-emerald-50/70 shadow-[var(--shadow-sm)] ring-1 ring-emerald-200'
                       : complete

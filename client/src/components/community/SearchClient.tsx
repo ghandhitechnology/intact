@@ -50,7 +50,7 @@ function normalize(value: string) {
 
 function SearchPost({ post, query }: { post: PostSummary; query: string }) {
   return (
-    <article className="px-5 py-5 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-50/80 sm:px-6">
+    <article className="px-5 py-5 transition-colors duration-150 hover:bg-slate-50/80 sm:px-6">
       <div className="flex flex-wrap items-center gap-2">
         <BoardBadge slug={post.board} />
         {post.hot && (
@@ -403,7 +403,7 @@ export default function SearchClient({
           <form
             onSubmit={submit}
             className={cx(
-              "mt-4 flex max-w-3xl items-center rounded-2xl border border-slate-200 bg-white shadow-[var(--shadow-xs)] transition-all duration-200",
+              "mt-4 flex max-w-3xl items-center rounded-2xl border border-slate-200 bg-white shadow-[var(--shadow-xs)] transition-colors duration-150",
               easeOut,
               "focus-within:border-emerald-600 focus-within:ring-4 focus-within:ring-emerald-600/10",
             )}
@@ -427,9 +427,9 @@ export default function SearchClient({
                 type="button"
                 onClick={() => setInput("")}
                 className={cx(
-                  "inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-all duration-200",
+                  "inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-colors duration-150",
                   easeOut,
-                  "hover:bg-slate-100 hover:text-slate-700 active:scale-90",
+                  "hover:bg-slate-100 hover:text-slate-700",
                 )}
                 aria-label="검색어 지우기"
               >
@@ -439,9 +439,9 @@ export default function SearchClient({
             <button
               type="submit"
               className={cx(
-                "m-1.5 inline-flex h-9 min-w-[68px] items-center justify-center rounded-xl bg-emerald-700 px-4 text-xs font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200",
+                "m-1.5 inline-flex h-9 min-w-[68px] items-center justify-center rounded-xl bg-emerald-700 px-4 text-xs font-semibold text-white shadow-[var(--shadow-xs)] transition-colors duration-150",
                 easeOut,
-                "hover:bg-emerald-800 active:scale-[0.97]",
+                "hover:bg-emerald-800",
               )}
             >
               검색
@@ -471,10 +471,9 @@ export default function SearchClient({
                     aria-selected={tab === value}
                     onClick={() => setTab(value)}
                     className={cx(
-                      "flex h-9 shrink-0 snap-start items-center rounded-xl px-3.5 text-[13px] font-semibold transition-all duration-200",
+                      "flex h-9 shrink-0 snap-start items-center rounded-xl px-3.5 text-[13px] font-semibold transition-colors duration-150",
                       easeOut,
-                      "active:scale-[0.97]",
-                      tab === value
+                                            tab === value
                         ? "bg-white text-slate-950 shadow-[var(--shadow-sm)]"
                         : "text-slate-500 hover:bg-white/60 hover:text-slate-900",
                     )}
@@ -527,7 +526,7 @@ export default function SearchClient({
                       value={sort}
                       onChange={(event) => setSort(event.target.value as Sort)}
                       className={cx(
-                        "h-9 rounded-lg border border-slate-200 bg-white pl-3 pr-8 text-xs font-bold text-slate-600 transition-all duration-200",
+                        "h-9 rounded-lg border border-slate-200 bg-white pl-3 pr-8 text-xs font-bold text-slate-600 transition-colors duration-150",
                         easeOut,
                         "hover:border-slate-300 focus:border-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-600/10",
                       )}
@@ -568,7 +567,7 @@ export default function SearchClient({
                   <Link
                     key={`${member.nickname}:${member.studentId}`}
                     href={member.id ? `/users/${member.id}` : '#'}
-                    className="group flex items-center gap-3 bg-white p-4 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-50/80"
+                    className="group flex items-center gap-3 bg-white p-4 transition-colors duration-150 hover:bg-slate-50/80"
                   >
                     <Avatar member={member} size="lg" />
                     <div className="min-w-0 flex-1">
@@ -601,7 +600,7 @@ export default function SearchClient({
                     key={tag}
                     type="button"
                     onClick={() => searchFor(tag)}
-                    className="group flex items-center gap-3 bg-white p-4 text-left transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-50/80"
+                    className="group flex items-center gap-3 bg-white p-4 text-left transition-colors duration-150 hover:bg-slate-50/80"
                   >
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500 transition-colors group-hover:bg-emerald-50 group-hover:text-emerald-700">
                       <Hash className="h-4 w-4" aria-hidden="true" />
@@ -641,7 +640,7 @@ export default function SearchClient({
                       <button
                         type="button"
                         onClick={() => searchFor(item)}
-                        className="group flex w-full items-center gap-3 rounded-lg px-1.5 py-2.5 text-left text-xs font-bold text-slate-600 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-50/80 hover:text-emerald-700"
+                        className="group flex w-full items-center gap-3 rounded-lg px-1.5 py-2.5 text-left text-xs font-bold text-slate-600 transition-colors duration-150 hover:bg-slate-50/80 hover:text-emerald-700"
                       >
                         <span
                           className={cx(
@@ -653,7 +652,7 @@ export default function SearchClient({
                         </span>
                         <span className="min-w-0 flex-1 truncate">{item}</span>
                         <ChevronRight
-                          className="h-3.5 w-3.5 text-slate-300 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0.5 group-hover:text-emerald-600"
+                          className="h-3.5 w-3.5 text-slate-300 transition-colors duration-150 group-hover:text-emerald-600"
                           aria-hidden="true"
                         />
                       </button>
@@ -684,9 +683,9 @@ export default function SearchClient({
                     type="button"
                     onClick={() => searchFor(item)}
                     className={cx(
-                      "inline-flex h-7 items-center rounded-full border border-slate-200 bg-slate-50/60 px-2.5 text-xs font-semibold text-slate-500 transition-all duration-200",
+                      "inline-flex h-7 items-center rounded-full border border-slate-200 bg-slate-50/60 px-2.5 text-xs font-semibold text-slate-500 transition-colors duration-150",
                       easeOut,
-                      "hover:border-slate-300 hover:bg-white hover:text-slate-700 active:scale-[0.97]",
+                      "hover:border-slate-300 hover:bg-white hover:text-slate-700",
                     )}
                   >
                     {item}

@@ -81,7 +81,7 @@ export default function AttachmentGallery({
           setOpen(true);
         }}
         className={cx(
-          "group relative grid w-full overflow-hidden rounded-2xl bg-slate-100 text-left shadow-[var(--shadow-xs)] transition-shadow duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
+          "group relative grid w-full overflow-hidden rounded-2xl bg-slate-100 text-left shadow-[var(--shadow-xs)] transition-shadow duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
           compact ? "h-52 grid-cols-2" : "min-h-72 grid-cols-2 sm:h-[460px]",
           visible.length === 1 && "grid-cols-1",
         )}
@@ -107,7 +107,7 @@ export default function AttachmentGallery({
               width={attachment.width || undefined}
               height={attachment.height || undefined}
               style={attachment.blurDataUrl ? { backgroundImage: `url(${attachment.blurDataUrl})`, backgroundSize: "cover" } : undefined}
-              className="h-full w-full object-cover transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.02]"
+              className="h-full w-full object-cover transition-opacity duration-150"
             />
             {index === visible.length - 1 && images.length > visible.length ? (
               <span className="absolute inset-0 grid place-items-center bg-slate-950/55 text-2xl font-bold text-white backdrop-blur-[1px]">
@@ -116,7 +116,7 @@ export default function AttachmentGallery({
             ) : null}
           </span>
         ))}
-        <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-slate-950/70 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:bg-slate-950/85">
+        <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-slate-950/70 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm transition-colors duration-150 group-hover:bg-slate-950/85">
           <ImageIcon className="h-4 w-4" aria-hidden="true" />
           {images.length}장 펼쳐 보기
         </span>
@@ -159,7 +159,7 @@ export default function AttachmentGallery({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="grid h-10 w-10 place-items-center rounded-xl border border-white/15 transition-all duration-200 hover:bg-white/10 active:scale-90"
+                className="grid h-10 w-10 place-items-center rounded-xl border border-white/15 transition-colors duration-150 hover:bg-white/10"
                 aria-label="미리보기 닫기"
               >
                 <X className="h-5 w-5" />
@@ -186,7 +186,7 @@ export default function AttachmentGallery({
                       type="button"
                       onClick={() => setSelected(index)}
                       className={cx(
-                        "h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 bg-slate-900 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-95 md:w-full",
+                        "h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 bg-slate-900 transition-colors duration-150 md:w-full",
                         index === selected ? "border-emerald-400" : "border-transparent opacity-60 hover:opacity-100",
                       )}
                       aria-label={`${index + 1}번째 사진 보기`}
