@@ -20,11 +20,11 @@ import { formatNumber, getBoard } from "./demo-data";
 import { igkLevelLabel, type IgkStanding } from "@/lib/igk-levels";
 
 const avatarStyles: Record<Member["accent"], string> = {
-  emerald: "border-emerald-300 bg-white text-emerald-800",
-  blue: "border-blue-300 bg-white text-blue-800",
-  slate: "border-slate-300 bg-white text-slate-700",
-  violet: "border-violet-300 bg-white text-violet-800",
-  amber: "border-amber-300 bg-white text-amber-800",
+  emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  blue: "border-blue-200 bg-blue-50 text-blue-800",
+  slate: "border-slate-200 bg-slate-100 text-slate-700",
+  violet: "border-violet-200 bg-violet-50 text-violet-800",
+  amber: "border-amber-200 bg-amber-50 text-amber-800",
 };
 
 const boardStyles: Record<
@@ -120,7 +120,7 @@ export function Avatar({
 export function LevelBadge({ level, standing }: { level: number; standing?: IgkStanding | null; igkRank?: number | null }) {
   const tierLabel = standing?.tierLabel ?? igkLevelLabel(level);
   return (
-    <span className="inline-flex h-5 items-center border-l-2 border-emerald-700 pl-1.5 text-xs font-semibold text-emerald-800">{tierLabel}</span>
+    <span className="inline-flex h-5 items-center rounded-full bg-emerald-50 px-2 text-[11px] font-semibold text-emerald-800">{tierLabel}</span>
   );
 }
 
@@ -180,14 +180,14 @@ export function MemberLine({
         </span>
       ) : null}
       {member.studentId === "ADMIN" ? (
-        <span className="inline-flex h-5 items-center rounded-sm bg-slate-900 px-1.5 text-xs font-semibold text-white">
+        <span className="inline-flex h-5 items-center rounded-full bg-slate-900 px-2 text-[11px] font-semibold text-white">
           운영자
         </span>
       ) : (
         <LevelBadge level={member.level} standing={member.standing} igkRank={member.igkRank} />
       )}
       {member.cosmetics?.title ? (
-        <span className="inline-flex h-5 shrink-0 items-center border-l-2 border-amber-500 pl-1.5 text-xs font-semibold text-amber-800">
+        <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-amber-50 px-2 text-[11px] font-semibold text-amber-800">
           {member.cosmetics.title}
         </span>
       ) : null}
@@ -223,15 +223,15 @@ export function BoardMark({
   size?: "sm" | "md" | "lg";
 }) {
   const sizes = {
-    sm: "h-7 w-7",
-    md: "h-8 w-8",
-    lg: "h-10 w-10",
+    sm: "h-8 w-8",
+    md: "h-9 w-9",
+    lg: "h-11 w-11",
   };
 
   return (
     <span
       className={cx(
-        "inline-flex shrink-0 items-center justify-center text-emerald-800",
+        "inline-flex shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50/70 text-emerald-800",
         sizes[size],
       )}
     >
@@ -250,7 +250,7 @@ export function BoardBadge({ slug }: { slug: BoardSlug }) {
   return (
     <Link
       href={`/boards/${board.slug}`}
-      className="inline-flex h-6 items-center border-b border-slate-300 text-xs font-semibold text-slate-600 transition-colors hover:border-emerald-700 hover:text-emerald-800"
+      className="inline-flex h-6 items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-semibold text-slate-600 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800"
     >
       {board.shortTitle}
     </Link>
@@ -282,9 +282,9 @@ export function PageHeading({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-slate-300 pb-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="anim-rise flex flex-col gap-3 pb-5 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-2xl font-bold tracking-[-0.025em] text-slate-950 sm:text-[28px]">
+        <h1 className="text-[26px] font-bold leading-tight tracking-[-0.03em] text-slate-950 sm:text-[30px]">
           {title}
         </h1>
         {description && (
@@ -310,7 +310,7 @@ export function SectionTitle({
   return (
     <div className="mb-3 flex items-end justify-between gap-4">
       <div>
-        <h2 className="text-base font-bold tracking-[-0.015em] text-slate-900 sm:text-lg">
+        <h2 className="text-base font-bold tracking-[-0.02em] text-slate-900 sm:text-lg">
           {title}
         </h2>
         {description && (
@@ -320,7 +320,7 @@ export function SectionTitle({
       {href && (
         <Link
           href={href}
-          className="shrink-0 text-xs font-bold text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-emerald-700"
+          className="shrink-0 text-xs font-bold text-slate-500 underline decoration-slate-300 underline-offset-4 transition-colors hover:text-emerald-700"
         >
           전체 보기
         </Link>
@@ -331,7 +331,7 @@ export function SectionTitle({
 
 export function DeadlineBadge({ deadline }: { deadline: string }) {
   return (
-    <span className="inline-flex items-center gap-1 border-l-2 border-blue-600 pl-1.5 text-xs font-semibold text-blue-800">
+    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
       <CalendarDays className="h-3 w-3" aria-hidden="true" />
       {deadline}
     </span>
@@ -340,7 +340,7 @@ export function DeadlineBadge({ deadline }: { deadline: string }) {
 
 export function SolvedBadge() {
   return (
-    <span className="inline-flex items-center border-l-2 border-emerald-700 pl-1.5 text-xs font-semibold text-emerald-800">
+    <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
       해결됨
     </span>
   );

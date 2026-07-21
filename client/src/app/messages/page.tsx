@@ -526,6 +526,17 @@ export default function MessagesPage() {
   const socketHealthyRef = useRef(false);
   const selectedIdRef = useRef(selectedId);
   const roomsRef = useRef(rooms);
+  // Ids that were already on screen after the initial load — only messages
+  // appended later (socket, send, polling) play the entrance animation.
+  const initialMessageIdsRef = useRef<Set<string>>(
+    new Set(
+      DEMO_MODE
+        ? Object.values(initialMessages)
+            .flat()
+            .map((message) => message.id)
+        : [],
+    ),
+  );
   const enteredParticipantCodes = useMemo(
     () => participantCodes(participantDraft),
     [participantDraft],
@@ -552,6 +563,9 @@ export default function MessagesPage() {
     if (DEMO_MODE) return;
     const cached = readChatCache();
     if (!cached?.rooms.length) return;
+    Object.values(cached.messages || {}).forEach((list) =>
+      list.forEach((message) => initialMessageIdsRef.current.add(message.id)),
+    );
     setRooms(cached.rooms);
     setMessages(cached.messages || {});
     setSelectedId(cached.selectedId || cached.rooms[0]?.id || "");
@@ -785,6 +799,7 @@ export default function MessagesPage() {
         const loaded = payload.data.messages.map((message) =>
           mapServerMessage(message, currentUserId),
         );
+        loaded.forEach((message) => initialMessageIdsRef.current.add(message.id));
         pendingScrollReasonRef.current = "initial";
         nearBottomRef.current = true;
         setMessages((current) => ({ ...current, [selectedId]: loaded }));
@@ -1082,6 +1097,7 @@ export default function MessagesPage() {
       );
       const existingIds = new Set(roomMessages.map((message) => message.id));
       const uniqueOlder = older.filter((message) => !existingIds.has(message.id));
+      uniqueOlder.forEach((message) => initialMessageIdsRef.current.add(message.id));
       if (viewport && uniqueOlder.length) {
         olderScrollRestoreRef.current = {
           roomId: selectedId,
@@ -1224,6 +1240,7 @@ export default function MessagesPage() {
           );
         }
         const mappedPersisted = mapServerMessage(persisted, currentUserId);
+        initialMessageIdsRef.current.add(persisted.id);
         setMessages((current) => {
           const list = current[selectedId] ?? [];
           const serverAlreadyPresent = list.some(
@@ -1403,21 +1420,44 @@ export default function MessagesPage() {
     return (
       <div className="app-page mx-auto w-full max-w-5xl px-4 py-4 sm:px-6">
         <PageHeading title="메시지" />
-        <Card className="mt-4 p-8 text-center">
-          <MessageSquare className="mx-auto h-8 w-8 text-blue-700" />
-          {loadState === "loading" ? (
-            <p className="mt-4 text-sm font-bold">
-              대화방을 불러오는 중입니다.
-            </p>
-          ) : null}
-          {loadState === "auth" ? (
+        {loadState === "loading" ? (
+          <Card className="mt-4 p-4 sm:p-5" aria-busy="true">
+            <div className="grid gap-5 md:grid-cols-[280px_minmax(0,1fr)]">
+              <div className="space-y-4">
+                <div className="skeleton h-10 w-full rounded-full" />
+                {[0, 1, 2, 3].map((item) => (
+                  <div key={item} className="flex items-center gap-3">
+                    <div className="skeleton h-10 w-10 shrink-0 rounded-full" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="skeleton h-3.5 w-2/3" />
+                      <div className="skeleton h-3 w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden space-y-3 md:block">
+                <div className="skeleton h-10 w-52 rounded-full" />
+                <div className="skeleton h-14 w-3/4 rounded-2xl" />
+                <div className="skeleton ml-auto h-14 w-2/3 rounded-2xl" />
+                <div className="skeleton h-14 w-3/5 rounded-2xl" />
+              </div>
+            </div>
+            <p className="sr-only">대화방을 불러오는 중입니다.</p>
+          </Card>
+        ) : null}
+        {loadState === "auth" || loadState === "error" ? (
+          <Card className="anim-rise mt-4 p-10 text-center">
+            <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-slate-100 text-slate-400">
+              <MessageSquare className="h-6 w-6" />
+            </span>
+            {loadState === "auth" ? (
             <>
               <p className="mt-4 text-sm font-bold">
                 메시지를 보려면 로그인해야 합니다.
               </p>
               <Link
                 href="/login"
-                className="mt-5 inline-flex h-10 items-center bg-blue-700 px-4 text-sm font-bold text-white"
+                className="mt-5 inline-flex h-10 items-center rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]"
               >
                 로그인하기
               </Link>
@@ -1436,8 +1476,9 @@ export default function MessagesPage() {
                 다시 시도
               </Button>
             </>
-          ) : null}
-        </Card>
+            ) : null}
+          </Card>
+        ) : null}
       </div>
     );
   }
@@ -1455,23 +1496,23 @@ export default function MessagesPage() {
         />
       </div>
 
-      <Card className="h-[calc(100dvh-130px-env(safe-area-inset-bottom))] min-h-0 overflow-hidden rounded-none border-x-0 border-b-0 border-t-2 border-t-slate-800 sm:mt-4 sm:h-[min(780px,calc(100vh-180px))] sm:min-h-[620px]">
+      <Card className="h-[calc(100dvh-130px-env(safe-area-inset-bottom))] min-h-0 overflow-hidden max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 sm:mt-4 sm:h-[min(780px,calc(100vh-180px))] sm:min-h-[620px] sm:shadow-[var(--shadow-md)]">
         <div
           className={cn(
-            "h-full min-h-0 border-r border-slate-200 md:grid md:grid-cols-[280px_minmax(0,1fr)]",
-            showDetails && "xl:grid-cols-[280px_minmax(0,1fr)_260px]",
+            "h-full min-h-0 md:grid md:grid-cols-[290px_minmax(0,1fr)]",
+            showDetails && "xl:grid-cols-[290px_minmax(0,1fr)_270px]",
           )}
         >
           <aside
             className={cn(
-              "h-full flex-col border-r border-slate-200 bg-white md:flex",
+              "h-full flex-col border-r border-slate-100 bg-white md:flex",
               mobileView === "rooms" ? "flex" : "hidden",
             )}
           >
-            <div className="border-b border-slate-200 p-4">
+            <div className="border-b border-slate-100 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="font-bold text-slate-950">대화</h2>
+                  <h2 className="text-[15px] font-bold tracking-[-0.015em] text-slate-950">대화</h2>
                   <p className="mt-0.5 text-xs text-slate-500">
                     {DEMO_MODE
                       ? `읽지 않음 ${rooms.reduce((sum, item) => sum + item.unread, 0)}개`
@@ -1483,23 +1524,23 @@ export default function MessagesPage() {
                 </IconButton>
               </div>
               <div className="relative mt-3">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="이름 또는 대화 검색"
-                  className="h-10 border-slate-200 bg-slate-50 pl-9"
+                  className="h-10 rounded-full pl-10"
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto p-2">
               {filteredRooms.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => selectRoom(item.id)}
                   className={cn(
-                    "flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50",
+                    "flex w-full gap-3 rounded-2xl px-3 py-3 text-left transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-100/80 active:scale-[0.99]",
                     selectedId === item.id && "bg-emerald-50 hover:bg-emerald-50",
                   )}
                 >
@@ -1517,17 +1558,17 @@ export default function MessagesPage() {
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center justify-between gap-2">
                       <span className="flex min-w-0 items-center gap-1.5">
-                        <strong className="truncate text-sm text-slate-900">
+                        <strong className="truncate text-sm font-semibold text-slate-900">
                           {item.name}
                         </strong>
                         {item.pinned ? (
-                          <Pin className="h-3 w-3 shrink-0 text-blue-600" />
+                          <Pin className="h-3 w-3 shrink-0 text-emerald-700" />
                         ) : null}
                         {item.muted ? (
                           <BellOff className="h-3 w-3 shrink-0 text-slate-400" />
                         ) : null}
                       </span>
-                      <time className="shrink-0 text-xs font-medium text-slate-400">
+                      <time className="shrink-0 text-[11px] font-semibold tabular-nums text-slate-400">
                         {item.time}
                       </time>
                     </span>
@@ -1536,7 +1577,10 @@ export default function MessagesPage() {
                         {item.preview}
                       </span>
                       {item.unread > 0 ? (
-                        <span className="grid h-5 min-w-[20px] place-items-center  bg-blue-700 px-1 text-xs font-bold text-white">
+                        <span
+                          key={item.unread}
+                          className="anim-pop grid h-5 min-w-[20px] shrink-0 place-items-center rounded-full bg-emerald-600 px-1.5 text-[11px] font-bold leading-none text-white shadow-[var(--shadow-xs)]"
+                        >
                           {item.unread}
                         </span>
                       ) : null}
@@ -1546,8 +1590,10 @@ export default function MessagesPage() {
               ))}
               {filteredRooms.length === 0 ? (
                 <div className="px-5 py-12 text-center">
-                  <MessageSquare className="mx-auto h-7 w-7 text-slate-300" />
-                  <p className="mt-3 text-sm font-bold text-slate-600">
+                  <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-slate-100 text-slate-400">
+                    <MessageSquare className="h-6 w-6" />
+                  </span>
+                  <p className="mt-4 text-sm font-bold text-slate-600">
                     {query
                       ? "검색 결과가 없습니다."
                       : "아직 대화방이 없습니다."}
@@ -1556,7 +1602,7 @@ export default function MessagesPage() {
                     <button
                       type="button"
                       onClick={() => setCreateOpen(true)}
-                      className="mt-3 text-xs font-bold text-blue-700"
+                      className="mt-3 text-xs font-bold text-emerald-700 transition-colors hover:text-emerald-800"
                     >
                       첫 대화 시작하기
                     </button>
@@ -1572,7 +1618,7 @@ export default function MessagesPage() {
               mobileView === "chat" ? "flex" : "hidden",
             )}
           >
-            <header className="flex h-[61px] shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-3 sm:px-4">
+            <header className="flex h-[61px] shrink-0 items-center justify-between gap-4 border-b border-slate-100 bg-white/95 px-3 backdrop-blur-sm sm:px-4">
               <div className="flex min-w-0 items-center gap-3">
                 <IconButton
                   label="대화 목록"
@@ -1613,10 +1659,21 @@ export default function MessagesPage() {
                 </div>
               </div>
               <div className="flex items-center">
-                <span className={cn(
-                  "mr-2 hidden text-xs font-bold sm:inline",
-                  connectionState === "live" ? "text-emerald-700" : "text-amber-700",
-                )} role="status">
+                <span
+                  className={cn(
+                    "mr-2 hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold sm:inline-flex",
+                    connectionState === "live"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-amber-50 text-amber-700",
+                  )}
+                  role="status"
+                >
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      connectionState === "live" ? "bg-emerald-500" : "bg-amber-500",
+                    )}
+                  />
                   {connectionState === "live" ? "실시간" : connectionState === "connecting" ? "연결 중" : "재연결 중"}
                 </span>
                 <IconButton
@@ -1642,7 +1699,7 @@ export default function MessagesPage() {
               </div>
             </header>
             {showMessageSearch ? (
-              <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-2">
+              <div className="anim-fade flex items-center gap-2 border-b border-slate-100 bg-white px-4 py-2">
                 <Search className="h-4 w-4 text-slate-400" />
                 <input
                   autoFocus
@@ -1651,7 +1708,7 @@ export default function MessagesPage() {
                   placeholder="현재 대화에서 검색"
                   className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none"
                 />
-                <span className="text-xs text-slate-400">
+                <span className="text-xs tabular-nums text-slate-400">
                   {visibleMessages.length}건
                 </span>
                 <IconButton
@@ -1692,7 +1749,7 @@ export default function MessagesPage() {
                     type="button"
                     onClick={() => void loadOlderMessages()}
                     disabled={olderMessagesLoading}
-                    className="inline-flex min-h-10 items-center gap-2  border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 hover:border-emerald-300 hover:text-emerald-700 disabled:opacity-60"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 shadow-[var(--shadow-xs)] transition-all duration-200 hover:border-emerald-300 hover:text-emerald-700 hover:shadow-[var(--shadow-sm)] active:scale-[0.97] disabled:opacity-60"
                   >
                     {olderMessagesLoading ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1703,32 +1760,38 @@ export default function MessagesPage() {
                   </button>
                 </div>
               ) : room.id && roomMessages.length ? (
-                <div className="mx-auto mb-5 w-fit  bg-slate-200/70 px-3 py-1 text-xs font-bold text-slate-500">
+                <div className="mx-auto mb-5 w-fit rounded-full bg-slate-200/60 px-3.5 py-1.5 text-[11px] font-bold text-slate-500">
                   대화의 시작
                 </div>
               ) : null}
               {messagesLoading ? (
-                <div className="py-10 text-center text-sm font-bold text-slate-500">
-                  메시지를 불러오는 중입니다.
+                <div className="space-y-4 py-2" aria-busy="true">
+                  <p className="sr-only">메시지를 불러오는 중입니다.</p>
+                  <div className="skeleton h-12 w-3/5 rounded-2xl" />
+                  <div className="skeleton ml-auto h-12 w-1/2 rounded-2xl" />
+                  <div className="skeleton h-12 w-2/3 rounded-2xl" />
+                  <div className="skeleton ml-auto h-12 w-2/5 rounded-2xl" />
                 </div>
               ) : null}
               {messagesError ? (
-                <div className="border border-red-200 bg-red-50 p-4 text-center text-xs font-bold text-red-700">
+                <div className="anim-rise rounded-xl border border-red-200 bg-red-50 p-4 text-center text-xs font-bold text-red-700">
                   {messagesError}
                 </div>
               ) : null}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {visibleMessages.map((message, index) => {
                   const previous = visibleMessages[index - 1];
                   const grouped =
                     previous?.sender === message.sender &&
                     previous.mine === message.mine;
+                  const animateIn = !initialMessageIdsRef.current.has(message.id);
                   return (
                     <div
                       key={message.id}
                       className={cn(
                         "flex gap-2.5",
                         message.mine && "justify-end",
+                        animateIn && "anim-rise",
                       )}
                     >
                       {!message.mine && !grouped ? (
@@ -1746,7 +1809,7 @@ export default function MessagesPage() {
                           <p className="mb-1.5 flex flex-wrap items-center gap-1 text-xs font-bold text-slate-700">
                             {message.senderId ? <Link href={`/users/${message.senderId}`} className="hover:text-emerald-700">{message.sender}</Link> : message.sender}{" "}
                             {message.studentId && message.studentId !== '------' ? (
-                              <span className="ml-1 font-normal text-slate-400">
+                              <span className="ml-1 font-normal tabular-nums text-slate-400">
                                 {message.studentId}
                               </span>
                             ) : null}
@@ -1756,12 +1819,15 @@ export default function MessagesPage() {
                         <div className="flex items-end gap-2">
                           <div
                             className={cn(
-                            "rounded-lg border px-3.5 py-2.5 text-sm leading-6",
+                              "border px-3.5 py-2.5 text-sm leading-6 shadow-[var(--shadow-xs)] transition-shadow duration-200",
+                              message.mine
+                                ? "order-2 rounded-2xl rounded-br-md"
+                                : "rounded-2xl rounded-bl-md",
                               message.failed
-                                ? "border-red-400 bg-red-50 text-red-800"
+                                ? "border-red-200 bg-red-50 text-red-800"
                                 : message.mine
-                                  ? "order-2  border-emerald-700 bg-emerald-700 text-white"
-                                  : " border-slate-200 bg-white text-slate-800",
+                                  ? "border-emerald-700 bg-emerald-700 text-white"
+                                  : "border-slate-200/80 bg-white text-slate-800",
                             )}
                           >
                             <p className="whitespace-pre-wrap break-words">
@@ -1781,20 +1847,28 @@ export default function MessagesPage() {
                                 target={message.file.id ? "_blank" : undefined}
                                 rel={message.file.id ? "noreferrer" : undefined}
                                 className={cn(
-                                  "mt-3 flex w-full items-center gap-3  border p-3 text-left",
+                                  "mt-3 flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors duration-200",
                                   message.mine && !message.failed
-                                    ? "border-white/30 bg-white/10"
-                                    : "border-slate-200 bg-slate-50",
+                                    ? "border-white/25 bg-white/10 hover:bg-white/15"
+                                    : "border-slate-200 bg-slate-50 hover:bg-slate-100",
                                 )}
                               >
-                                <span className="grid h-9 w-9 shrink-0 place-items-center  bg-blue-100 text-blue-700">
+                                <span className={cn(
+                                  "grid h-9 w-9 shrink-0 place-items-center rounded-lg",
+                                  message.mine && !message.failed
+                                    ? "bg-white/15 text-white"
+                                    : "bg-blue-100 text-blue-700",
+                                )}>
                                   <FileText className="h-4 w-4" />
                                 </span>
                                 <span className="min-w-0">
                                   <strong className="block truncate text-xs">
                                     {message.file.name}
                                   </strong>
-                                  <span className="mt-0.5 block text-xs text-slate-400">
+                                  <span className={cn(
+                                    "mt-0.5 block text-xs",
+                                    message.mine && !message.failed ? "text-white/70" : "text-slate-400",
+                                  )}>
                                     {message.file.size}
                                   </span>
                                 </span>
@@ -1804,7 +1878,7 @@ export default function MessagesPage() {
                           </div>
                           <span
                             className={cn(
-                              "mb-0.5 flex shrink-0 flex-col items-end text-xs text-slate-400",
+                              "mb-0.5 flex shrink-0 flex-col items-end text-[11px] tabular-nums text-slate-400",
                               message.mine && "order-1",
                             )}
                           >
@@ -1830,11 +1904,11 @@ export default function MessagesPage() {
                 })}
               </div>
               {(typingByRoom[room.id] ?? []).length > 0 && !messageQuery ? (
-                <div className="mt-5 flex items-center gap-2 pl-11 text-xs font-medium text-slate-400">
+                <div className="anim-fade mt-4 flex items-center gap-2 pl-11 text-xs font-medium text-slate-400">
                   <span className="flex gap-1">
-                    <i className="h-1.5 w-1.5 animate-bounce  bg-slate-400" />
-                    <i className="h-1.5 w-1.5 animate-bounce  bg-slate-400 [animation-delay:120ms]" />
-                    <i className="h-1.5 w-1.5 animate-bounce  bg-slate-400 [animation-delay:240ms]" />
+                    <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" />
+                    <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:120ms]" />
+                    <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:240ms]" />
                   </span>
                   {typingByRoom[room.id].join(", ")}님이 입력 중
                 </div>
@@ -1846,34 +1920,35 @@ export default function MessagesPage() {
               <button
                 type="button"
                 onClick={() => scrollToLatest("smooth")}
-                className="absolute bottom-[78px] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-2 border border-emerald-800 bg-emerald-700 px-4 py-2 text-xs font-bold text-white"
+                className="anim-pop absolute bottom-[84px] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-emerald-800 bg-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-[var(--shadow-md)] transition-all duration-200 hover:bg-emerald-800 active:scale-95"
               >
                 <ArrowDown className="h-3.5 w-3.5" />새 메시지
               </button>
             ) : null}
             <form
               onSubmit={sendMessage}
-              className="shrink-0 border-t border-slate-200 bg-white px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-3"
+              className="shrink-0 border-t border-slate-100 bg-white px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-3"
             >
               {messageFile ? (
-                <div className="mb-2 flex items-center gap-2 border border-blue-200 bg-white px-3 py-2 text-xs text-blue-800">
+                <div className="anim-rise mb-2 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50/70 px-3 py-2 text-xs text-blue-800">
                   <Paperclip className="h-3.5 w-3.5" />
                   <span className="min-w-0 flex-1 truncate font-bold">
                     {messageFile.name}
                   </span>
-                  <span>
+                  <span className="tabular-nums">
                     {Math.max(0.1, messageFile.size / 1_048_576).toFixed(1)} MB
                   </span>
                   <button
                     type="button"
                     onClick={() => setMessageFile(null)}
                     aria-label="첨부 파일 제거"
+                    className="grid h-6 w-6 place-items-center rounded-full transition-colors hover:bg-blue-100"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ) : null}
-              <div className="flex items-end gap-2 border border-slate-300 bg-slate-50 p-1 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-100">
+              <div className="flex items-end gap-1.5 rounded-full border border-slate-200 bg-slate-50/80 p-1 transition-all duration-200 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-600/10">
                 <div className="flex">
                   <input
                     ref={fileInputRef}
@@ -1930,7 +2005,7 @@ export default function MessagesPage() {
                   placeholder={
                     room.id ? "메시지 보내기" : "대화방을 먼저 선택하세요."
                   }
-                  className="max-h-28 min-h-[38px] min-w-0 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-2.5 text-[15px] leading-5 outline-none disabled:text-slate-400"
+                  className="max-h-28 min-h-[38px] min-w-0 flex-1 resize-none overflow-y-auto bg-transparent px-1.5 py-2.5 text-[15px] leading-5 outline-none disabled:text-slate-400"
                 />
                 <button
                   type="submit"
@@ -1940,9 +2015,9 @@ export default function MessagesPage() {
                     sendingMessage ||
                     (!draft.trim() && !messageFile)
                   }
-                  className="grid h-10 w-10 shrink-0 place-items-center  bg-emerald-700 text-white transition hover:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400"
+                  className="grid h-10 w-10 shrink-0 place-items-center self-end rounded-full bg-emerald-700 text-white shadow-[var(--shadow-sm)] transition-all duration-200 ease-[cubic-bezier(0.34,1.32,0.5,1)] hover:bg-emerald-800 hover:shadow-[var(--shadow-md)] active:scale-90 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:active:scale-100"
                 >
-                  <Send className="h-4 w-4" />
+                  <Send className="h-4 w-4 -translate-x-px" />
                 </button>
               </div>
             </form>
@@ -1955,7 +2030,7 @@ export default function MessagesPage() {
               mobileView === "details" ? "flex" : "hidden",
             )}
           >
-            <div className="flex h-[61px] items-center justify-between border-b border-slate-200 px-4">
+            <div className="flex h-[61px] items-center justify-between border-b border-slate-100 px-4">
               <div className="flex items-center gap-2">
                 <IconButton
                   label="대화로 돌아가기"
@@ -1979,7 +2054,7 @@ export default function MessagesPage() {
               </IconButton>
             </div>
             <div className="flex-1 overflow-y-auto">
-              <div className="border-b border-slate-200 px-4 py-5 text-center">
+              <div className="border-b border-slate-100 px-4 py-6 text-center">
                 <Avatar name={room.name} size="xl" tone={room.tone} />
                 <h3 className="mt-3 text-base font-bold text-slate-950">
                   {room.name}
@@ -2004,9 +2079,9 @@ export default function MessagesPage() {
                           ),
                         )
                       }
-                      className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
+                      className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500 transition-colors hover:text-slate-800"
                     >
-                      <span className="grid h-9 w-9 place-items-center bg-slate-100 text-slate-700">
+                      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700 transition-all duration-200 hover:bg-slate-200 active:scale-90">
                         {room.muted ? (
                           <BellOff className="h-4 w-4" />
                         ) : (
@@ -2026,18 +2101,18 @@ export default function MessagesPage() {
                           ),
                         )
                       }
-                      className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
+                      className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500 transition-colors hover:text-slate-800"
                     >
-                      <span className="grid h-9 w-9 place-items-center bg-slate-100 text-slate-700">
+                      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700 transition-all duration-200 hover:bg-slate-200 active:scale-90">
                         <Pin className="h-4 w-4" />
                       </span>
                       데모 고정
                     </button>
                     <button
                       type="button"
-                      className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
+                      className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500 transition-colors hover:text-slate-800"
                     >
-                      <span className="grid h-9 w-9 place-items-center bg-slate-100 text-slate-700">
+                      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700 transition-all duration-200 hover:bg-slate-200 active:scale-90">
                         <Search className="h-4 w-4" />
                       </span>
                       검색
@@ -2046,7 +2121,7 @@ export default function MessagesPage() {
                 ) : null}
               </div>
               {room.type === "group" ? (
-                <div className="border-b border-slate-200 p-5">
+                <div className="border-b border-slate-100 p-5">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold text-slate-900">
                       참여자 {room.members}
@@ -2081,7 +2156,7 @@ export default function MessagesPage() {
                 </div>
               ) : null}
               {DEMO_MODE ? (
-                <div className="border-b border-slate-200 p-5">
+                <div className="border-b border-slate-100 p-5">
                   <h3 className="text-xs font-semibold text-slate-900">
                     데모 공유 파일
                   </h3>
@@ -2090,7 +2165,7 @@ export default function MessagesPage() {
                       <button
                         key={index}
                         type="button"
-                        className="grid aspect-square place-items-center border border-slate-200 bg-slate-50 text-slate-400"
+                        className="grid aspect-square place-items-center rounded-xl border border-slate-200 bg-slate-50 text-slate-400 transition-colors hover:bg-slate-100"
                       >
                         <Icon className="h-5 w-5" />
                       </button>
@@ -2102,14 +2177,14 @@ export default function MessagesPage() {
                 <div className="p-3">
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 px-3 py-3 text-left text-xs font-bold text-slate-600"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50"
                   >
                     <Archive className="h-4 w-4" />
                     데모 대화 보관
                   </button>
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 px-3 py-3 text-left text-xs font-bold text-red-600"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-xs font-bold text-red-600 transition-colors hover:bg-red-50"
                   >
                     <X className="h-4 w-4" />
                     데모 대화 나가기
@@ -2189,15 +2264,15 @@ export default function MessagesPage() {
                   {selectedPeople.length}명 선택
                 </span>
               </div>
-              <div className="border border-slate-200">
+              <div className="overflow-hidden rounded-xl border border-slate-200">
                 {people.map((person) => (
                   <label
                     key={person.id}
-                    className="flex cursor-pointer items-center gap-3 border-b border-slate-100 px-3 py-3 last:border-b-0 hover:bg-slate-50"
+                    className="flex cursor-pointer items-center gap-3 border-b border-slate-100 px-3 py-3 transition-colors last:border-b-0 hover:bg-slate-50"
                   >
                     <input
                       type="checkbox"
-                      className="h-4 w-4 accent-blue-700"
+                      className="h-4 w-4 accent-emerald-700"
                       checked={selectedPeople.includes(person.id)}
                       onChange={() => {
                         setCreateError("");
@@ -2255,7 +2330,7 @@ export default function MessagesPage() {
           {createError ? (
             <p
               role="alert"
-              className="border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700"
+              className="anim-rise rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700"
             >
               {createError}
             </p>

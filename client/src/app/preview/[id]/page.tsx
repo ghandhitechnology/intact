@@ -27,11 +27,11 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
 
   return (
     <main id="main-content" className="flex min-h-dvh flex-col bg-black text-white">
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-white/20 bg-black px-4 sm:px-6">
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-white/10 bg-black/90 px-4 backdrop-blur-sm sm:px-6">
         <h1 className="min-w-0 flex-1 truncate text-sm font-semibold">{fileName}</h1>
         <a
           href={downloadUrl}
-          className="inline-flex h-9 items-center gap-2 border border-white/30 px-3 text-xs font-semibold hover:bg-white hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          className="inline-flex h-9 items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3.5 text-xs font-semibold transition-all hover:border-white hover:bg-white hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-[0.97]"
         >
           <Download className="h-4 w-4" aria-hidden="true" />
           <span className="hidden sm:inline">원본 받기</span>

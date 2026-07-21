@@ -35,6 +35,7 @@ import {
 } from "./demo-data";
 import { usePlatformMode } from "@/components/portal/PlatformModeProvider";
 import SafeMarkdown from "./SafeMarkdown";
+import { Card } from "@/components/operations/ui";
 import {
   RESOURCE_FILE_MAX_BYTES,
   RESOURCE_IMAGE_MAX_BYTES,
@@ -99,6 +100,33 @@ const draftFingerprint = (
   content: string,
   tags: string[],
 ) => JSON.stringify([board, title, content, tags]);
+
+const easeOut = "ease-[cubic-bezier(0.22,1,0.36,1)]";
+
+const fieldClass = cx(
+  "w-full rounded-xl border border-slate-200 bg-slate-50/60 text-sm text-slate-950",
+  "placeholder:text-slate-400 transition-all duration-200",
+  easeOut,
+  "hover:border-slate-300 focus:border-emerald-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-600/10",
+);
+
+const primaryButtonClass = cx(
+  "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 px-4 text-[13px] font-semibold text-white",
+  "shadow-[var(--shadow-xs)] transition-all duration-200",
+  easeOut,
+  "hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]",
+  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 active:scale-[0.97]",
+  "disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300 disabled:shadow-none disabled:hover:translate-y-0 disabled:active:scale-100",
+);
+
+const secondaryButtonClass = cx(
+  "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-600",
+  "shadow-[var(--shadow-xs)] transition-all duration-200",
+  easeOut,
+  "hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 hover:shadow-[var(--shadow-sm)]",
+  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200 active:scale-[0.97]",
+  "disabled:cursor-not-allowed disabled:text-slate-300 disabled:shadow-none disabled:hover:translate-y-0 disabled:active:scale-100",
+);
 
 const toolbar = [
   {
@@ -658,8 +686,8 @@ export default function PostComposer({
   if (published) {
     return (
       <div className="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl border border-slate-200 bg-white px-6 py-8 text-center sm:px-10">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center border border-emerald-200 bg-emerald-50 text-emerald-700">
+        <Card className="anim-pop mx-auto max-w-2xl px-6 py-10 text-center sm:px-10">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-100 bg-emerald-50 text-emerald-700 shadow-[var(--shadow-xs)]">
             <CheckCircle2 className="h-7 w-7" aria-hidden="true" />
           </span>
           <h1 className="mt-4 text-xl font-bold tracking-[-0.035em] text-slate-950">
@@ -674,7 +702,7 @@ export default function PostComposer({
             <button
               type="button"
               onClick={() => setPublished(false)}
-              className="inline-flex h-9 items-center justify-center border border-slate-300 bg-white px-4 text-xs font-bold text-slate-600 hover:border-slate-500"
+              className={secondaryButtonClass}
             >
               계속 수정하기
             </button>
@@ -682,12 +710,12 @@ export default function PostComposer({
               href={
                 publishedId ? `/post/${publishedId}` : `/boards/${board.slug}`
               }
-              className="inline-flex h-9 items-center justify-center border border-emerald-700 bg-emerald-700 px-4 text-xs font-semibold text-white hover:bg-emerald-800"
+              className={primaryButtonClass}
             >
               {publishedId ? (moderationPending ? "검사 상태 확인하기" : "게시글 확인하기") : "게시판으로 가기"}
             </Link>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -695,23 +723,26 @@ export default function PostComposer({
   return (
     <div className="app-page px-4 py-3 sm:px-6 sm:py-5">
       <form onSubmit={submitPost} className="mx-auto max-w-[1180px]">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link
             href={`/boards/${initialBoard.slug}`}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-emerald-700"
+            className="inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs font-bold text-slate-500 transition-colors hover:text-emerald-700"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             {initialBoard.title}으로 돌아가기
           </Link>
-          <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+          <span
+            key={savedAt}
+            className="anim-fade inline-flex items-center gap-1.5 text-xs text-slate-400"
+          >
             <Save className="h-3.5 w-3.5" aria-hidden="true" />
             {savedAt}
           </span>
         </div>
 
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
-          <section className="border-t-2 border-slate-800 bg-white">
-            <header className="border-b border-slate-200 px-4 py-4 sm:px-5">
+          <Card className="anim-rise overflow-hidden">
+            <header className="border-b border-slate-100 px-5 py-4 sm:px-6">
               <div className="flex items-start gap-4">
                 <BoardMark board={board} />
                 <div>
@@ -722,7 +753,7 @@ export default function PostComposer({
               </div>
             </header>
 
-            <div className="space-y-5 p-4 sm:p-5">
+            <div className="space-y-5 p-5 sm:p-6">
               <div className="grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold text-slate-700">
@@ -734,7 +765,7 @@ export default function PostComposer({
                       onChange={(event) =>
                         setSelectedSlug(event.target.value as BoardSlug)
                       }
-                      className="h-10 w-full appearance-none border border-slate-300 bg-white px-3 pr-9 text-sm font-bold text-slate-700 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                      className={cx(fieldClass, "h-11 appearance-none pl-3.5 pr-9 font-semibold text-slate-700")}
                     >
                       {boards.map((item) => (
                         <option key={item.slug} value={item.slug}>
@@ -743,7 +774,7 @@ export default function PostComposer({
                       ))}
                     </select>
                     <ChevronDown
-                      className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                      className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
                       aria-hidden="true"
                     />
                   </span>
@@ -763,7 +794,7 @@ export default function PostComposer({
                       setTitle(event.target.value.slice(0, 80))
                     }
                     placeholder="제목"
-                    className="h-10 w-full border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                    className={cx(fieldClass, "h-11 px-3.5 font-semibold placeholder:font-normal")}
                     required
                   />
                 </label>
@@ -775,7 +806,7 @@ export default function PostComposer({
                     내용 <span className="text-rose-500">*</span>
                   </span>
                   <div
-                    className="flex border border-slate-200 bg-slate-50 p-0.5"
+                    className="flex rounded-full bg-slate-100/80 p-0.5"
                     role="group"
                     aria-label="편집 방식"
                   >
@@ -786,10 +817,12 @@ export default function PostComposer({
                         onClick={() => setMode(item)}
                         aria-pressed={mode === item}
                         className={cx(
-                          "px-3 py-1.5 text-xs font-bold",
+                          "rounded-full px-3.5 py-1.5 text-xs font-bold transition-all duration-200",
+                          easeOut,
+                          "active:scale-[0.97]",
                           mode === item
-                            ? "bg-white text-slate-800 "
-                            : "text-slate-400",
+                            ? "bg-white text-slate-800 shadow-[var(--shadow-xs)]"
+                            : "text-slate-400 hover:text-slate-600",
                         )}
                       >
                         {item === "write" ? "작성" : "미리보기"}
@@ -798,8 +831,8 @@ export default function PostComposer({
                   </div>
                 </div>
 
-                <div className="border border-slate-300 focus-within:border-emerald-600 focus-within:ring-1 focus-within:ring-emerald-600">
-                  <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-slate-50 p-2">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] focus-within:border-emerald-600 focus-within:ring-4 focus-within:ring-emerald-600/10">
+                  <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-100 bg-slate-50/60 p-2">
                     {toolbar.map((item) => {
                       const Icon = item.icon;
                       return (
@@ -815,7 +848,11 @@ export default function PostComposer({
                           }
                           title={item.label}
                           aria-label={item.label}
-                          className="inline-flex h-8 w-8 items-center justify-center text-slate-500 hover:bg-white hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                          className={cx(
+                            "inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-all duration-200",
+                            easeOut,
+                            "hover:bg-white hover:text-slate-900 hover:shadow-[var(--shadow-xs)] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-90",
+                          )}
                         >
                           <Icon className="h-4 w-4" />
                         </button>
@@ -826,7 +863,11 @@ export default function PostComposer({
                       aria-hidden="true"
                     />
                     <label
-                      className="inline-flex h-8 cursor-pointer items-center gap-1.5 px-2 text-xs font-bold text-slate-500 hover:bg-white hover:text-slate-900"
+                      className={cx(
+                        "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-slate-500 transition-all duration-200",
+                        easeOut,
+                        "hover:bg-white hover:text-slate-900 hover:shadow-[var(--shadow-xs)] active:scale-[0.97]",
+                      )}
                       title="이미지 첨부"
                     >
                       <ImageIcon className="h-4 w-4" aria-hidden="true" />
@@ -853,11 +894,11 @@ export default function PostComposer({
                       }
                       rows={17}
                       placeholder={selectedSlug === "question" ? "시도한 방법과 막힌 지점" : "내용"}
-                      className="block w-full resize-y border-0 bg-white p-4 text-sm leading-7 text-slate-800 placeholder:text-slate-400 focus:ring-0"
+                      className="block w-full resize-y border-0 bg-white p-4 text-sm leading-7 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
                       required
                     />
                   ) : (
-                    <div className="min-h-[360px] bg-white p-4">
+                    <div className="anim-fade min-h-[360px] bg-white p-4">
                       {content.trim() ? (
                         <SafeMarkdown content={content} compact />
                       ) : (
@@ -885,7 +926,7 @@ export default function PostComposer({
                     <span>태그</span>
                     <span className="font-normal text-slate-400">최대 5개</span>
                   </label>
-                  <div className="flex border border-slate-300 bg-white focus-within:border-emerald-600 focus-within:ring-1 focus-within:ring-emerald-600">
+                  <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] focus-within:border-emerald-600 focus-within:ring-4 focus-within:ring-emerald-600/10">
                     <input
                       id="post-tags"
                       value={tagInput}
@@ -897,13 +938,16 @@ export default function PostComposer({
                         }
                       }}
                       placeholder="태그 입력 후 Enter"
-                      className="h-10 min-w-0 flex-1 border-0 px-3 text-sm text-slate-800 placeholder:text-slate-400 focus:ring-0"
+                      className="h-11 min-w-0 flex-1 border-0 bg-transparent px-3.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
                     />
                     <button
                       type="button"
                       onClick={addTag}
                       disabled={!tagInput.trim() || tags.length >= 5}
-                      className="border-l border-slate-200 px-3 text-xs font-bold text-slate-500 disabled:text-slate-300"
+                      className={cx(
+                        "border-l border-slate-100 px-4 text-xs font-bold text-slate-500 transition-colors",
+                        "hover:bg-slate-50 hover:text-emerald-700 disabled:text-slate-300 disabled:hover:bg-transparent",
+                      )}
                     >
                       추가
                     </button>
@@ -912,7 +956,7 @@ export default function PostComposer({
                     {tags.map((tag) => (
                       <span
                         key={tag}
-                        className="inline-flex items-center gap-1 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700"
+                        className="anim-pop inline-flex items-center gap-1 rounded-full bg-emerald-50 py-1 pl-2.5 pr-1.5 text-xs font-bold text-emerald-700"
                       >
                         #{tag}
                         <button
@@ -923,6 +967,7 @@ export default function PostComposer({
                             )
                           }
                           aria-label={`${tag} 태그 삭제`}
+                          className="grid h-5 w-5 place-items-center rounded-full transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-emerald-100 active:scale-90"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -941,8 +986,12 @@ export default function PostComposer({
                     </span>
                   </span>
                   <label className={cx(
-                    "flex cursor-pointer items-center justify-center gap-2 border border-dashed bg-slate-50 text-xs font-bold hover:bg-emerald-50",
-                    photoMode ? "min-h-24 border-violet-300 text-violet-700 hover:border-violet-500" : "h-10 border-slate-300 text-slate-600 hover:border-emerald-500 hover:text-emerald-700",
+                    "flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed text-xs font-bold transition-all duration-200",
+                    easeOut,
+                    "active:scale-[0.99]",
+                    photoMode
+                      ? "min-h-24 border-violet-300 bg-violet-50/40 text-violet-700 hover:border-violet-400 hover:bg-violet-50"
+                      : "h-11 border-slate-300 bg-slate-50/60 text-slate-600 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-700",
                   )}>
                     {photoMode ? <ImageIcon className="h-5 w-5" aria-hidden="true" /> : <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />}
                     {photoMode ? "여러 사진 한 번에 고르기" : "파일 고르기"}
@@ -963,8 +1012,8 @@ export default function PostComposer({
                         <li
                           key={item.key}
                           className={cx(
-                            "relative border border-slate-200 bg-white text-xs",
-                            photoMode ? "overflow-hidden" : "flex items-center gap-2 px-2.5 py-2",
+                            "anim-rise relative border border-slate-200/90 bg-white text-xs shadow-[var(--shadow-xs)]",
+                            photoMode ? "overflow-hidden rounded-2xl" : "flex items-center gap-2 rounded-xl px-2.5 py-2",
                           )}
                         >
                           {photoMode ? (
@@ -992,7 +1041,9 @@ export default function PostComposer({
                               type="button"
                               onClick={() => void removeAttachment(item)}
                               aria-label={`${item.name} 제거`}
-                              className={photoMode ? "absolute right-2 top-2 grid h-7 w-7 place-items-center  bg-slate-950/70 text-white hover:bg-rose-600" : "text-slate-400 hover:text-rose-600"}
+                              className={photoMode
+                                ? "absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-slate-950/60 text-white backdrop-blur-sm transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-rose-600 active:scale-90"
+                                : "grid h-6 w-6 shrink-0 place-items-center rounded-full text-slate-400 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-rose-50 hover:text-rose-600 active:scale-90"}
                             >
                               <X className="h-3.5 w-3.5" />
                             </button>
@@ -1005,12 +1056,12 @@ export default function PostComposer({
               </div>
             </div>
 
-            <footer className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <footer className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div>
                 {submitError && (
                   <p
                     role="alert"
-                    className="mt-2 text-xs font-bold text-rose-600"
+                    className="anim-fade mt-2 text-xs font-bold text-rose-600"
                   >
                     {submitError}
                   </p>
@@ -1021,7 +1072,7 @@ export default function PostComposer({
                   type="button"
                   onClick={saveDraft}
                   disabled={submitting}
-                  className="inline-flex h-9 flex-1 items-center justify-center gap-2 border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-600 hover:border-slate-500 sm:flex-none"
+                  className={cx(secondaryButtonClass, "flex-1 sm:flex-none")}
                 >
                   <Save className="h-3.5 w-3.5" aria-hidden="true" />
                   임시저장
@@ -1029,18 +1080,18 @@ export default function PostComposer({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex h-9 flex-1 items-center justify-center gap-2 border border-emerald-700 bg-emerald-700 px-4 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300 sm:flex-none"
+                  className={cx(primaryButtonClass, "flex-1 sm:flex-none")}
                 >
                   <Send className="h-3.5 w-3.5" aria-hidden="true" />
                   {submitting ? "저장 중…" : "게시하기"}
                 </button>
               </div>
             </footer>
-          </section>
+          </Card>
 
-          <aside className="grid gap-4 sm:grid-cols-2 xl:sticky xl:top-6 xl:grid-cols-1">
-            <section className="border border-slate-200 bg-white p-4">
-              <p className="text-xs font-bold text-slate-500">
+          <aside className="anim-rise anim-delay-1 grid gap-4 sm:grid-cols-2 xl:sticky xl:top-6 xl:grid-cols-1">
+            <Card className="p-5">
+              <p className="text-xs font-bold text-slate-400">
                 작성 계정
               </p>
               {author ? (
@@ -1072,7 +1123,7 @@ export default function PostComposer({
                   {bSideEnabled ? 'B-side 익명 처리' : '인증 계정으로 게시'}
                 </p>
               </div>
-            </section>
+            </Card>
 
           </aside>
         </div>

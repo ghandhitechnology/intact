@@ -51,15 +51,24 @@ export default function ReverifyPage() {
   return (
     <AuthFrame mode="register" title="재학생 재인증" description="새 학년 학적을 확인하면 기존 계정과 활동 기록이 그대로 유지됩니다.">
       {done ? (
-        <div className="py-8 text-center">
-          <CheckCircle2 className="mx-auto text-emerald-600" size={38} />
-          <h2 className="mt-4 text-lg font-bold">재인증을 완료했습니다</h2>
+        <div className="anim-rise flex flex-col items-center py-6 text-center">
+          <span className="anim-pop grid h-14 w-14 place-items-center rounded-full bg-emerald-50 text-emerald-700">
+            <CheckCircle2 className="h-7 w-7" />
+          </span>
+          <h2 className="mt-5 text-lg font-bold tracking-[-0.02em] text-slate-950">재인증을 완료했습니다</h2>
         </div>
       ) : (
-        <form onSubmit={submit} className="space-y-5">
-          <p className="text-xs leading-5 text-slate-600"><ShieldCheck className="mr-2 inline h-4 w-4" />운영자에게 받은 재인증 코드를 입력하세요.</p>
-          <Field label="재학생 재인증 코드" required error={error || undefined}><Input value={code} onChange={(event) => setCode(event.target.value)} autoComplete="one-time-code" placeholder="운영자가 발급한 코드" required /></Field>
-          <Button type="submit" disabled={loading || !code.trim()} className="h-12 w-full">{loading ? <LoadingLabel>확인 중</LoadingLabel> : <><RefreshCw size={16} />재인증 완료하기</>}</Button>
+        <form onSubmit={submit} className="anim-rise space-y-5">
+          <div className="flex items-start gap-2.5 rounded-2xl border border-blue-200/70 bg-blue-50/60 px-4 py-3.5 text-xs leading-5 text-blue-900">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+            운영자에게 받은 재인증 코드를 입력하세요.
+          </div>
+          <Field label="재학생 재인증 코드" required error={error || undefined}>
+            <Input value={code} onChange={(event) => setCode(event.target.value)} autoComplete="one-time-code" placeholder="운영자가 발급한 코드" required />
+          </Field>
+          <Button type="submit" disabled={loading || !code.trim()} className="h-12 w-full text-[15px]">
+            {loading ? <LoadingLabel>확인 중</LoadingLabel> : <><RefreshCw size={16} />재인증 완료하기</>}
+          </Button>
         </form>
       )}
     </AuthFrame>
