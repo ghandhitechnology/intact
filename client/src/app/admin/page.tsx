@@ -14,6 +14,7 @@ import {
   readApiEnvelope,
   Select,
   Stat,
+  Tabs,
   Textarea,
   Toast,
   cn,
@@ -1479,8 +1480,20 @@ export default function AdminPage() {
 
   if (accessState === "loading") {
     return (
-      <div className="grid min-h-screen place-items-center bg-slate-950 text-sm font-bold text-slate-300">
-        관리자 권한과 운영 데이터를 확인하는 중…
+      <div className="grid min-h-screen place-items-center bg-slate-950 px-6">
+        <div className="anim-fade flex flex-col items-center gap-4 text-center">
+          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-[var(--shadow-md)]">
+            <Shield className="h-6 w-6 text-white" />
+          </span>
+          <p className="text-sm font-semibold text-slate-300">
+            관리자 권한과 운영 데이터를 확인하는 중…
+          </p>
+          <div className="flex items-center gap-1.5" aria-hidden="true">
+            <span className="skeleton h-1.5 w-10 rounded-full" />
+            <span className="skeleton h-1.5 w-6 rounded-full" />
+            <span className="skeleton h-1.5 w-8 rounded-full" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -1491,7 +1504,7 @@ export default function AdminPage() {
       <header className="border-b border-slate-800 bg-slate-950 text-white">
         <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center bg-emerald-700">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-[var(--shadow-sm)]">
               <Shield className="h-5 w-5" />
             </span>
             <div>
@@ -1503,11 +1516,11 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1 sm:gap-3">
-            <span className="hidden items-center gap-2 text-xs text-slate-400 sm:flex">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <span className="hidden items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-xs text-slate-400 sm:flex">
               <i
                 className={cn(
-                  "h-2 w-2 ",
+                  "h-2 w-2 rounded-full",
                   dashboardError ? "bg-red-400" : "bg-emerald-400",
                 )}
               />
@@ -1515,7 +1528,7 @@ export default function AdminPage() {
             </span>
             <Button
               variant="ghost"
-              className="border-white/10 text-slate-200 hover:bg-white/10 hover:text-white"
+              className="text-slate-300 hover:bg-white/10 hover:text-white"
               onClick={() => setAuditOpen(true)}
             >
               <History className="h-4 w-4" />
@@ -1523,7 +1536,7 @@ export default function AdminPage() {
             </Button>
             <Link
               href="/admin/moderation"
-              className="inline-flex h-9 items-center gap-2 border border-emerald-500/40 px-3 text-xs font-bold text-emerald-200 hover:bg-emerald-500/10"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-500/40 px-3.5 text-xs font-bold text-emerald-200 transition-all hover:border-emerald-400/60 hover:bg-emerald-500/10 active:scale-[0.97]"
             >
               <ShieldCheck className="h-4 w-4" />
               <span className="hidden sm:inline">이중망</span>
@@ -1531,7 +1544,7 @@ export default function AdminPage() {
             <button
               type="button"
               onClick={logoutAdmin}
-              className="grid h-10 w-10 place-items-center text-slate-400 hover:bg-white/10 hover:text-white"
+              className="grid h-10 w-10 place-items-center rounded-xl text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
               title="관리자 로그아웃"
               aria-label="관리자 로그아웃"
             >
@@ -1542,19 +1555,19 @@ export default function AdminPage() {
       </header>
 
       <div className="mx-auto max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="anim-rise flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-xl font-bold tracking-[-0.035em] text-slate-950">
+            <h2 className="text-[26px] font-bold leading-tight tracking-[-0.03em] text-slate-950">
               운영 현황
             </h2>
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
               가입 초대, 사용자, 콘텐츠, 공지를 실제 운영 데이터로 검토하고 모든
               위험 조치를 감사 기록으로 남깁니다.
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <span className="flex items-center gap-2 text-xs text-slate-500">
-              <Lock className="h-4 w-4 text-emerald-700" />
+            <span className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 shadow-[var(--shadow-xs)]">
+              <Lock className="h-3.5 w-3.5 text-emerald-700" />
               관리자 세션 {adminExpiryLabel} 만료 · 자동 연장 없음
             </span>
             <Button
@@ -1578,12 +1591,12 @@ export default function AdminPage() {
         </div>
 
         {dashboardError ? (
-          <div className="mt-4 flex items-start gap-3 border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <div className="anim-rise mt-4 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span className="flex-1">{dashboardError}</span>
             <button
               type="button"
-              className="font-bold underline"
+              className="rounded-lg px-2 py-0.5 font-bold underline transition-colors hover:bg-red-100"
               onClick={() => void loadDashboard()}
             >
               다시 시도
@@ -1591,7 +1604,7 @@ export default function AdminPage() {
           </div>
         ) : null}
 
-        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="stagger mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat
             label="전체 계정"
             value={summary.userCount.toLocaleString()}
@@ -1640,10 +1653,10 @@ export default function AdminPage() {
           />
         </div>
 
-        <Card className="mt-5 overflow-hidden bg-slate-950 text-white">
+        <Card className="mt-5 overflow-hidden border-slate-800 bg-slate-950 text-white">
           <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center bg-white/10 text-slate-100">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 text-slate-100">
                 <Moon className="h-5 w-5" />
               </span>
               <div>
@@ -1670,10 +1683,10 @@ export default function AdminPage() {
           </div>
         </Card>
 
-        <Card className="mt-5 overflow-hidden border-amber-300 bg-amber-50">
+        <Card className="mt-5 overflow-hidden border-amber-200 bg-amber-50/70">
           <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center bg-amber-200 text-amber-800">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200/80 text-amber-800">
                 <ShieldAlert className="h-5 w-5" />
               </span>
               <div>
@@ -1740,7 +1753,7 @@ export default function AdminPage() {
               </div>
             }
           />
-          <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-2 text-xs leading-5 text-slate-600">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
               <p>
@@ -1753,7 +1766,7 @@ export default function AdminPage() {
               onChange={(event) =>
                 setInviteStatus(event.target.value as "all" | InviteState)
               }
-              className="h-9 shrink-0 sm:w-36"
+              className="h-9 shrink-0 bg-white sm:w-36"
               aria-label="초대 상태 필터"
             >
               <option value="all">전체 상태</option>
@@ -1764,12 +1777,12 @@ export default function AdminPage() {
             </Select>
           </div>
           {inviteError ? (
-            <div className="flex items-start gap-3 border-b border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <div className="flex items-start gap-3 border-b border-red-100 bg-red-50 p-4 text-sm text-red-800">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <span className="flex-1">{inviteError}</span>
               <button
                 type="button"
-                className="font-bold underline"
+                className="rounded-lg px-2 py-0.5 font-bold underline transition-colors hover:bg-red-100"
                 onClick={() => void loadInvites()}
               >
                 다시 시도
@@ -1778,14 +1791,14 @@ export default function AdminPage() {
           ) : null}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-xs">
-              <thead className="bg-white text-slate-500">
+              <thead className="bg-slate-50/80 text-slate-500">
                 <tr>
-                  <th className="px-4 py-3 font-bold">학생</th>
-                  <th className="px-4 py-3 font-bold">학번</th>
-                  <th className="px-4 py-3 font-bold">발급 시각</th>
-                  <th className="px-4 py-3 font-bold">만료 시각</th>
-                  <th className="px-4 py-3 font-bold">상태</th>
-                  <th className="px-4 py-3 text-right font-bold">조치</th>
+                  <th className="border-b border-slate-100 px-4 py-3 font-bold">학생</th>
+                  <th className="border-b border-slate-100 px-4 py-3 font-bold">학번</th>
+                  <th className="border-b border-slate-100 px-4 py-3 font-bold">발급 시각</th>
+                  <th className="border-b border-slate-100 px-4 py-3 font-bold">만료 시각</th>
+                  <th className="border-b border-slate-100 px-4 py-3 font-bold">상태</th>
+                  <th className="border-b border-slate-100 px-4 py-3 text-right font-bold">조치</th>
                 </tr>
               </thead>
               <tbody>
@@ -1793,7 +1806,7 @@ export default function AdminPage() {
                   const state = inviteState(invite);
                   const stateAt = invite.revokedAt || invite.usedAt;
                   return (
-                    <tr key={invite.id} className="border-t border-slate-100">
+                    <tr key={invite.id} className="border-t border-slate-100 transition-colors hover:bg-slate-50/80">
                       <td className="px-4 py-3 font-semibold text-slate-900">
                         {invite.realName}
                         {invite.purpose && invite.purpose !== "REGISTER" ? (
@@ -1859,33 +1872,16 @@ export default function AdminPage() {
           </div>
         </Card>
 
-        <div className="mt-5 flex border border-slate-200 bg-white lg:hidden">
-          {(
-            [
-              { value: "users", label: "사용자", icon: Users },
-              { value: "content", label: "콘텐츠", icon: FileText },
-              { value: "notices", label: "공지", icon: Megaphone },
-            ] as const
-          ).map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.value}
-                type="button"
-                onClick={() => setMobileTab(item.value)}
-                className={cn(
-                  "flex h-12 flex-1 items-center justify-center gap-2 text-xs font-semibold",
-                  mobileTab === item.value
-                    ? "bg-blue-700 text-white"
-                    : "text-slate-500",
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
+        <Tabs
+          className="mt-5 lg:hidden"
+          value={mobileTab}
+          onChange={setMobileTab}
+          items={[
+            { value: "users", label: "사용자" },
+            { value: "content", label: "콘텐츠" },
+            { value: "notices", label: "공지" },
+          ]}
+        />
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[0.95fr_1.12fr_0.93fr]">
           <Card
@@ -1925,7 +1921,7 @@ export default function AdminPage() {
                 </IconButton>
               }
             />
-            <div className="space-y-2 border-b border-slate-200 bg-slate-50 p-3">
+            <div className="space-y-2 border-b border-slate-100 bg-slate-50/70 p-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
@@ -1938,7 +1934,7 @@ export default function AdminPage() {
               <Select
                 value={userStatus}
                 onChange={(event) => setUserStatus(event.target.value)}
-                className="h-10"
+                className="h-10 bg-white"
               >
                 <option value="all">전체 계정 상태</option>
                 <option value="active">정상 이용</option>
@@ -1954,7 +1950,7 @@ export default function AdminPage() {
                   key={user.id}
                   type="button"
                   onClick={() => setSelectedUser(user)}
-                  className="flex w-full gap-3 border-b border-slate-100 px-4 py-4 text-left hover:bg-slate-50"
+                  className="flex w-full gap-3 border-b border-slate-100 px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-slate-50/80"
                 >
                   <Avatar
                     name={user.nickname}
@@ -2025,7 +2021,7 @@ export default function AdminPage() {
                 </Button>
               }
             />
-            <div className="grid grid-cols-[1fr_130px] gap-2 border-b border-slate-200 bg-slate-50 p-3">
+            <div className="grid grid-cols-[1fr_130px] gap-2 border-b border-slate-100 bg-slate-50/70 p-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
@@ -2038,7 +2034,7 @@ export default function AdminPage() {
               <Select
                 value={contentStatus}
                 onChange={(event) => setContentStatus(event.target.value)}
-                className="h-10"
+                className="h-10 bg-white"
               >
                 <option value="all">전체 상태</option>
                 <option value="reported">신고 있음</option>
@@ -2054,8 +2050,8 @@ export default function AdminPage() {
                 <article
                   key={item.type + "-" + item.id}
                   className={cn(
-                    "border-b border-slate-100 px-4 py-4",
-                    item.reports > 0 && "bg-red-50/50",
+                    "border-b border-slate-100 px-4 py-4 transition-colors last:border-b-0 hover:bg-slate-50/60",
+                    item.reports > 0 && "bg-red-50/50 hover:bg-red-50/70",
                   )}
                 >
                   <div className="flex flex-wrap items-center gap-2">
@@ -2129,7 +2125,7 @@ export default function AdminPage() {
                 </Button>
               }
             />
-            <div className="border-b border-blue-200 bg-blue-50 p-4">
+            <div className="border-b border-blue-100 bg-blue-50/70 p-4">
               <div className="flex items-start gap-3">
                 <Bell className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
                 <div>
@@ -2153,7 +2149,7 @@ export default function AdminPage() {
               {notices.map((notice) => (
                 <article
                   key={notice.id}
-                  className="border-b border-slate-100 px-4 py-4"
+                  className="border-b border-slate-100 px-4 py-4 transition-colors last:border-b-0 hover:bg-slate-50/60"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     {notice.status === "published" ? (
@@ -2264,7 +2260,7 @@ export default function AdminPage() {
         }
       >
         <form id="invite-form" onSubmit={createInvite} className="space-y-5">
-          <div className="flex gap-3 border border-blue-300 bg-white p-4">
+          <div className="flex gap-3 rounded-xl border border-blue-200 bg-blue-50/70 p-4">
             <ShieldCheck className="h-5 w-5 shrink-0 text-blue-700" />
             <p className="text-xs leading-5 text-blue-900">
               실명과 학번이 다른 학생에게 발급되지 않도록 학적 명부와
@@ -2319,7 +2315,7 @@ export default function AdminPage() {
           </Field>
           {inviteFormError ? (
             <div
-              className="flex items-start gap-2 border border-red-200 bg-red-50 px-3 py-2.5 text-xs leading-5 text-red-700"
+              className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs leading-5 text-red-700"
               role="alert"
             >
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -2342,7 +2338,7 @@ export default function AdminPage() {
       >
         {createdInvite ? (
           <div className="space-y-5">
-            <div className="border border-amber-300 bg-white p-4">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
               <div className="flex gap-3">
                 <AlertTriangle className="h-5 w-5 shrink-0 text-amber-700" />
                 <p className="text-xs leading-5 text-amber-900">
@@ -2351,7 +2347,7 @@ export default function AdminPage() {
                 </p>
               </div>
             </div>
-            <dl className="grid grid-cols-2 gap-px border border-slate-200 bg-slate-200 text-sm">
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 text-sm">
               <div className="bg-white p-3">
                 <dt className="text-xs text-slate-500">학생</dt>
                 <dd className="mt-1 font-semibold text-slate-900">
@@ -2376,7 +2372,7 @@ export default function AdminPage() {
             <div>
               <p className="mb-2 text-xs font-semibold text-slate-500">일회용 초대 코드</p>
               <div
-                className="border-2 border-blue-700 bg-blue-50 px-4 py-5 text-center font-mono text-xl font-bold tracking-[0.12em] text-blue-950 selection:bg-blue-700 selection:text-white"
+                className="rounded-2xl border-2 border-blue-700 bg-blue-50 px-4 py-5 text-center font-mono text-xl font-bold tracking-[0.12em] text-blue-950 selection:bg-blue-700 selection:text-white"
                 aria-live="polite"
               >
                 {createdInvite.code}
@@ -2426,7 +2422,7 @@ export default function AdminPage() {
       >
         <div className="space-y-5">
           {revokingInvite ? (
-            <div className="border border-slate-200 bg-slate-50 p-4 text-sm">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-sm">
               <p className="font-semibold text-slate-900">
                 {revokingInvite.realName} · {revokingInvite.studentCode}
               </p>
@@ -2456,7 +2452,7 @@ export default function AdminPage() {
       >
         {selectedUser ? (
           <div className="space-y-5">
-            <div className="flex flex-col gap-4 border border-slate-200 bg-slate-50 p-5 sm:flex-row sm:items-center">
+            <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-5 sm:flex-row sm:items-center">
               <Avatar
                 name={selectedUser.nickname}
                 size="xl"
@@ -2490,17 +2486,17 @@ export default function AdminPage() {
                 ["미처리 신고", selectedUser.reports.toLocaleString()],
                 ["활성 세션", selectedUser.activeSessions.toLocaleString()],
               ].map(([label, value]) => (
-                <div key={label} className="border border-slate-200 p-3">
+                <div key={label} className="rounded-xl border border-slate-200 bg-white p-3 shadow-[var(--shadow-xs)]">
                   <p className="text-xs font-bold text-slate-500">
                     {label}
                   </p>
-                  <p className="mt-2 text-lg font-bold text-slate-900">
+                  <p className="mt-2 text-lg font-bold tracking-[-0.02em] text-slate-900">
                     {value}
                   </p>
                 </div>
               ))}
             </div>
-            <div className="border border-emerald-300 bg-white p-4">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-900">
@@ -2525,8 +2521,8 @@ export default function AdminPage() {
                 </Button>
               </div>
             </div>
-            <div className="border border-slate-200">
-              <div className="border-b border-slate-200 px-4 py-3 text-xs font-semibold">
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-3 text-xs font-semibold">
                 계정 조치
               </div>
               <div className="flex flex-wrap gap-2 p-4">
@@ -2640,7 +2636,7 @@ export default function AdminPage() {
                 {selectedContent.preview}
               </p>
             </div>
-            <div className="flex items-center justify-between gap-4 border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
               <div>
                 <p className="text-xs font-semibold text-slate-900">
                   {selectedContent.type === "post"
@@ -2652,7 +2648,7 @@ export default function AdminPage() {
                 href={"/post/" + selectedContent.postId}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-9 shrink-0 items-center border border-slate-300 bg-white px-3 text-xs font-bold text-blue-700 hover:bg-slate-50"
+                className="inline-flex h-9 shrink-0 items-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-blue-700 shadow-[var(--shadow-xs)] transition-all hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50"
               >
                 사용자 화면 열기
               </Link>
@@ -2734,14 +2730,14 @@ export default function AdminPage() {
       >
         <div className="space-y-3">
           {summary.openReportCount > reports.length ? (
-            <div className="border border-amber-300 bg-white px-4 py-3 text-xs leading-5 text-amber-900">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-xs leading-5 text-amber-900">
               전체 {summary.openReportCount.toLocaleString()}건 중 오래된 순서로
               최대 100건을 표시합니다. 처리 후 새로고침하면 다음 신고가 이어서
               표시됩니다.
             </div>
           ) : null}
           {reports.map((report) => (
-            <article key={report.id} className="border border-slate-200 p-4">
+            <article key={report.id} className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[var(--shadow-xs)]">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={report.status === "reviewing" ? "blue" : "red"}>
                   {report.status === "reviewing" ? "검토 중" : "접수"}
@@ -2766,13 +2762,13 @@ export default function AdminPage() {
                     href={report.href}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-9 items-center border border-slate-300 bg-white px-3 text-xs font-bold text-blue-700 hover:bg-slate-50"
+                    className="inline-flex h-9 items-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-blue-700 shadow-[var(--shadow-xs)] transition-all hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50"
                   >
                     원문 열기
                   </Link>
                 ) : (
                   <span
-                    className="inline-flex h-9 items-center border border-slate-200 bg-slate-100 px-3 text-xs font-bold text-slate-400"
+                    className="inline-flex h-9 items-center rounded-xl border border-slate-200 bg-slate-100 px-3 text-xs font-bold text-slate-400"
                     title="사용자 또는 메시지 신고는 공개 원문 링크를 제공하지 않습니다."
                   >
                     공개 원문 링크 없음
@@ -2952,7 +2948,7 @@ export default function AdminPage() {
               }
             />
           </Field>
-          <label className="flex cursor-pointer items-start gap-3 border border-blue-300 bg-white p-4">
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-blue-200 bg-blue-50/60 p-4 transition-colors hover:bg-blue-50">
             <input
               type="checkbox"
               className="mt-0.5 h-4 w-4 accent-blue-700"
@@ -3014,7 +3010,7 @@ export default function AdminPage() {
         }
       >
         <div className="space-y-5">
-          <div className="flex gap-3 border border-amber-300 bg-white p-4">
+          <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
             <AlertTriangle className="h-5 w-5 shrink-0 text-amber-700" />
             <p className="text-xs leading-5 text-amber-900">
               대상 작업: <strong>{pendingAction?.label}</strong>
@@ -3051,7 +3047,7 @@ export default function AdminPage() {
                 placeholder="예: 500"
               />
             </Field>
-            {(() => { const target = users.find((user) => user.id === pendingAction.id); if (!target || !Number.isInteger(Number(igkAmount)) || Number(igkAmount) <= 0) return null; const signed = Number(igkAmount) * (igkDirection === 'GRANT' ? 1 : -1); const after = Math.max(0, target.igk + signed); const tier = igkLevelForBalance(after); return <div className="grid grid-cols-2 gap-px bg-slate-200 text-xs"><div className="bg-white p-3"><p className="text-slate-500">변경 전</p><p className="mt-1 font-black">{target.igk.toLocaleString()} IGK · {target.standing?.tierLabel ?? igkLevelLabel(target.level)}{target.standing?.rankLabel ? ` · ${target.standing.rankLabel}` : ''}</p></div><div className="bg-white p-3"><p className="text-slate-500">변경 후</p><p className="mt-1 font-black">{after.toLocaleString()} IGK · {tier.label}</p><p className="mt-1 text-slate-500">짱 순위 즉시 재계산</p></div></div>; })()}
+            {(() => { const target = users.find((user) => user.id === pendingAction.id); if (!target || !Number.isInteger(Number(igkAmount)) || Number(igkAmount) <= 0) return null; const signed = Number(igkAmount) * (igkDirection === 'GRANT' ? 1 : -1); const after = Math.max(0, target.igk + signed); const tier = igkLevelForBalance(after); return <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 text-xs"><div className="bg-white p-3"><p className="text-slate-500">변경 전</p><p className="mt-1 font-black">{target.igk.toLocaleString()} IGK · {target.standing?.tierLabel ?? igkLevelLabel(target.level)}{target.standing?.rankLabel ? ` · ${target.standing.rankLabel}` : ''}</p></div><div className="bg-white p-3"><p className="text-slate-500">변경 후</p><p className="mt-1 font-black">{after.toLocaleString()} IGK · {tier.label}</p><p className="mt-1 text-slate-500">짱 순위 즉시 재계산</p></div></div>; })()}
             </div>
           ) : null}
           <Field
@@ -3103,20 +3099,20 @@ export default function AdminPage() {
             <option value="STUDENT_INVITE">가입 초대</option>
           </Select>
         </div>
-        <div className="mt-5 overflow-x-auto border border-slate-200">
+        <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full min-w-[700px] text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500">
+            <thead className="bg-slate-50/80 text-slate-500">
               <tr>
-                <th className="px-4 py-3 font-bold">시간</th>
-                <th className="px-4 py-3 font-bold">작업</th>
-                <th className="px-4 py-3 font-bold">대상</th>
-                <th className="px-4 py-3 font-bold">사유</th>
-                <th className="px-4 py-3 font-bold">관리자 / IP 해시</th>
+                <th className="border-b border-slate-100 px-4 py-3 font-bold">시간</th>
+                <th className="border-b border-slate-100 px-4 py-3 font-bold">작업</th>
+                <th className="border-b border-slate-100 px-4 py-3 font-bold">대상</th>
+                <th className="border-b border-slate-100 px-4 py-3 font-bold">사유</th>
+                <th className="border-b border-slate-100 px-4 py-3 font-bold">관리자 / IP 해시</th>
               </tr>
             </thead>
             <tbody>
               {filteredAuditEntries.map((entry) => (
-                <tr key={entry.id} className="border-t border-slate-100">
+                <tr key={entry.id} className="border-t border-slate-100 transition-colors hover:bg-slate-50/80">
                   <td className="whitespace-nowrap px-4 py-3 text-slate-500">
                     {entry.time}
                   </td>

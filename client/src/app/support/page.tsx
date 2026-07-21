@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { ArrowLeft, Loader2, MessageSquare, Plus, Send } from "lucide-react";
+import { Badge, Button, Card, CardHeader, Field, Input, Select, Textarea } from "@/components/operations/ui";
 
 type TicketSummary = {
   id: string;
@@ -64,6 +65,13 @@ async function apiData<T>(response: Response, fallback: string): Promise<T> {
   const body = await response.json().catch(() => null);
   if (!response.ok || !body?.ok) throw new Error(body?.error?.message || fallback);
   return body.data as T;
+}
+
+function statusTone(status: TicketSummary["status"]): "blue" | "amber" | "green" | "slate" {
+  if (status === "OPEN") return "blue";
+  if (status === "IN_PROGRESS") return "amber";
+  if (status === "RESOLVED") return "green";
+  return "slate";
 }
 
 export default function SupportPage() {
@@ -216,10 +224,9 @@ export default function SupportPage() {
   }
 
   const form = (
-    <form onSubmit={submit} className="space-y-5 bg-white px-1 py-6">
-      <label className="block">
-        <span className="mb-2 block text-xs font-bold">{reportTarget ? "신고 사유" : "문의 유형"}</span>
-        <select name="category" required className="h-11 w-full border border-[var(--line-strong)] bg-white px-3 text-sm outline-none">
+    <form onSubmit={submit} className="space-y-5">
+      <Field label={reportTarget ? "신고 사유" : "문의 유형"} required>
+        <Select name="category" required>
           <option value="">선택해 주세요</option>
           {reportTarget ? (
             <>
@@ -238,133 +245,163 @@ export default function SupportPage() {
               <option value="OTHER">기타 문의</option>
             </>
           )}
-        </select>
-      </label>
+        </Select>
+      </Field>
       {!reportTarget ? (
         <>
-          <label className="block">
-            <span className="mb-2 block text-xs font-bold">제목</span>
-            <input name="subject" required minLength={2} maxLength={180} className="h-11 w-full border border-[var(--line-strong)] px-3 text-sm outline-none focus:border-[var(--blue)]" placeholder="문의 내용을 한 줄로 적어 주세요" />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-xs font-bold">관련 링크 <small className="font-medium text-[var(--ink-faint)]">(선택)</small></span>
-            <input name="pageUrl" type="url" className="h-11 w-full border border-[var(--line-strong)] px-3 text-sm outline-none focus:border-[var(--blue)]" placeholder="https://..." />
-          </label>
+          <Field label="제목" required>
+            <Input name="subject" required minLength={2} maxLength={180} placeholder="문의 내용을 한 줄로 적어 주세요" />
+          </Field>
+          <Field label="관련 링크" hint="(선택)">
+            <Input name="pageUrl" type="url" placeholder="https://..." />
+          </Field>
         </>
       ) : null}
-      <label className="block">
-        <span className="mb-2 block text-xs font-bold">자세한 내용</span>
-        <textarea name="description" required minLength={10} maxLength={reportTarget ? 1000 : 10000} rows={8} className="w-full resize-y border border-[var(--line-strong)] p-3 text-sm leading-6 outline-none focus:border-[var(--blue)]" placeholder="확인이 필요한 상황을 구체적으로 적어 주세요." />
-      </label>
-      {error ? <p role="alert" className="border border-red-300 bg-white px-3 py-2 text-xs font-bold text-red-700">{error}</p> : null}
+      <Field label="자세한 내용" required>
+        <Textarea name="description" required minLength={10} maxLength={reportTarget ? 1000 : 10000} rows={8} placeholder="확인이 필요한 상황을 구체적으로 적어 주세요." />
+      </Field>
+      {error ? <p role="alert" className="anim-rise rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs font-semibold text-red-700">{error}</p> : null}
       <div className="flex justify-end">
-        <button className="primary-button" type="submit" disabled={submitting}>
+        <Button type="submit" disabled={submitting}>
           {submitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
           {submitting ? "보내는 중…" : "운영자에게 보내기"}
-        </button>
+        </Button>
       </div>
     </form>
   );
 
   return (
     <div className="mx-auto max-w-5xl">
-      <header className="flex items-end justify-between gap-4 border-b-2 border-slate-800 bg-white px-1 pb-4 pt-2">
-        <div>
-          <h1 className="text-2xl font-bold tracking-[-0.03em] text-slate-950">{reportTarget ? "콘텐츠 신고" : "문의·신고"}</h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">
+      <header className="anim-rise flex flex-col gap-3 px-1 pb-5 pt-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-[26px] font-bold leading-tight tracking-[-0.03em] text-slate-950">{reportTarget ? "콘텐츠 신고" : "문의·신고"}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
             {reportTarget ? "신고 내용은 운영자만 확인합니다." : "불편한 점이나 제안을 남기고 처리 내역을 이어서 확인할 수 있습니다."}
           </p>
         </div>
         {!reportTarget && selected ? (
-          <button type="button" className="secondary-button" onClick={startNewTicket}><Plus size={15} />새 문의</button>
+          <Button type="button" variant="secondary" className="shrink-0" onClick={startNewTicket}><Plus size={15} />새 문의</Button>
         ) : null}
       </header>
 
       {sent ? (
-        <div className="mt-4 border-l-4 border-[var(--green)] bg-white px-5 py-4">
-          <p className="text-sm font-bold">{reportTarget ? "신고를 접수했습니다." : "문의를 접수했습니다."}</p>
+        <div className="anim-rise mt-1 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3.5">
+          <p className="text-sm font-semibold text-emerald-800">{reportTarget ? "신고를 접수했습니다." : "문의를 접수했습니다."}</p>
         </div>
       ) : null}
 
-      {reportTarget ? form : (
-        <div className="grid gap-5 py-5 md:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="border border-[var(--line)] bg-white">
-            <div className="border-b border-[var(--line)] px-4 py-3">
-              <p className="text-sm font-bold">내 문의 내역</p>
-              <p className="mt-1 text-xs text-[var(--ink-faint)]">최근 업데이트 순</p>
-            </div>
-            {loading && tickets.length === 0 ? <div className="grid place-items-center py-10"><Loader2 className="animate-spin text-[var(--blue)]" size={20} /></div> : null}
-            {!loading && tickets.length === 0 ? <p className="px-4 py-8 text-center text-xs text-[var(--ink-faint)]">아직 접수한 문의가 없습니다.</p> : null}
-            {tickets.map((ticket) => (
-              <button key={ticket.id} type="button" onClick={() => void openTicket(ticket.id)} className={`block w-full border-b border-[var(--line)] px-4 py-3 text-left last:border-b-0 ${selected?.id === ticket.id ? "bg-emerald-50" : "hover:bg-slate-50"}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-bold text-[var(--blue)]">{statusLabel[ticket.status]}</span>
-                  <span className="text-[11px] text-[var(--ink-faint)]">{formatDate(ticket.updatedAt)}</span>
-                </div>
-                <p className="mt-1 truncate text-sm font-bold text-slate-900">{ticket.subject}</p>
-                <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--ink-soft)]">{ticket.messages[0]?.body || ticket.description}</p>
-                <p className="mt-1 text-[11px] text-[var(--ink-faint)]">답글 {ticket._count.messages}개</p>
-              </button>
-            ))}
-          </aside>
-
-          <section className="min-w-0 bg-white">
-            {loadError ? <p role="alert" className="border border-red-300 px-4 py-3 text-xs font-bold text-red-700">{loadError}</p> : null}
-            {!selected ? form : (
-              <div className="border border-[var(--line)]">
-                <div className="border-b-2 border-slate-800 px-5 py-4">
-                  <button type="button" className="mb-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--ink-soft)] md:hidden" onClick={() => setSelected(null)}><ArrowLeft size={14} />목록</button>
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="font-bold text-[var(--blue)]">{statusLabel[selected.status]}</span>
-                    <span className="text-[var(--ink-faint)]">{categoryLabel[selected.category] || selected.category}</span>
+      {reportTarget ? (
+        <Card className="anim-rise anim-delay-1 mt-4 p-5 sm:p-7">{form}</Card>
+      ) : (
+        <div className="anim-rise anim-delay-1 mt-4 grid items-start gap-5 md:grid-cols-[300px_minmax(0,1fr)]">
+          <Card className="overflow-hidden">
+            <CardHeader title="내 문의 내역" description="최근 업데이트 순" />
+            {loading && tickets.length === 0 ? (
+              <div className="grid gap-2.5 p-4">
+                <div className="skeleton h-16 w-full" />
+                <div className="skeleton h-16 w-full" />
+                <div className="skeleton h-16 w-full" />
+                <span className="sr-only">문의 내역을 불러오는 중</span>
+              </div>
+            ) : null}
+            {!loading && tickets.length === 0 ? (
+              <div className="px-4 py-10 text-center">
+                <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-slate-100 text-slate-400"><MessageSquare size={20} /></span>
+                <p className="mt-3 text-xs text-slate-500">아직 접수한 문의가 없습니다.</p>
+              </div>
+            ) : null}
+            <div className="grid gap-2 p-2.5">
+              {tickets.map((ticket) => (
+                <button
+                  key={ticket.id}
+                  type="button"
+                  onClick={() => void openTicket(ticket.id)}
+                  className={`block w-full rounded-xl border px-3.5 py-3 text-left transition-all duration-200 ${
+                    selected?.id === ticket.id
+                      ? "border-emerald-200 bg-emerald-50/70 shadow-[var(--shadow-xs)]"
+                      : "border-transparent hover:border-slate-200 hover:bg-slate-50/80"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge tone={statusTone(ticket.status)}>{statusLabel[ticket.status]}</Badge>
+                    <span className="text-[11px] text-slate-400">{formatDate(ticket.updatedAt)}</span>
                   </div>
-                  <h2 className="mt-2 text-lg font-bold text-slate-950">{selected.subject}</h2>
-                  <p className="mt-1 text-xs text-[var(--ink-faint)]">접수 {formatDate(selected.createdAt)} · 담당 {selected.assignedTo?.nickname || "배정 전"}</p>
+                  <p className="mt-2 truncate text-sm font-bold text-slate-900">{ticket.subject}</p>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{ticket.messages[0]?.body || ticket.description}</p>
+                  <p className="mt-1.5 text-[11px] text-slate-400">답글 {ticket._count.messages}개</p>
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          <div className="min-w-0">
+            {loadError ? <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">{loadError}</p> : null}
+            {!selected ? (
+              <Card className="p-5 sm:p-7">{form}</Card>
+            ) : (
+              <Card className="overflow-hidden">
+                <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
+                  <button type="button" className="mb-3 inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-bold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 md:hidden" onClick={() => setSelected(null)}><ArrowLeft size={14} />목록</button>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <Badge tone={statusTone(selected.status)}>{statusLabel[selected.status]}</Badge>
+                    <Badge tone="slate">{categoryLabel[selected.category] || selected.category}</Badge>
+                  </div>
+                  <h2 className="mt-2.5 text-lg font-bold tracking-[-0.02em] text-slate-950">{selected.subject}</h2>
+                  <p className="mt-1.5 text-xs text-slate-400">접수 {formatDate(selected.createdAt)} · 담당 {selected.assignedTo?.nickname || "배정 전"}</p>
                 </div>
 
-                <div className="space-y-4 px-5 py-5">
+                <div className="space-y-3.5 bg-slate-50/50 px-5 py-5 sm:px-6">
                   {selected.messages.map((message) => {
                     const requester = message.authorId === selected.requesterId;
                     return (
-                      <article key={message.id} className={`max-w-[88%] border px-4 py-3 ${requester ? "mr-auto border-slate-200 bg-slate-50" : "ml-auto border-emerald-200 bg-emerald-50"}`}>
+                      <article
+                        key={message.id}
+                        className={`max-w-[88%] rounded-2xl border px-4 py-3 shadow-[var(--shadow-xs)] ${
+                          requester
+                            ? "mr-auto rounded-tl-md border-slate-200/90 bg-white"
+                            : "ml-auto rounded-tr-md border-emerald-200 bg-emerald-50"
+                        }`}
+                      >
                         <div className="flex items-center justify-between gap-4 text-[11px]">
-                          <span className="font-bold">{requester ? "나" : message.author?.nickname || "운영자"}</span>
-                          <span className="text-[var(--ink-faint)]">{formatDate(message.createdAt)}</span>
+                          <span className="font-bold text-slate-700">{requester ? "나" : message.author?.nickname || "운영자"}</span>
+                          <span className="text-slate-400">{formatDate(message.createdAt)}</span>
                         </div>
-                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">{message.body}</p>
+                        <p className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-slate-800">{message.body}</p>
                       </article>
                     );
                   })}
                 </div>
 
                 {selected.statusEvents.length ? (
-                  <div className="border-t border-[var(--line)] bg-slate-50 px-5 py-4">
-                    <p className="text-xs font-bold"><MessageSquare className="mr-1 inline" size={13} />처리 기록</p>
-                    <ul className="mt-2 space-y-1">
+                  <div className="border-t border-slate-100 px-5 py-4 sm:px-6">
+                    <p className="text-xs font-bold text-slate-700"><MessageSquare className="mr-1 inline" size={13} />처리 기록</p>
+                    <ul className="mt-2 space-y-1.5">
                       {selected.statusEvents.map((event) => (
-                        <li key={event.id} className="text-[11px] text-[var(--ink-soft)]">{formatDate(event.createdAt)} · {statusLabel[event.toStatus]}{event.note ? ` · ${event.note}` : ""}</li>
+                        <li key={event.id} className="flex items-center gap-2 text-[11px] text-slate-500">
+                          <span className="h-1 w-1 shrink-0 rounded-full bg-slate-300" />
+                          {formatDate(event.createdAt)} · {statusLabel[event.toStatus]}{event.note ? ` · ${event.note}` : ""}
+                        </li>
                       ))}
                     </ul>
                   </div>
                 ) : null}
 
                 {selected.status !== "CLOSED" ? (
-                  <form onSubmit={submitReply} className="border-t border-[var(--line)] px-5 py-4">
-                    <label className="block">
-                      <span className="mb-2 block text-xs font-bold">답글</span>
-                      <textarea name="body" required minLength={2} maxLength={10000} rows={4} className="w-full resize-y border border-[var(--line-strong)] p-3 text-sm leading-6 outline-none focus:border-[var(--blue)]" placeholder="추가로 전달할 내용을 적어 주세요." />
-                    </label>
-                    {error ? <p role="alert" className="mt-2 text-xs font-bold text-red-700">{error}</p> : null}
+                  <form onSubmit={submitReply} className="border-t border-slate-100 px-5 py-4 sm:px-6">
+                    <Field label="답글" required>
+                      <Textarea name="body" required minLength={2} maxLength={10000} rows={4} placeholder="추가로 전달할 내용을 적어 주세요." />
+                    </Field>
+                    {error ? <p role="alert" className="anim-rise mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{error}</p> : null}
                     <div className="mt-3 flex justify-end">
-                      <button className="primary-button" type="submit" disabled={replying}>{replying ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}{replying ? "등록 중…" : "답글 등록"}</button>
+                      <Button type="submit" disabled={replying}>{replying ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}{replying ? "등록 중…" : "답글 등록"}</Button>
                     </div>
                   </form>
                 ) : (
-                  <p className="border-t border-[var(--line)] px-5 py-4 text-xs text-[var(--ink-soft)]">종료된 문의입니다. 추가 도움이 필요하면 새 문의를 접수해 주세요.</p>
+                  <p className="border-t border-slate-100 bg-slate-50/60 px-5 py-4 text-xs leading-5 text-slate-500 sm:px-6">종료된 문의입니다. 추가 도움이 필요하면 새 문의를 접수해 주세요.</p>
                 )}
-              </div>
+              </Card>
             )}
-          </section>
+          </div>
         </div>
       )}
     </div>

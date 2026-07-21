@@ -19,7 +19,7 @@ export default function PreviewCloseButton() {
     <button
       type="button"
       onClick={closePreview}
-      className="grid h-9 w-9 place-items-center border border-white/30 hover:bg-white hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+      className="grid h-9 w-9 place-items-center rounded-full border border-white/20 bg-white/5 transition-all hover:border-white hover:bg-white hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-90"
       aria-label="미리보기 닫기"
     >
       <X className="h-4 w-4" aria-hidden="true" />

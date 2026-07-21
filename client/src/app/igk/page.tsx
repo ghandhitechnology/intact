@@ -657,43 +657,56 @@ export default function IgkPage() {
         <PageHeading
           title="IGK 지갑"
         />
-        <Card className="mt-4 p-8 text-center">
-          {loadState === "loading" ? (
-            <>
-              <Loader2 className="mx-auto h-7 w-7 animate-spin text-blue-700" />
-              <p className="mt-4 text-sm font-bold">
-                IGK 정보를 불러오는 중입니다.
-              </p>
-            </>
-          ) : null}
-          {loadState === "auth" ? (
-            <>
-              <LogIn className="mx-auto h-7 w-7 text-blue-700" />
-              <p className="mt-4 text-sm font-bold">로그인이 필요합니다.</p>
-              <Link
-                href="/login"
-                className="mt-5 inline-flex h-10 items-center bg-blue-700 px-4 text-sm font-bold text-white"
-              >
-                로그인하기
-              </Link>
-            </>
-          ) : null}
-          {loadState === "error" ? (
-            <>
-              <RefreshCw className="mx-auto h-7 w-7 text-red-600" />
-              <p className="mt-4 text-sm font-bold">
-                IGK 정보를 표시할 수 없습니다.
-              </p>
-              <p className="mt-2 text-xs text-red-600">{loadError}</p>
-              <Button
-                className="mt-5"
-                onClick={() => setReloadKey((value) => value + 1)}
-              >
-                다시 시도
-              </Button>
-            </>
-          ) : null}
-        </Card>
+        {loadState === "loading" ? (
+          <div className="mt-4 space-y-4" aria-busy="true">
+            <p className="sr-only">IGK 정보를 불러오는 중입니다.</p>
+            <Card className="p-6">
+              <div className="skeleton h-3.5 w-24" />
+              <div className="skeleton mt-3 h-10 w-44" />
+              <div className="skeleton mt-3 h-4 w-64 max-w-full" />
+              <div className="skeleton mt-5 h-2 w-full rounded-full" />
+            </Card>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="skeleton h-[92px] rounded-2xl" />
+              <div className="skeleton h-[92px] rounded-2xl" />
+            </div>
+          </div>
+        ) : null}
+        {loadState === "auth" || loadState === "error" ? (
+          <Card className="anim-rise mt-4 p-10 text-center">
+            {loadState === "auth" ? (
+              <>
+                <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-slate-100 text-slate-400">
+                  <LogIn className="h-6 w-6" />
+                </span>
+                <p className="mt-4 text-sm font-bold text-slate-800">로그인이 필요합니다.</p>
+                <Link
+                  href="/login"
+                  className="mt-5 inline-flex h-10 items-center rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]"
+                >
+                  로그인하기
+                </Link>
+              </>
+            ) : null}
+            {loadState === "error" ? (
+              <>
+                <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-red-50 text-red-500">
+                  <RefreshCw className="h-6 w-6" />
+                </span>
+                <p className="mt-4 text-sm font-bold text-slate-800">
+                  IGK 정보를 표시할 수 없습니다.
+                </p>
+                <p className="mt-2 text-xs text-red-600">{loadError}</p>
+                <Button
+                  className="mt-5"
+                  onClick={() => setReloadKey((value) => value + 1)}
+                >
+                  다시 시도
+                </Button>
+              </>
+            ) : null}
+          </Card>
+        ) : null}
       </div>
     );
   }
@@ -715,43 +728,47 @@ export default function IgkPage() {
       <PageHeading
         title="IGK 지갑"
       />
-      <section className="relative mt-5 border-t-2 border-slate-800 bg-white px-4 py-5 sm:px-5">
-        <div className="relative grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+      <section className="anim-rise relative mt-5 overflow-hidden rounded-2xl border border-slate-200/90 bg-white px-5 py-6 shadow-[var(--shadow-xs)] sm:px-6">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-emerald-50 blur-2xl"
+        />
+        <div className="relative grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
           <div>
             <p className="flex items-center gap-2 text-xs font-bold text-emerald-700">
               <Coins className="h-4 w-4" />
               보유 IGK
             </p>
             <div className="mt-2 flex items-baseline gap-2">
-              <strong className="text-3xl font-bold text-slate-950">
+              <strong className="text-[40px] font-bold leading-none tracking-[-0.04em] tabular-nums text-slate-950 sm:text-5xl">
                 {balance.toLocaleString()}
               </strong>
-              <span className="text-base font-bold text-slate-500">IGK</span>
+              <span className="text-base font-bold text-slate-400">IGK</span>
             </div>
-            <p className="mt-2 text-sm text-slate-500">
-              현재 IGK 기준 교내 {wallet.rank}위 · 평생 획득 {wallet.lifetimeIgk.toLocaleString()} IGK
+            <p className="mt-3 text-sm text-slate-500">
+              현재 IGK 기준 교내 <span className="font-bold tabular-nums text-slate-700">{wallet.rank}위</span> · 평생 획득 {wallet.lifetimeIgk.toLocaleString()} IGK
             </p>
             {wallet.igkDebt ? (
-              <p className="mt-2 text-xs text-amber-700">
+              <p className="mt-2 inline-flex rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700">
                 회수 대기 {wallet.igkDebt.toLocaleString()} IGK · 앞으로 받는
                 IGK에서 먼저 정산됩니다.
               </p>
             ) : null}
           </div>
-          <div className="w-full border border-slate-200 bg-slate-50 p-4 md:w-80">
+          <div className="w-full rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 md:w-80">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-slate-600">
                 <span className="inline-flex gap-1.5"><Badge tone="green">{wallet.standing.tierLabel}</Badge>{wallet.standing.rankLabel ? <Badge tone="blue">{wallet.standing.rankLabel}</Badge> : null}</span>
               </span>
               {nextThreshold ? (
-                <span className="font-semibold text-slate-800">
+                <span className="font-semibold tabular-nums text-slate-800">
                   {wallet.currentIgk.toLocaleString()} /{" "}
                   {nextThreshold.toLocaleString()}
                 </span>
               ) : null}
             </div>
             <div className="mt-3">
-              <Progress value={wallet.progress * 100} />
+              <Progress value={wallet.progress * 100} tone="green" />
             </div>
             <p className="mt-2 text-xs text-slate-500">
               {nextThreshold
@@ -763,7 +780,7 @@ export default function IgkPage() {
       </section>
 
       {attendance ? (
-        <section className="mt-4 border-l-4 border-emerald-700 bg-white px-4 py-4 sm:px-5">
+        <section className="anim-rise anim-delay-1 mt-4 rounded-2xl border border-slate-200/90 bg-white px-5 py-4 shadow-[var(--shadow-xs)]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="flex items-center gap-2 text-xs font-bold text-emerald-800">
@@ -771,21 +788,21 @@ export default function IgkPage() {
                 매일 출석 체크
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="inline-flex items-center gap-1.5 text-xl font-bold text-slate-950">
+                <span className="inline-flex items-center gap-1.5 text-xl font-bold tabular-nums text-slate-950">
                   <Flame className="h-5 w-5 text-rose-500" />
                   {attendance.streak}일 연속
                 </span>
-                <span className="text-xs font-bold text-slate-500">
+                <span className="text-xs font-bold tabular-nums text-slate-500">
                   최고 {attendance.bestStreak}일
                 </span>
                 {attendance.freezeCount > 0 ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-sky-700">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-bold text-sky-700">
                     <Snowflake className="h-3.5 w-3.5" />
                     프리즈 {attendance.freezeCount}개
                   </span>
                 ) : null}
               </div>
-              <p className="mt-1 text-xs text-slate-600">
+              <p className="mt-1.5 text-xs text-slate-600">
                 {attendance.claimedToday
                   ? "오늘 출석을 완료했습니다. 내일 다시 만나요!"
                   : `지금 출석하면 ${attendance.todayReward} IGK를 받습니다. 연속 출석할수록 보상이 커져요.`}
@@ -796,8 +813,13 @@ export default function IgkPage() {
                 variant="green"
                 onClick={() => void claimAttendance()}
                 disabled={attendance.claimedToday || claiming}
+                className={cn(attendance.claimedToday && "anim-pop")}
               >
-                <CalendarCheck className="h-4 w-4" />
+                {attendance.claimedToday ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <CalendarCheck className="h-4 w-4" />
+                )}
                 {attendance.claimedToday
                   ? "출석 완료"
                   : claiming
@@ -806,7 +828,7 @@ export default function IgkPage() {
               </Button>
               <Link
                 href="/igk/shop"
-                className="inline-flex min-h-11 items-center justify-center gap-2 border border-slate-300 bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 sm:min-h-9"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 shadow-[var(--shadow-xs)] transition-all duration-200 hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50 hover:shadow-[var(--shadow-sm)] active:scale-[0.97] sm:min-h-9"
               >
                 <ShoppingBag className="h-4 w-4" />
                 IGK 상점
@@ -817,24 +839,26 @@ export default function IgkPage() {
       ) : null}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <Card className="min-w-0 overflow-hidden ">
-          <Tabs
-            items={[
-              {
-                value: "ledger",
-                label: "거래 내역",
-                count: transactions.length,
-              },
-              { value: "levels", label: "등급 안내" },
-              { value: "ranking", label: "랭킹" },
-            ]}
-            value={tab}
-            onChange={setTab}
-          />
+        <Card className="min-w-0 overflow-hidden">
+          <div className="border-b border-slate-100 p-3">
+            <Tabs
+              items={[
+                {
+                  value: "ledger",
+                  label: "거래 내역",
+                  count: transactions.length,
+                },
+                { value: "levels", label: "등급 안내" },
+                { value: "ranking", label: "랭킹" },
+              ]}
+              value={tab}
+              onChange={setTab}
+            />
+          </div>
           {tab === "ledger" ? (
             <>
-              <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 p-4">
-                <h2 className="text-sm font-semibold">IGK 원장</h2>
+              <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
+                <h2 className="text-sm font-bold text-slate-950">IGK 원장</h2>
                 <Select
                   value={filter}
                   onChange={(event) => setFilter(event.target.value)}
@@ -849,33 +873,34 @@ export default function IgkPage() {
                 {filteredTransactions.map((item) => (
                   <article
                     key={item.id}
-                    className="flex items-center gap-3 border-b border-slate-100 px-4 py-3"
+                    className="flex items-center gap-3 border-b border-slate-100 px-5 py-3.5 transition-colors last:border-b-0 hover:bg-slate-50/70"
                   >
                     <span
                       className={cn(
-                        "grid h-10 w-10 shrink-0 place-items-center",
+                        "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
                         item.amount > 0
                           ? "bg-emerald-50 text-emerald-700"
-                          : "bg-blue-50 text-blue-700",
+                          : "bg-slate-100 text-slate-500",
                       )}
                     >
                       {txIcon(item.type)}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-sm font-bold">
+                      <h3 className="truncate text-sm font-bold text-slate-900">
                         {item.title}
                       </h3>
                       <p className="mt-1 truncate text-xs text-slate-500">
                         {item.description}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
-                        {item.date} · 잔액 {item.balance.toLocaleString()} IGK
+                        {item.date} · 잔액 <span className="tabular-nums">{item.balance.toLocaleString()}</span> IGK
                       </p>
                     </div>
                     <strong
-                      className={
-                        item.amount > 0 ? "text-emerald-700" : "text-slate-800"
-                      }
+                      className={cn(
+                        "text-[15px] tabular-nums tracking-[-0.01em]",
+                        item.amount > 0 ? "text-emerald-700" : "text-slate-500",
+                      )}
                     >
                       {item.amount > 0 ? "+" : ""}
                       {item.amount.toLocaleString()}
@@ -883,34 +908,39 @@ export default function IgkPage() {
                   </article>
                 ))}
                 {filteredTransactions.length === 0 ? (
-                  <div className="px-5 py-16 text-center text-sm text-slate-500">
-                    조건에 맞는 IGK 거래 내역이 없습니다.
+                  <div className="px-5 py-16 text-center">
+                    <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-slate-100 text-slate-400">
+                      <Coins className="h-6 w-6" />
+                    </span>
+                    <p className="mt-4 text-sm text-slate-500">
+                      조건에 맞는 IGK 거래 내역이 없습니다.
+                    </p>
                   </div>
                 ) : null}
               </div>
             </>
           ) : null}
           {tab === "levels" ? (
-            <div className="p-4">
+            <div className="p-4 sm:p-5">
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="border border-emerald-300 bg-white p-5">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5">
                   <Badge tone="green">현재</Badge>
                   <p className="mt-3 text-lg font-bold">
                     <span className="inline-flex gap-1.5"><Badge tone="green">{wallet.standing.tierLabel}</Badge>{wallet.standing.rankLabel ? <Badge tone="blue">{wallet.standing.rankLabel}</Badge> : null}</span>
                   </p>
                   <p className="mt-1 text-xs text-slate-600">
-                    현재 {wallet.currentIgk.toLocaleString()} IGK
+                    현재 <span className="tabular-nums">{wallet.currentIgk.toLocaleString()}</span> IGK
                   </p>
                 </div>
                 {wallet.nextLevel ? (
-                  <div className="border border-slate-200 p-5">
+                  <div className="rounded-2xl border border-slate-200/90 bg-slate-50/50 p-5">
                     <Badge tone="slate">다음</Badge>
                     <p className="mt-3 text-lg font-bold">
                       {wallet.nextLevel.label ?? igkLevelLabel(wallet.nextLevel.level)}
                     </p>
                     <p className="mt-1 text-xs text-slate-600">
                       현재{" "}
-                      {wallet.nextLevel.minimumCurrentIgk.toLocaleString()}{" "}
+                      <span className="tabular-nums">{wallet.nextLevel.minimumCurrentIgk.toLocaleString()}</span>{" "}
                       IGK부터
                     </p>
                   </div>
@@ -918,7 +948,7 @@ export default function IgkPage() {
               </div>
               <Link
                 href="/igk/roadmap"
-                className="mt-4 flex h-9 items-center justify-center border border-slate-300 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                className="mt-4 flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 shadow-[var(--shadow-xs)] transition-all duration-200 hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50 hover:shadow-[var(--shadow-sm)] active:scale-[0.98]"
               >
                 전체 등급 로드맵 보기
               </Link>
@@ -926,8 +956,8 @@ export default function IgkPage() {
           ) : null}
           {tab === "ranking" ? (
             <div>
-              <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
-                <h2 className="text-sm font-semibold">보유 IGK 랭킹</h2>
+              <div className="border-b border-slate-100 px-5 py-4">
+                <h2 className="text-sm font-bold text-slate-950">보유 IGK 랭킹</h2>
                 <p className="mt-1 text-xs text-slate-500">현재 사용할 수 있는 IGK 잔액 기준</p>
                 <Badge tone="blue" className="mt-2">
                   내 순위 {wallet.rank}위
@@ -939,11 +969,14 @@ export default function IgkPage() {
                   <Link
                     key={person.id}
                     href={`/users/${person.id}`}
-                    className="flex items-center gap-3 border-b border-slate-100 px-4 py-3"
+                    className="flex items-center gap-3 border-b border-slate-100 px-5 py-3.5 transition-colors last:border-b-0 hover:bg-slate-50/70"
                   >
-                    <span className="grid h-8 w-8 place-items-center text-sm font-bold">
+                    <span className={cn(
+                      "grid h-8 w-8 shrink-0 place-items-center text-sm font-black tabular-nums",
+                      person.rank <= 3 ? "text-amber-600" : "text-slate-400",
+                    )}>
                       {person.rank <= 3 ? (
-                        <Trophy className="h-4 w-4 text-amber-600" />
+                        <Trophy className="h-4 w-4" />
                       ) : (
                         person.rank
                       )}
@@ -960,7 +993,7 @@ export default function IgkPage() {
                       }
                     />
                     <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-sm font-bold">
+                      <h3 className="truncate text-sm font-bold text-slate-900">
                         {displayName}
                       </h3>
                       <p className="text-xs text-slate-400">
@@ -970,13 +1003,18 @@ export default function IgkPage() {
                         <span className="inline-flex gap-1"><Badge tone="green">{person.standing?.tierLabel ?? igkLevelLabel(person.level)}</Badge>{person.standing?.rankLabel ? <Badge tone="blue">{person.standing.rankLabel}</Badge> : null}</span>
                       </p>
                     </div>
-                    <strong>{person.currentIgk.toLocaleString()} IGK</strong>
+                    <strong className="text-sm tabular-nums text-slate-800">{person.currentIgk.toLocaleString()} IGK</strong>
                   </Link>
                 );
               })}
               {rankings.length === 0 ? (
-                <div className="py-16 text-center text-sm text-slate-500">
-                  아직 랭킹에 표시할 학생이 없습니다.
+                <div className="py-16 text-center">
+                  <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-slate-100 text-slate-400">
+                    <Trophy className="h-6 w-6" />
+                  </span>
+                  <p className="mt-4 text-sm text-slate-500">
+                    아직 랭킹에 표시할 학생이 없습니다.
+                  </p>
                 </div>
               ) : null}
             </div>
@@ -1027,8 +1065,8 @@ export default function IgkPage() {
                     placeholder={bSideEnabled ? "#A1B2C3D4" : "이름 또는 닉네임 2자 이상"}
                   />
                   {recipientSearching ? <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" /> : null}
-                  {!bSideEnabled && recipientPickerOpen && !selectedRecipient && recipient.trim().length >= 2 ? <div id="igk-recipient-options" role="listbox" className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto border border-slate-300 bg-white shadow-lg">
-                    {recipientSuggestions.map((person) => <button key={person.id} type="button" role="option" aria-selected="false" className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2.5 text-left last:border-0 hover:bg-emerald-50 focus:bg-emerald-50" onClick={() => { setSelectedRecipient(person); setRecipient(person.realName || person.nickname); setRecipientPickerOpen(false); }}>
+                  {!bSideEnabled && recipientPickerOpen && !selectedRecipient && recipient.trim().length >= 2 ? <div id="igk-recipient-options" role="listbox" className="anim-pop absolute z-30 mt-1.5 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-[var(--shadow-lg)]">
+                    {recipientSuggestions.map((person) => <button key={person.id} type="button" role="option" aria-selected="false" className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-emerald-50 focus:bg-emerald-50" onClick={() => { setSelectedRecipient(person); setRecipient(person.realName || person.nickname); setRecipientPickerOpen(false); }}>
                       <Avatar name={person.realName || person.nickname} imageUrl={person.profileImage} size="sm" />
                       <span className="min-w-0 flex-1"><span className="block truncate text-xs font-black text-slate-900">{person.realName || person.nickname} <span className="font-semibold text-slate-500">@{person.nickname}</span></span><span className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-slate-500">{person.studentIdentity?.studentCode}<Badge tone="green">{person.standing.tierLabel}</Badge>{person.standing.rankLabel ? <Badge tone="blue">{person.standing.rankLabel}</Badge> : null}</span></span>
                     </button>)}
@@ -1084,10 +1122,12 @@ export default function IgkPage() {
                 return (
                   <div
                     key={String(label)}
-                    className="flex items-center gap-3 px-4 py-3"
+                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50/70"
                   >
-                    <ItemIcon className="h-4 w-4 text-blue-700" />
-                    <span className="flex-1 text-xs font-bold">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-700">
+                      <ItemIcon className="h-4 w-4" />
+                    </span>
+                    <span className="flex-1 text-xs font-bold text-slate-700">
                       {String(label)}
                     </span>
                     <Badge tone="green">{String(reward)} IGK</Badge>
@@ -1123,14 +1163,14 @@ export default function IgkPage() {
         }
       >
         <div className="space-y-5">
-          <div className="border border-slate-300 bg-white p-5 text-center">
+          <div className="rounded-2xl border border-slate-200/90 bg-slate-50/60 p-6 text-center">
             <Avatar name={selectedRecipient?.realName || selectedRecipient?.nickname || recipient || "학생"} imageUrl={selectedRecipient?.profileImage} size="lg" tone="green" />
-            <p className="mt-3 text-sm font-bold">{selectedRecipient ? `${selectedRecipient.realName || selectedRecipient.nickname} (@${selectedRecipient.nickname})` : recipient} 학생에게</p>
-            <p className="mt-2 text-3xl font-bold text-emerald-700">
+            <p className="mt-3 text-sm font-bold text-slate-800">{selectedRecipient ? `${selectedRecipient.realName || selectedRecipient.nickname} (@${selectedRecipient.nickname})` : recipient} 학생에게</p>
+            <p className="mt-2 text-[32px] font-bold leading-none tracking-[-0.03em] tabular-nums text-emerald-700">
               {giftAmount.toLocaleString()} IGK
             </p>
           </div>
-          {wallet && igkLevelForBalance(balance - giftAmount).level < wallet.level ? <p className="border border-amber-300 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">선물 후 현재 IGK가 낮아져 {wallet.standing.tierLabel}에서 {igkLevelForBalance(balance - giftAmount).label}(으)로 내려갑니다. 짱 순위도 즉시 다시 계산됩니다.</p> : null}
+          {wallet && igkLevelForBalance(balance - giftAmount).level < wallet.level ? <p className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">선물 후 현재 IGK가 낮아져 {wallet.standing.tierLabel}에서 {igkLevelForBalance(balance - giftAmount).label}(으)로 내려갑니다. 짱 순위도 즉시 다시 계산됩니다.</p> : null}
           {passwordRequired ? (
             <Field label="본인 확인 비밀번호" required hint="누적 100 IGK 이상">
               <Input

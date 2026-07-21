@@ -784,7 +784,7 @@ export default function NotificationsPage() {
               description={`읽지 않음 ${unreadCount}개`}
               className="min-h-0 px-4 py-3"
             />
-            <nav className="grid grid-cols-3 gap-1 p-2 md:block">
+            <nav className="grid grid-cols-3 gap-1 p-2 md:block md:space-y-0.5">
               {categories.map((item) => {
                 const Icon = item.icon;
                 const count = categoryCount(item.value);
@@ -794,20 +794,20 @@ export default function NotificationsPage() {
                     type="button"
                     onClick={() => setCategory(item.value)}
                     className={cn(
-                      "flex min-w-0 w-full items-center gap-2 px-2 py-2 text-left text-xs font-bold transition md:gap-3 md:px-3",
+                      "flex min-w-0 w-full items-center gap-2 rounded-xl px-2 py-2 text-left text-xs font-bold transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] md:gap-3 md:px-3",
                       category === item.value
                         ? "bg-emerald-50 text-emerald-700"
                         : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                     )}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-4 w-4 shrink-0" />
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
                     <span
                       className={cn(
-                        "text-xs",
+                        "rounded-full px-1.5 py-0.5 text-[11px] tabular-nums",
                         category === item.value
-                          ? "text-emerald-700"
-                          : "text-slate-400",
+                          ? "bg-emerald-100/70 text-emerald-700"
+                          : "bg-slate-100 text-slate-400",
                       )}
                     >
                       {count}
@@ -819,8 +819,8 @@ export default function NotificationsPage() {
           </Card>
         </aside>
 
-        <Card className="min-w-0 overflow-hidden rounded-none border-x-0 border-b-0 border-t-2 border-t-slate-800">
-          <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <Card className="min-w-0 overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-600">
               <input
                 type="checkbox"
@@ -835,7 +835,7 @@ export default function NotificationsPage() {
                 type="button"
                 onClick={markAllRead}
                 disabled={unreadCount === 0 || loadState !== "ready"}
-                className="inline-flex h-9 items-center gap-2 px-3 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:text-slate-400"
+                className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:text-slate-400 disabled:hover:bg-transparent"
               >
                 <CheckCheck className="h-4 w-4" />
                 모두 읽음
@@ -844,7 +844,7 @@ export default function NotificationsPage() {
                 <button
                   type="button"
                   onClick={deleteRead}
-                  className="inline-flex h-9 items-center gap-2 px-3 text-xs font-bold text-slate-500 hover:bg-slate-100"
+                  className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-bold text-slate-500 transition-colors hover:bg-slate-100"
                 >
                   <Trash2 className="h-4 w-4" />
                   데모 정리
@@ -854,20 +854,28 @@ export default function NotificationsPage() {
           </div>
           <div>
             {loadState === "loading" ? (
-              <div className="px-5 py-20 text-center">
-                <Loader2 className="mx-auto h-7 w-7 animate-spin text-blue-700" />
-                <p className="mt-3 text-sm font-bold">
-                  알림을 불러오는 중입니다.
-                </p>
+              <div className="space-y-1 p-3" aria-busy="true">
+                <p className="sr-only">알림을 불러오는 중입니다.</p>
+                {[0, 1, 2, 3, 4].map((item) => (
+                  <div key={item} className="flex items-center gap-3 px-2 py-3">
+                    <div className="skeleton h-10 w-10 shrink-0 rounded-xl" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="skeleton h-3.5 w-3/5" />
+                      <div className="skeleton h-3 w-4/5" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : null}
             {loadState === "auth" ? (
               <div className="px-5 py-20 text-center">
-                <LogIn className="mx-auto h-7 w-7 text-blue-700" />
-                <p className="mt-3 text-sm font-bold">로그인이 필요합니다.</p>
+                <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-slate-100 text-slate-400">
+                  <LogIn className="h-6 w-6" />
+                </span>
+                <p className="mt-4 text-sm font-bold text-slate-800">로그인이 필요합니다.</p>
                 <Link
                   href="/login"
-                  className="mt-4 inline-flex h-10 items-center bg-blue-700 px-4 text-sm font-bold text-white"
+                  className="mt-5 inline-flex h-10 items-center rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]"
                 >
                   로그인하기
                 </Link>
@@ -875,13 +883,15 @@ export default function NotificationsPage() {
             ) : null}
             {loadState === "error" ? (
               <div className="px-5 py-20 text-center">
-                <RefreshCw className="mx-auto h-7 w-7 text-red-600" />
-                <p className="mt-3 text-sm font-bold">
+                <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-red-50 text-red-500">
+                  <RefreshCw className="h-6 w-6" />
+                </span>
+                <p className="mt-4 text-sm font-bold text-slate-800">
                   알림을 표시할 수 없습니다.
                 </p>
                 <p className="mt-2 text-xs text-red-600">{loadError}</p>
                 <Button
-                  className="mt-4"
+                  className="mt-5"
                   onClick={() => setReloadKey((value) => value + 1)}
                 >
                   다시 시도
@@ -899,12 +909,12 @@ export default function NotificationsPage() {
                       <article
                         key={group.key}
                         className={cn(
-                          "relative flex gap-3 border-b border-slate-100 px-4 py-4 last:border-b-0 sm:px-5",
-                          item.unread && "bg-emerald-50/40",
+                          "relative flex gap-3 border-b border-slate-100 px-4 py-4 transition-colors duration-300 last:border-b-0 hover:bg-slate-50/70 sm:px-5",
+                          item.unread && "bg-emerald-50/50 hover:bg-emerald-50/70",
                         )}
                       >
                         {item.unread ? (
-                          <span className="absolute left-0 top-0 h-full w-0.5 bg-emerald-600" />
+                          <span className="absolute left-0 top-1/2 h-8 w-[3px] -translate-y-1/2 rounded-full bg-emerald-500" />
                         ) : null}
                         {item.actor ? (
                           <Avatar
@@ -914,7 +924,7 @@ export default function NotificationsPage() {
                         ) : (
                           <span
                             className={cn(
-                              "grid h-10 w-10 shrink-0 place-items-center ",
+                              "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
                               notificationTone(item.type),
                             )}
                           >
@@ -938,7 +948,7 @@ export default function NotificationsPage() {
                               ) : null}
                               {item.title}
                             </h3>
-                              {item.unread ? <span className="h-2 w-2 bg-red-900" aria-label="읽지 않음" /> : null}
+                              {item.unread ? <span className="h-2 w-2 rounded-full bg-emerald-500" aria-label="읽지 않음" /> : null}
                           </div>
                           <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-slate-600">
                             {item.detail}
@@ -947,7 +957,7 @@ export default function NotificationsPage() {
                             {item.time}
                           </p>
                         </button>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
+                        <ChevronRight className="h-4 w-4 shrink-0 self-center text-slate-300" />
                       </article>
                     );
                   }
@@ -956,17 +966,17 @@ export default function NotificationsPage() {
                     <section
                       key={group.key}
                       className={cn(
-                        "border-b border-slate-200 last:border-b-0",
-                        group.unreadCount > 0 && "bg-emerald-50/30",
+                        "border-b border-slate-100 transition-colors duration-300 last:border-b-0",
+                        group.unreadCount > 0 && "bg-emerald-50/40",
                       )}
                     >
                       <div className="relative flex gap-3 px-4 py-4 sm:px-5">
                         {group.unreadCount > 0 ? (
-                          <span className="absolute left-0 top-0 h-full w-0.5 bg-emerald-600" />
+                          <span className="absolute left-0 top-1/2 h-8 w-[3px] -translate-y-1/2 rounded-full bg-emerald-500" />
                         ) : null}
                         <span
                           className={cn(
-                            "grid h-10 w-10 shrink-0 place-items-center ",
+                            "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
                             notificationTone(item.type),
                           )}
                         >
@@ -983,7 +993,7 @@ export default function NotificationsPage() {
                             </h3>
                             <Badge tone="slate">{group.items.length}개</Badge>
                             {group.unreadCount > 0 ? (
-                              <Badge tone="blue">미확인 {group.unreadCount}</Badge>
+                              <Badge tone="green">미확인 {group.unreadCount}</Badge>
                             ) : null}
                           </div>
                           <p className="mt-1.5 line-clamp-1 text-xs leading-5 text-slate-600">
@@ -1007,7 +1017,7 @@ export default function NotificationsPage() {
                           >
                             <ChevronDown
                               className={cn(
-                                "h-4 w-4 transition-transform",
+                                "h-4 w-4 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
                                 expanded && "rotate-180",
                               )}
                             />
@@ -1015,20 +1025,20 @@ export default function NotificationsPage() {
                         </div>
                       </div>
                       {expanded ? (
-                        <div className="border-t border-slate-200 bg-white sm:pl-[68px]">
+                        <div className="anim-fade border-t border-slate-100 bg-slate-50/40 sm:pl-[68px]">
                           {group.items.map((child) => {
                             const ChildIcon = iconForType(child.type);
                             return (
                               <article
                                 key={child.id}
                                 className={cn(
-                                  "relative flex gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0",
-                                  child.unread && "bg-emerald-50/30",
+                                  "relative flex gap-3 border-b border-slate-100 px-4 py-3 transition-colors duration-300 last:border-b-0 hover:bg-slate-50",
+                                  child.unread && "bg-emerald-50/40 hover:bg-emerald-50/60",
                                 )}
                               >
                                 <span
                                   className={cn(
-                                    "mt-0.5 grid h-8 w-8 shrink-0 place-items-center ",
+                                    "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg",
                                     notificationTone(child.type),
                                   )}
                                 >
@@ -1069,7 +1079,7 @@ export default function NotificationsPage() {
               : null}
             {loadState === "ready" && visibleGroups.length === 0 ? (
               <div className="px-5 py-20 text-center">
-                <span className="mx-auto grid h-14 w-14 place-items-center  bg-slate-100 text-slate-400">
+                <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-slate-100 text-slate-400">
                   <BellOff className="h-6 w-6" />
                 </span>
                 <h3 className="mt-4 text-sm font-semibold text-slate-800">
@@ -1102,7 +1112,7 @@ export default function NotificationsPage() {
             <h3 className="mb-2 text-xs font-semibold text-slate-500">
               알림 유형
             </h3>
-            <div className="border border-slate-200">
+            <div className="overflow-hidden rounded-xl border border-slate-200">
               {(
                 [
                   [
@@ -1119,7 +1129,7 @@ export default function NotificationsPage() {
               ).map(([key, label, detail]) => (
                 <div
                   key={key}
-                  className="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3 last:border-b-0"
+                  className="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3 transition-colors last:border-b-0 hover:bg-slate-50/60"
                 >
                   <div>
                     <p className="text-sm font-bold text-slate-800">{label}</p>
@@ -1136,13 +1146,13 @@ export default function NotificationsPage() {
                       }))
                     }
                     className={cn(
-                      "relative h-6 w-11 shrink-0  transition",
-                      settings[key] ? "bg-blue-700" : "bg-slate-300",
+                      "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                      settings[key] ? "bg-emerald-600" : "bg-slate-300",
                     )}
                   >
                     <span
                       className={cn(
-                        "absolute top-1 h-4 w-4  bg-white  transition-all",
+                        "absolute top-1 h-4 w-4 rounded-full bg-white shadow-[var(--shadow-sm)] transition-all duration-200 ease-[cubic-bezier(0.34,1.32,0.5,1)]",
                         settings[key] ? "left-6" : "left-1",
                       )}
                     />
@@ -1173,13 +1183,13 @@ export default function NotificationsPage() {
                 setSettings((current) => ({ ...current, push: !current.push }))
               }
               className={cn(
-                "relative h-6 w-11 shrink-0 transition disabled:cursor-not-allowed disabled:opacity-50",
-                settings.push ? "bg-emerald-700" : "bg-slate-300",
+                "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] disabled:cursor-not-allowed disabled:opacity-50",
+                settings.push ? "bg-emerald-600" : "bg-slate-300",
               )}
             >
               <span
                 className={cn(
-                  "absolute top-1 h-4 w-4  bg-white  transition-all",
+                  "absolute top-1 h-4 w-4 rounded-full bg-white shadow-[var(--shadow-sm)] transition-all duration-200 ease-[cubic-bezier(0.34,1.32,0.5,1)]",
                   settings.push ? "left-6" : "left-1",
                 )}
               />
@@ -1197,13 +1207,13 @@ export default function NotificationsPage() {
                 aria-checked={quietHours.enabled}
                 onClick={() => setQuietHours((current) => ({ ...current, enabled: !current.enabled }))}
                 className={cn(
-                  "relative h-6 w-11 shrink-0 transition",
-                  quietHours.enabled ? "bg-blue-700" : "bg-slate-300",
+                  "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  quietHours.enabled ? "bg-emerald-600" : "bg-slate-300",
                 )}
               >
                 <span
                   className={cn(
-                    "absolute top-1 h-4 w-4 bg-white transition-all",
+                    "absolute top-1 h-4 w-4 rounded-full bg-white shadow-[var(--shadow-sm)] transition-all duration-200 ease-[cubic-bezier(0.34,1.32,0.5,1)]",
                     quietHours.enabled ? "left-6" : "left-1",
                   )}
                 />
@@ -1217,7 +1227,7 @@ export default function NotificationsPage() {
                   value={quietHours.start}
                   disabled={!quietHours.enabled}
                   onChange={(event) => setQuietHours((current) => ({ ...current, start: event.target.value }))}
-                  className="mt-1 w-full border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm transition-colors focus:border-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-600/10 disabled:bg-slate-100 disabled:text-slate-400"
                 />
               </label>
               <label className="text-xs font-semibold text-slate-600">
@@ -1227,7 +1237,7 @@ export default function NotificationsPage() {
                   value={quietHours.end}
                   disabled={!quietHours.enabled}
                   onChange={(event) => setQuietHours((current) => ({ ...current, end: event.target.value }))}
-                  className="mt-1 w-full border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm transition-colors focus:border-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-600/10 disabled:bg-slate-100 disabled:text-slate-400"
                 />
               </label>
               <label className="text-xs font-semibold text-slate-600">
@@ -1236,7 +1246,7 @@ export default function NotificationsPage() {
                   value={quietHours.timeZone}
                   disabled={!quietHours.enabled}
                   onChange={(event) => setQuietHours((current) => ({ ...current, timeZone: event.target.value }))}
-                  className="mt-1 w-full border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm transition-colors focus:border-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-600/10 disabled:bg-slate-100 disabled:text-slate-400"
                 >
                   <option value="Asia/Seoul">서울 (KST)</option>
                   <option value="Asia/Tokyo">도쿄 (JST)</option>
@@ -1245,7 +1255,7 @@ export default function NotificationsPage() {
               </label>
             </div>
           </div>
-          <p className="border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
             보안 및 제재 알림은 계정 보호와 운영 정책 안내를 위해 유형 설정과 관계없이 인앱으로 전달됩니다. 웹 푸시는 이 기기에서 동의한 경우에만 전달됩니다.
           </p>
         </div>

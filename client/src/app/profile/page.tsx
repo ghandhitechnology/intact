@@ -15,8 +15,10 @@ import {
   Textarea,
   Toast,
   apiErrorMessage,
+  cn,
   readApiEnvelope,
 } from '@/components/operations/ui';
+import { LevelBadge } from '@/components/community/CommunityUI';
 import {
   Award,
   CalendarDays,
@@ -538,11 +540,44 @@ export default function ProfilePage() {
     return (
       <div className="app-page mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 lg:px-8">
         <PageHeading title="내 프로필" />
-        <Card className="mt-4 p-8 text-center">
-          {loadState === 'loading' ? <><Loader2 className="mx-auto h-7 w-7 animate-spin text-blue-700" /><h2 className="mt-4 text-sm font-semibold text-slate-900">프로필을 불러오는 중입니다.</h2></> : null}
-          {loadState === 'auth' ? <><LogIn className="mx-auto h-7 w-7 text-blue-700" /><h2 className="mt-4 text-sm font-semibold text-slate-900">로그인이 필요합니다.</h2><Link href="/login" className="mt-5 inline-flex h-10 items-center bg-blue-700 px-4 text-sm font-bold text-white">로그인하기</Link></> : null}
-          {loadState === 'error' ? <><RefreshCw className="mx-auto h-7 w-7 text-red-600" /><h2 className="mt-4 text-sm font-semibold text-slate-900">프로필을 표시할 수 없습니다.</h2><p className="mt-2 text-xs text-red-600">{loadError}</p><Button className="mt-5" onClick={() => setReloadKey((value) => value + 1)}><RefreshCw className="h-4 w-4" />다시 시도</Button></> : null}
-        </Card>
+        {loadState === 'loading' ? (
+          <div className="mt-4 grid gap-4 lg:grid-cols-[290px_minmax(0,1fr)]" role="status" aria-label="프로필을 불러오는 중입니다.">
+            <Card className="p-5">
+              <div className="flex items-end justify-between">
+                <div className="skeleton h-20 w-20 rounded-full" />
+                <div className="skeleton mb-1 h-6 w-24 rounded-full" />
+              </div>
+              <div className="skeleton mt-4 h-6 w-36" />
+              <div className="skeleton mt-2 h-3.5 w-48" />
+              <div className="skeleton mt-5 h-4 w-full" />
+              <div className="skeleton mt-2 h-4 w-2/3" />
+            </Card>
+            <div className="grid grid-cols-2 content-start gap-3 sm:grid-cols-4">
+              <div className="skeleton h-[92px] rounded-2xl" />
+              <div className="skeleton h-[92px] rounded-2xl" />
+              <div className="skeleton h-[92px] rounded-2xl" />
+              <div className="skeleton h-[92px] rounded-2xl" />
+            </div>
+          </div>
+        ) : (
+          <Card className="anim-fade mx-auto mt-4 max-w-md p-8 text-center">
+            {loadState === 'auth' ? (
+              <>
+                <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-50 text-emerald-700"><LogIn className="h-5 w-5" /></span>
+                <h2 className="mt-4 text-sm font-semibold text-slate-900">로그인이 필요합니다.</h2>
+                <Link href="/login" className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]">로그인하기</Link>
+              </>
+            ) : null}
+            {loadState === 'error' ? (
+              <>
+                <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-600"><RefreshCw className="h-5 w-5" /></span>
+                <h2 className="mt-4 text-sm font-semibold text-slate-900">프로필을 표시할 수 없습니다.</h2>
+                <p className="mt-2 text-xs leading-5 text-red-600">{loadError}</p>
+                <Button className="mt-5" onClick={() => setReloadKey((value) => value + 1)}><RefreshCw className="h-4 w-4" />다시 시도</Button>
+              </>
+            ) : null}
+          </Card>
+        )}
       </div>
     );
   }
@@ -564,7 +599,7 @@ export default function ProfilePage() {
           <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
             <Link
               href="/igk"
-              className="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap border border-emerald-700 bg-emerald-700 px-3.5 text-xs font-semibold text-white transition hover:border-emerald-800 hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200"
+              className="ui-button inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-emerald-800/60 bg-emerald-700 px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 active:scale-[0.97]"
             >
               <Coins className="h-4 w-4" />
               IGK 대시보드
@@ -574,28 +609,37 @@ export default function ProfilePage() {
         )}
       />
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_280px]">
-        <aside className="space-y-4">
-          <Card className="overflow-hidden ">
-            <div className="h-1 bg-emerald-700" />
-            <div className="p-4">
-              <div className="flex items-end justify-between"><Avatar name={profile.realName || profile.nickname} imageUrl={profile.profileImage} size="xl" tone="blue" className={level >= 10 ? 'top-level-avatar' : undefined} /><Badge tone={profile.status === 'ACTIVE' ? 'green' : 'amber'} className="mb-1"><ShieldCheck className="mr-1 h-3 w-3" />{profile.status === 'ACTIVE' ? '재학생 인증' : profile.status}</Badge></div>
-              <h2 className="mt-4 text-xl font-bold tracking-[-0.035em] text-slate-950">{profile.realName || profile.nickname}</h2>
-              <p className="mt-1 text-xs font-bold text-slate-500">{identityLine}</p>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[290px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)_300px]">
+        <aside className="anim-rise space-y-4">
+          <Card className="overflow-hidden">
+            <div className="h-16 bg-[linear-gradient(120deg,var(--green-pale),var(--blue-pale))]" />
+            <div className="px-5 pb-5">
+              <div className="-mt-9 flex items-end justify-between gap-3">
+                <Avatar name={profile.realName || profile.nickname} imageUrl={profile.profileImage} size="xl" tone="blue" className={cn('border-4 border-white shadow-[var(--shadow-sm)]', level >= 10 && 'top-level-avatar')} />
+                <Badge tone={profile.status === 'ACTIVE' ? 'green' : 'amber'} className="mb-1"><ShieldCheck className="mr-1 h-3 w-3" />{profile.status === 'ACTIVE' ? '재학생 인증' : profile.status}</Badge>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                <h2 className="text-[22px] font-bold leading-tight tracking-[-0.03em] text-slate-950">{profile.realName || profile.nickname}</h2>
+                <LevelBadge level={level} />
+              </div>
+              <p className="mt-1.5 text-xs font-semibold tabular-nums text-slate-500">{identityLine}</p>
               <p className="mt-4 text-sm leading-6 text-slate-600">{profile.bio || '아직 소개가 없습니다.'}</p>
               {profile.interests.length ? <div className="mt-4 flex flex-wrap gap-1.5">{profile.interests.map((interest) => <Badge key={interest} tone="slate">#{interest}</Badge>)}</div> : null}
-              <div className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500"><div className="flex items-center gap-2"><CalendarDays className="h-3.5 w-3.5" />{formatDate(profile.createdAt) ?? '날짜 정보 없음'} 가입</div>{profile.lastReverifiedAt ? <div className="mt-2 flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5" />{formatDate(profile.lastReverifiedAt)} 재인증</div> : null}</div>
+              <div className="mt-5 space-y-2 border-t border-slate-100 pt-4 text-xs text-slate-500">
+                <div className="flex items-center gap-2"><CalendarDays className="h-3.5 w-3.5 text-slate-400" />{formatDate(profile.createdAt) ?? '날짜 정보 없음'} 가입</div>
+                {profile.lastReverifiedAt ? <div className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-slate-400" />{formatDate(profile.lastReverifiedAt)} 재인증</div> : null}
+              </div>
             </div>
           </Card>
         </aside>
 
-        <section className="min-w-0 space-y-4">
+        <section className="anim-rise anim-delay-1 min-w-0">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="현재 등급" value={igkLevelLabel(level)} detail={igk?.igkRank ? `${igk.igkRank}짱 · 보유 IGK 기준` : '보유 IGK 기준'} icon={<Trophy className="h-4 w-4" />} tone="amber" />
             <Link
               href="/igk"
               aria-label={`IGK 대시보드 열기, 현재 ${currentIgk.toLocaleString()} IGK`}
-              className="block transition hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200"
+              className="block rounded-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200"
             >
               <Stat label="보유 IGK" value={currentIgk.toLocaleString()} detail={`누적 ${lifetimeIgk.toLocaleString()} · 대시보드 열기`} icon={<Gift className="h-4 w-4" />} tone="green" />
             </Link>
@@ -604,26 +648,49 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <aside className="space-y-4 lg:col-span-2 xl:col-span-1">
-          <Card className=""><CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-blue-700">전체 로드맵</Link>} /><div className="p-5"><div className="flex items-end justify-between"><div><span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level)}{igk?.igkRank ? ` · ${igk.igkRank}짱` : ''}</span><p className="mt-1 text-lg font-bold text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : igkLevelLabel(level)}</p></div>{nextThreshold ? <span className="text-xs font-bold text-blue-700">{currentIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}</div><div className="mt-4"><Progress value={progress} /></div>{typeof igk?.attendanceStreak === 'number' ? <p className="mt-3 border-t border-slate-100 pt-3 text-xs font-bold text-slate-600">출석 스트릭 <strong className="text-emerald-700">{igk.attendanceStreak}일 연속</strong> · 최고 {igk.bestAttendanceStreak ?? igk.attendanceStreak}일</p> : null}<Link href="/igk/roadmap" className="mt-5 flex h-10 w-full items-center justify-center border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">9등급부터 조졸까지 보기</Link></div></Card>
-          <Card className=""><CardHeader title="재학생 인증" /><div className="p-5"><p className="flex items-center gap-2 text-sm font-semibold text-slate-900"><ShieldCheck className="h-4 w-4 text-emerald-700" />{profile.status === 'ACTIVE' ? '정상 이용 가능' : profile.status}</p><p className="mt-2 text-xs leading-5 text-slate-500">{profile.reverifyDueAt ? `${formatDate(profile.reverifyDueAt)}까지 재인증이 유효합니다.` : '재인증 만료일이 등록되지 않았습니다.'}</p></div></Card>
+        <aside className="anim-rise anim-delay-2 space-y-4 lg:col-span-2 xl:col-span-1">
+          <Card>
+            <CardHeader title="등급 진행" action={<Link href="/igk/roadmap" className="text-xs font-bold text-emerald-700 underline-offset-4 transition-colors hover:text-emerald-800 hover:underline">전체 로드맵</Link>} />
+            <div className="p-5">
+              <div className="flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-slate-500">현재 {igkLevelLabel(level)}{igk?.igkRank ? ` · ${igk.igkRank}짱` : ''}</span>
+                  <p className="mt-1 truncate text-lg font-bold tracking-[-0.02em] text-slate-950">{nextThreshold ? `다음 ${igk?.nextLevel?.label ?? igkLevelLabel(igk?.nextLevel?.level ?? level + 1)}` : igkLevelLabel(level)}</p>
+                </div>
+                {nextThreshold ? <span className="shrink-0 text-xs font-bold tabular-nums text-emerald-700">{currentIgk.toLocaleString()} / {nextThreshold.toLocaleString()}</span> : null}
+              </div>
+              <div className="mt-4"><Progress value={progress} tone="green" /></div>
+              {typeof igk?.attendanceStreak === 'number' ? <p className="mt-4 border-t border-slate-100 pt-3 text-xs font-bold text-slate-600">출석 스트릭 <strong className="text-emerald-700">{igk.attendanceStreak}일 연속</strong> · 최고 {igk.bestAttendanceStreak ?? igk.attendanceStreak}일</p> : null}
+              <Link href="/igk/roadmap" className="secondary-button mt-5 w-full text-xs">9등급부터 조졸까지 보기</Link>
+            </div>
+          </Card>
+          <Card>
+            <CardHeader title="재학생 인증" />
+            <div className="p-5">
+              <p className="flex items-center gap-2.5 text-sm font-semibold text-slate-900">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-700"><ShieldCheck className="h-4 w-4" /></span>
+                {profile.status === 'ACTIVE' ? '정상 이용 가능' : profile.status}
+              </p>
+              <p className="mt-3 text-xs leading-5 text-slate-500">{profile.reverifyDueAt ? `${formatDate(profile.reverifyDueAt)}까지 재인증이 유효합니다.` : '재인증 만료일이 등록되지 않았습니다.'}</p>
+            </div>
+          </Card>
         </aside>
       </div>
 
-      <section className="mt-6" aria-labelledby="account-security-title">
+      <section className="anim-rise anim-delay-3 mt-6" aria-labelledby="account-security-title">
         <div className="mb-3 border-b border-slate-200 pb-3">
           <h2 id="account-security-title" className="text-lg font-bold tracking-[-0.03em] text-slate-950">계정 보안</h2>
         </div>
 
         <div className="grid items-start gap-4 lg:grid-cols-2">
-          <Card className="">
+          <Card>
             <CardHeader
               title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-blue-700" />비밀번호 변경</span>}
               description="변경하면 현재 세션을 제외한 기존 로그인이 자동으로 종료됩니다."
             />
             <form onSubmit={changePassword} className="space-y-4 p-5" noValidate>
               {DEMO_MODE && (
-                <div className="border border-amber-300 bg-white px-4 py-3 text-xs leading-5 text-amber-800">
+                <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-xs leading-5 text-amber-800">
                   시연 모드입니다. 비밀번호를 입력하거나 서버에 변경을 전송할 수 없습니다.
                 </div>
               )}
@@ -660,7 +727,7 @@ export default function ProfilePage() {
                 />
               </Field>
               {passwordError && (
-                <div role="alert" className="border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium leading-5 text-red-700">
+                <div role="alert" className="anim-rise rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium leading-5 text-red-700">
                   {passwordError}
                 </div>
               )}
@@ -672,7 +739,7 @@ export default function ProfilePage() {
             </form>
           </Card>
 
-          <Card className="">
+          <Card className="overflow-hidden">
             <CardHeader
               title={<span className="flex items-center gap-2"><MonitorSmartphone className="h-4 w-4 text-emerald-700" />활성 포털 로그인</span>}
               action={DEMO_MODE
@@ -690,15 +757,23 @@ export default function ProfilePage() {
             />
 
             {sessionLoadState === 'loading' && (
-              <div className="flex min-h-48 flex-col items-center justify-center p-6 text-center">
-                <Loader2 className="h-6 w-6 animate-spin text-blue-700" />
-                <p className="mt-3 text-xs font-bold text-slate-500">활성 로그인을 확인하는 중…</p>
+              <div className="space-y-5 p-5" role="status" aria-label="활성 로그인을 확인하는 중…">
+                {[0, 1].map((item) => (
+                  <div key={item} className="flex gap-3">
+                    <div className="skeleton h-10 w-10 shrink-0 rounded-xl" />
+                    <div className="min-w-0 flex-1">
+                      <div className="skeleton h-4 w-44" />
+                      <div className="skeleton mt-2 h-3 w-full" />
+                      <div className="skeleton mt-2 h-3 w-2/3" />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
             {sessionLoadState === 'error' && (
               <div className="p-5">
-                <div role="alert" className="border border-red-200 bg-red-50 px-4 py-4 text-xs leading-5 text-red-700">{sessionError}</div>
+                <div role="alert" className="anim-rise rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-xs leading-5 text-red-700">{sessionError}</div>
                 <Button type="button" variant="secondary" className="mt-4 w-full" onClick={() => setSessionReloadKey((value) => value + 1)}>
                   <RefreshCw className="h-4 w-4" />다시 불러오기
                 </Button>
@@ -708,15 +783,15 @@ export default function ProfilePage() {
             {sessionLoadState === 'ready' && (
               <>
                 {sessionError && (
-                  <div role="alert" className="m-4 mb-0 border border-red-200 bg-red-50 px-4 py-3 text-xs leading-5 text-red-700">
+                  <div role="alert" className="anim-rise m-4 mb-0 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs leading-5 text-red-700">
                     {sessionError}
                   </div>
                 )}
-                <div className="divide-y divide-slate-100">
+                <div className="stagger divide-y divide-slate-100">
                   {sessions.map((session) => (
-                    <article key={session.id} className="p-5">
+                    <article key={session.id} className="p-5 transition-colors duration-200 hover:bg-slate-50/80">
                       <div className="flex items-start gap-3">
-                        <span className="grid h-10 w-10 shrink-0 place-items-center bg-slate-100 text-slate-600">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">
                           <MonitorSmartphone className="h-4 w-4" aria-hidden="true" />
                         </span>
                         <div className="min-w-0 flex-1">
@@ -752,7 +827,7 @@ export default function ProfilePage() {
                     <div className="px-5 py-12 text-center text-xs leading-5 text-slate-400">표시할 활성 포털 세션이 없습니다.</div>
                   )}
                 </div>
-                <div className="border-t border-slate-200 bg-slate-50 p-4">
+                <div className="border-t border-slate-100 bg-slate-50/70 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs leading-5 text-slate-500">최근 확인 시간은 서버에서 최대 15분 단위로 갱신됩니다.</p>
                     <Button
@@ -780,14 +855,14 @@ export default function ProfilePage() {
         footer={<><Button variant="secondary" onClick={() => setEditOpen(false)}>취소</Button><Button onClick={() => void saveProfile()} disabled={saving || avatarUploading}>{saving ? '저장 중…' : '변경사항 저장'}</Button></>}
       >
         <form onSubmit={(event) => { event.preventDefault(); void saveProfile(); }} className="space-y-5">
-          <div className="flex items-center gap-4 border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <Avatar name={profile.realName || profile.nickname} imageUrl={draftProfileImage || null} size="lg" tone="blue" className={level >= 10 ? 'top-level-avatar' : undefined} />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-slate-900">프로필 이미지</p>
               <p className="mt-1 text-xs text-slate-500">10MB 이하 JPEG, PNG, WebP, AVIF · 중앙 정사각형으로 안전하게 처리</p>
-              {avatarProgress ? <p className="mt-2 text-xs font-bold text-emerald-700">{avatarProgress}</p> : null}
+              {avatarProgress ? <p className="anim-fade mt-2 text-xs font-bold text-emerald-700">{avatarProgress}</p> : null}
               <div className="mt-3 flex flex-wrap gap-2">
-                <label className="inline-flex h-9 cursor-pointer items-center gap-2 border border-emerald-700 bg-emerald-700 px-3 text-xs font-bold text-white hover:bg-emerald-800">
+                <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 px-3.5 text-xs font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)] active:scale-[0.97]">
                   <ImagePlus className="h-4 w-4" />이미지 선택
                   <input
                     type="file"
@@ -804,22 +879,22 @@ export default function ProfilePage() {
           <Field label="닉네임" hint="2–16자"><Input value={draftNickname} onChange={(event) => setDraftNickname(event.target.value)} maxLength={16} /></Field>
           <Field label="소개" hint={`${draftBio.length}/280`}><Textarea rows={4} value={draftBio} onChange={(event) => setDraftBio(event.target.value)} maxLength={280} /></Field>
           <Field label="관심 분야" hint="쉼표로 구분, 최대 5개"><Input value={interestDraft} onChange={(event) => setInterestDraft(event.target.value)} placeholder="물리, 천문, 과학대회" /></Field>
-          <div className="border border-slate-200 bg-slate-50 p-4">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-bold text-slate-700">프로필 공개 설정</p>
-            <div className="mt-3 grid gap-2">
+            <div className="mt-3 grid gap-1">
               {[
                 ['실명 공개', draftShowRealName, setDraftShowRealName],
                 ['학번 공개', draftShowStudentCode, setDraftShowStudentCode],
                 ['게시글·댓글·추천 통계 공개', draftShowActivityStats, setDraftShowActivityStats],
               ].map(([label, checked, setter]) => (
-                <label key={String(label)} className="flex items-center gap-3 text-sm text-slate-700">
+                <label key={String(label)} className="-mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm text-slate-700 transition-colors hover:bg-white">
                   <input type="checkbox" checked={Boolean(checked)} onChange={(event) => (setter as (value: boolean) => void)(event.target.checked)} className="h-4 w-4 accent-emerald-700" />
                   {String(label)}
                 </label>
               ))}
             </div>
           </div>
-          <div className="border border-slate-200 bg-white p-4"><p className="text-xs font-bold text-slate-700">인증 정보</p><p className="mt-2 text-sm text-slate-900">{identityLine}</p>{bSideEnabled ? <p className="mt-1 text-xs leading-5 text-slate-500">B-side에서는 본인 외 사용자에게 항상 숨겨집니다.</p> : null}</div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-bold text-slate-700">인증 정보</p><p className="mt-2 text-sm text-slate-900">{identityLine}</p>{bSideEnabled ? <p className="mt-1 text-xs leading-5 text-slate-500">B-side에서는 본인 외 사용자에게 항상 숨겨집니다.</p> : null}</div>
           <button type="submit" className="hidden">저장</button>
         </form>
       </Modal>
@@ -835,7 +910,7 @@ export default function ProfilePage() {
           </Button>
         </>}
       >
-        <div className="border border-amber-300 bg-white p-4 text-sm leading-6 text-amber-900">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
           {pendingSessionAction?.kind === 'others'
             ? `현재 세션은 유지하고 다른 활성 로그인 ${pendingSessionAction.count}개를 종료합니다.`
             : pendingSessionAction?.session.current

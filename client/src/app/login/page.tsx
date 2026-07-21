@@ -82,14 +82,14 @@ export default function LoginPage() {
 
   return (
     <AuthFrame mode="login" title="로그인">
-      <form onSubmit={handleSubmit} className="space-y-6" noValidate aria-busy={loading}>
+      <form onSubmit={handleSubmit} className="stagger space-y-5" noValidate aria-busy={loading}>
         <Field label="6자리 학번" error={error?.includes('학번') ? error : undefined}>
           <Input
             required
             inputMode="numeric"
             autoComplete="username"
             placeholder="예: 331101"
-            className="h-12  border-[#c9ccc6] bg-white px-4 text-[15px] focus:border-[#28745c] focus:ring-2 focus:ring-[#dcebe5]"
+            className="h-12 px-4 text-[15px]"
             maxLength={6}
             value={studentId}
             disabled={loading}
@@ -103,34 +103,54 @@ export default function LoginPage() {
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               placeholder="비밀번호 입력"
-              className="h-12  border-[#c9ccc6] bg-white px-4 pr-16 text-[15px] focus:border-[#28745c] focus:ring-2 focus:ring-[#dcebe5]"
+              className="h-12 px-4 pr-16 text-[15px]"
               maxLength={128}
               value={password}
               disabled={loading}
               onChange={(event) => setPassword(event.target.value)}
             />
-            <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'} className="absolute right-1 top-1 grid h-10 min-w-12 place-items-center px-2 text-xs font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]">
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+              className="absolute inset-y-1 right-1 grid min-w-12 place-items-center rounded-lg px-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:scale-95"
+            >
               {showPassword ? '숨기기' : '보기'}
             </button>
           </div>
         </Field>
 
         <div className="flex flex-wrap items-center justify-between gap-3 text-[13px]">
-          <label className="flex cursor-pointer items-center gap-2.5 text-[var(--ink-soft)]">
-            <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="h-4 w-4  accent-[#28745c]" />
+          <label className="flex cursor-pointer items-center gap-2.5 text-slate-600 transition-colors hover:text-slate-900">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(event) => setRemember(event.target.checked)}
+              className="h-4 w-4 rounded accent-emerald-700"
+            />
             로그인 상태 유지
           </label>
-          <Link href="/reset-password" className="font-semibold text-[var(--green-deep)] underline underline-offset-4">비밀번호 재설정</Link>
+          <Link
+            href="/reset-password"
+            className="font-semibold text-slate-500 underline decoration-slate-300 underline-offset-4 transition-colors hover:text-emerald-800 hover:decoration-emerald-700"
+          >
+            비밀번호 재설정
+          </Link>
         </div>
 
-        <Button type="submit" variant="green" disabled={loading} className="h-12 w-full  border-[#255f4d] bg-[#255f4d] text-[15px] font-semibold hover:border-[#1d4d3e] hover:bg-[#1d4d3e]">
+        <Button type="submit" variant="green" disabled={loading} className="h-12 w-full text-[15px]">
           {loading ? <LoadingLabel>확인하는 중</LoadingLabel> : '로그인'}
         </Button>
       </form>
 
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 text-[13px]">
-        <span className="text-[var(--ink-faint)]">처음 방문하셨나요?</span>
-        <Link href="/register" className="font-semibold text-[var(--green-deep)] underline underline-offset-4">재학생 인증하고 가입하기</Link>
+      <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-6 text-[13px]">
+        <span className="text-slate-500">처음 방문하셨나요?</span>
+        <Link
+          href="/register"
+          className="font-semibold text-emerald-800 underline decoration-emerald-300 underline-offset-4 transition-colors hover:decoration-emerald-700"
+        >
+          재학생 인증하고 가입하기
+        </Link>
       </div>
     </AuthFrame>
   );

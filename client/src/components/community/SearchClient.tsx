@@ -24,6 +24,7 @@ import {
   type Member,
   type PostSummary,
 } from "./demo-data";
+import { Card } from "@/components/operations/ui";
 import { cosmeticsFromItems } from "@/lib/igk-shop";
 import { fetchWithTimeout, isAbortError, requestErrorMessage } from "@/lib/client/request";
 
@@ -41,13 +42,15 @@ const DEMO_RECENT_QUERIES = ["오차 전파", "기숙사 타이머", "코드페�
 const RECENT_SEARCHES_KEY = "igwak:recent-searches";
 const MAX_RECENT_SEARCHES = 8;
 
+const easeOut = "ease-[cubic-bezier(0.22,1,0.36,1)]";
+
 function normalize(value: string) {
   return value.trim().toLocaleLowerCase("ko");
 }
 
 function SearchPost({ post, query }: { post: PostSummary; query: string }) {
   return (
-    <article className="border-b border-slate-100 px-5 py-5 sm:px-6">
+    <article className="px-5 py-5 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-50/80 sm:px-6">
       <div className="flex flex-wrap items-center gap-2">
         <BoardBadge slug={post.board} />
         {post.hot && (
@@ -62,9 +65,9 @@ function SearchPost({ post, query }: { post: PostSummary; query: string }) {
       </div>
       <Link
         href={`/post/${post.id}`}
-        className="group mt-3 block focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+        className="group mt-3 block rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
       >
-        <h2 className="text-[15px] font-semibold tracking-[-0.02em] text-slate-800 group-hover:text-emerald-700">
+        <h2 className="text-[15px] font-semibold tracking-[-0.02em] text-slate-800 transition-colors group-hover:text-emerald-700">
           {post.title}
         </h2>
         <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
@@ -77,7 +80,7 @@ function SearchPost({ post, query }: { post: PostSummary; query: string }) {
             <span
               key={tag}
               className={cx(
-                "px-2 py-1 text-xs font-bold",
+                "inline-flex h-5 items-center rounded-full px-2 text-[11px] font-semibold",
                 normalize(query) === normalize(tag)
                   ? "bg-emerald-100 text-emerald-800"
                   : "bg-slate-100 text-slate-500",
@@ -93,6 +96,24 @@ function SearchPost({ post, query }: { post: PostSummary; query: string }) {
         <PostMetrics post={post} />
       </div>
     </article>
+  );
+}
+
+function SearchResultsSkeleton() {
+  return (
+    <div className="divide-y divide-slate-100" aria-hidden="true">
+      {Array.from({ length: 5 }, (_, index) => (
+        <div key={index} className="space-y-3 px-5 py-5 sm:px-6">
+          <div className="skeleton h-4 w-20 rounded-full" />
+          <div className="skeleton h-5 w-2/3" />
+          <div className="skeleton h-3 w-full max-w-md" />
+          <div className="flex gap-2">
+            <div className="skeleton h-5 w-14 rounded-full" />
+            <div className="skeleton h-5 w-14 rounded-full" />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -115,6 +136,7 @@ export default function SearchClient({
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [stagger, setStagger] = useState(true);
   const demoMode = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === "true";
 
   const normalizedQuery = normalize(query);
@@ -312,6 +334,12 @@ export default function SearchClient({
     ? DEMO_POPULAR_QUERIES
     : tagResults.slice(0, 5).map(([tag]) => tag);
 
+  useEffect(() => {
+    if (!stagger || postResults.length === 0) return undefined;
+    const timer = window.setTimeout(() => setStagger(false), 900);
+    return () => window.clearTimeout(timer);
+  }, [stagger, postResults.length]);
+
   function rememberSearch(value: string) {
     setRecentQueries((current) => {
       const next = [
@@ -361,20 +389,24 @@ export default function SearchClient({
       <div className="mx-auto max-w-[1320px]">
         <Link
           href="/"
-          className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-emerald-800"
+          className="mb-4 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs font-medium text-slate-500 transition-colors hover:text-emerald-700"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
           홈으로
         </Link>
 
-        <header className="border-b-2 border-slate-800 bg-white px-1 pb-5 pt-2">
+        <header className="anim-rise px-1 pb-5 pt-2">
           <h1 className="text-2xl font-bold tracking-[-0.03em] text-slate-950 sm:text-[28px]">
             인텍트 통합검색
           </h1>
 
           <form
             onSubmit={submit}
-            className="mt-4 flex max-w-3xl border border-slate-400 bg-white focus-within:border-emerald-700 focus-within:ring-1 focus-within:ring-emerald-700"
+            className={cx(
+              "mt-4 flex max-w-3xl items-center rounded-2xl border border-slate-200 bg-white shadow-[var(--shadow-xs)] transition-all duration-200",
+              easeOut,
+              "focus-within:border-emerald-600 focus-within:ring-4 focus-within:ring-emerald-600/10",
+            )}
           >
             <Search
               className="ml-4 h-5 w-5 shrink-0 self-center text-slate-400"
@@ -388,13 +420,17 @@ export default function SearchClient({
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder="게시글, 자료, 사용자 검색"
-              className="h-10 min-w-0 flex-1 border-0 px-3 text-sm font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:ring-0"
+              className="h-12 min-w-0 flex-1 border-0 bg-transparent px-3 text-sm font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-0"
             />
             {input && (
               <button
                 type="button"
                 onClick={() => setInput("")}
-                className="inline-flex h-10 w-10 items-center justify-center text-slate-400 hover:text-slate-700"
+                className={cx(
+                  "inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-all duration-200",
+                  easeOut,
+                  "hover:bg-slate-100 hover:text-slate-700 active:scale-90",
+                )}
                 aria-label="검색어 지우기"
               >
                 <X className="h-4 w-4" />
@@ -402,18 +438,22 @@ export default function SearchClient({
             )}
             <button
               type="submit"
-              className="m-1 inline-flex min-w-[68px] items-center justify-center bg-emerald-700 px-4 text-xs font-semibold text-white hover:bg-emerald-800"
+              className={cx(
+                "m-1.5 inline-flex h-9 min-w-[68px] items-center justify-center rounded-xl bg-emerald-700 px-4 text-xs font-semibold text-white shadow-[var(--shadow-xs)] transition-all duration-200",
+                easeOut,
+                "hover:bg-emerald-800 active:scale-[0.97]",
+              )}
             >
               검색
             </button>
           </form>
         </header>
 
-        <div className="mt-4 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
-          <section className="border-t-2 border-slate-800 bg-white">
-            <div className="border-b border-slate-200 px-4 pt-4 sm:px-6 sm:pt-5">
+        <div className="mt-1 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
+          <Card className="anim-rise anim-delay-1 overflow-hidden">
+            <div className="border-b border-slate-100 px-4 pb-3 pt-3 sm:px-6">
               <div
-                className="flex gap-1 overflow-x-auto"
+                className="ui-tabs flex gap-1 overflow-x-auto rounded-2xl bg-slate-100/80 p-1"
                 role="tablist"
                 aria-label="검색 결과 종류"
               >
@@ -431,14 +471,19 @@ export default function SearchClient({
                     aria-selected={tab === value}
                     onClick={() => setTab(value)}
                     className={cx(
-                      "shrink-0 border-b-2 px-4 py-3 text-[13px] font-semibold",
+                      "flex h-9 shrink-0 snap-start items-center rounded-xl px-3.5 text-[13px] font-semibold transition-all duration-200",
+                      easeOut,
+                      "active:scale-[0.97]",
                       tab === value
-                        ? "border-emerald-600 text-emerald-700"
-                        : "border-transparent text-slate-400 hover:text-slate-700",
+                        ? "bg-white text-slate-950 shadow-[var(--shadow-sm)]"
+                        : "text-slate-500 hover:bg-white/60 hover:text-slate-900",
                     )}
                   >
                     {label}
-                    <span className="ml-1.5 tabular-nums">
+                    <span className={cx(
+                      "ml-2 min-w-[20px] rounded-full px-1.5 py-0.5 text-center text-xs tabular-nums",
+                      tab === value ? "bg-emerald-50 text-emerald-800" : "bg-slate-200/70 text-slate-500",
+                    )}>
                       {resultCounts[value]}
                     </span>
                   </button>
@@ -447,15 +492,15 @@ export default function SearchClient({
             </div>
 
             {searchError ? (
-              <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-5 py-3 text-xs text-amber-950" role="alert">
+              <div className="flex items-center justify-between gap-3 border-b border-amber-100 bg-amber-50/80 px-5 py-3 text-xs text-amber-900" role="alert">
                 <span>{searchError}</span>
-                <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="shrink-0 font-bold underline underline-offset-2">다시 시도</button>
+                <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="shrink-0 rounded-md font-bold underline underline-offset-2 transition-colors hover:text-amber-950">다시 시도</button>
               </div>
             ) : null}
 
             {!searchError && tab === "posts" && (
               <>
-                <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/50 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                   <p className="text-xs text-slate-500">
                     {query ? (
                       <>
@@ -481,7 +526,11 @@ export default function SearchClient({
                     <select
                       value={sort}
                       onChange={(event) => setSort(event.target.value as Sort)}
-                      className="border-0 bg-transparent pr-7 text-xs font-bold text-slate-600 focus:ring-0"
+                      className={cx(
+                        "h-9 rounded-lg border border-slate-200 bg-white pl-3 pr-8 text-xs font-bold text-slate-600 transition-all duration-200",
+                        easeOut,
+                        "hover:border-slate-300 focus:border-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-600/10",
+                      )}
                     >
                       <option value="relevance">관련도순</option>
                       <option value="latest">최신순</option>
@@ -489,17 +538,18 @@ export default function SearchClient({
                     </select>
                   </label>
                 </div>
-                <div>
+                <div className={cx("divide-y divide-slate-100", stagger && "stagger")}>
                   {postResults.length ? (
                     postResults.map((post) => (
                       <SearchPost key={post.id} post={post} query={query} />
                     ))
+                  ) : isSearching ? (
+                    <SearchResultsSkeleton />
                   ) : (
                     <div className="px-5 py-20 text-center">
-                      <Search
-                        className="mx-auto h-8 w-8 text-slate-300"
-                        aria-hidden="true"
-                      />
+                      <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-slate-100 text-slate-300">
+                        <Search className="h-5 w-5" aria-hidden="true" />
+                      </span>
                       <p className="mt-4 text-sm font-bold text-slate-700">
                         검색 결과가 없습니다.
                       </p>
@@ -518,12 +568,12 @@ export default function SearchClient({
                   <Link
                     key={`${member.nickname}:${member.studentId}`}
                     href={member.id ? `/users/${member.id}` : '#'}
-                    className="flex items-center gap-3 bg-white p-4"
+                    className="group flex items-center gap-3 bg-white p-4 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-50/80"
                   >
                     <Avatar member={member} size="lg" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <h2 className="truncate text-sm font-bold text-slate-800">
+                        <h2 className="truncate text-sm font-bold text-slate-800 transition-colors group-hover:text-emerald-700">
                           {member.nickname}
                         </h2>
                         <LevelBadge level={member.level} standing={member.standing} igkRank={member.igkRank} />
@@ -551,11 +601,13 @@ export default function SearchClient({
                     key={tag}
                     type="button"
                     onClick={() => searchFor(tag)}
-                    className="group flex items-center gap-3 border-b border-slate-100 bg-white p-4 text-left hover:bg-slate-50"
+                    className="group flex items-center gap-3 bg-white p-4 text-left transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-50/80"
                   >
-                    <Hash className="h-4 w-4 text-slate-500 group-hover:text-emerald-700" aria-hidden="true" />
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500 transition-colors group-hover:bg-emerald-50 group-hover:text-emerald-700">
+                      <Hash className="h-4 w-4" aria-hidden="true" />
+                    </span>
                     <span>
-                      <span className="block text-sm font-semibold text-slate-700 group-hover:text-emerald-800">
+                      <span className="block text-sm font-semibold text-slate-700 transition-colors group-hover:text-emerald-800">
                         {tag}
                       </span>
                       <span className="mt-1 block text-xs text-slate-400">
@@ -566,12 +618,12 @@ export default function SearchClient({
                 ))}
               </div>
             )}
-          </section>
+          </Card>
 
-          <aside className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+          <aside className="anim-rise anim-delay-2 grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
             {suggestedQueries.length > 0 && (
-              <section className="border border-slate-200 bg-white p-4">
-                <div className="mb-4 flex items-center gap-2">
+              <Card className="p-4">
+                <div className="mb-3 flex items-center gap-2">
                   <TrendingUp
                     className="h-4 w-4 text-rose-500"
                     aria-hidden="true"
@@ -583,13 +635,13 @@ export default function SearchClient({
                     {demoMode ? "시연 데이터" : "현재 검색 기준"}
                   </span>
                 </div>
-                <ol className="border-t border-slate-900">
+                <ol className="divide-y divide-slate-100">
                   {suggestedQueries.map((item, index) => (
-                    <li key={item} className="border-b border-slate-100">
+                    <li key={item}>
                       <button
                         type="button"
                         onClick={() => searchFor(item)}
-                        className="flex w-full items-center gap-3 py-3 text-left text-xs font-bold text-slate-600 hover:text-emerald-700"
+                        className="group flex w-full items-center gap-3 rounded-lg px-1.5 py-2.5 text-left text-xs font-bold text-slate-600 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-50/80 hover:text-emerald-700"
                       >
                         <span
                           className={cx(
@@ -601,37 +653,41 @@ export default function SearchClient({
                         </span>
                         <span className="min-w-0 flex-1 truncate">{item}</span>
                         <ChevronRight
-                          className="h-3.5 w-3.5 text-slate-300"
+                          className="h-3.5 w-3.5 text-slate-300 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0.5 group-hover:text-emerald-600"
                           aria-hidden="true"
                         />
                       </button>
                     </li>
                   ))}
                 </ol>
-              </section>
+              </Card>
             )}
 
-            <section className="border border-slate-200 bg-white p-4">
+            <Card className="p-4">
               <div className="mb-4 flex items-center gap-2">
-                <Clock3 className="h-4 w-4 text-blue-600" aria-hidden="true" />
+                <Clock3 className="h-4 w-4 text-emerald-600" aria-hidden="true" />
                 <h2 className="text-sm font-bold text-slate-900">최근 검색</h2>
                 {recentQueries.length > 0 && (
                   <button
                     type="button"
                     onClick={clearRecentSearches}
-                    className="ml-auto text-xs font-bold text-slate-400 hover:text-slate-700"
+                    className="ml-auto rounded text-xs font-bold text-slate-400 transition-colors hover:text-slate-700"
                   >
                     전체 삭제
                   </button>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {recentQueries.map((item) => (
                   <button
                     key={item}
                     type="button"
                     onClick={() => searchFor(item)}
-                    className="border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-500 hover:border-slate-400"
+                    className={cx(
+                      "inline-flex h-7 items-center rounded-full border border-slate-200 bg-slate-50/60 px-2.5 text-xs font-semibold text-slate-500 transition-all duration-200",
+                      easeOut,
+                      "hover:border-slate-300 hover:bg-white hover:text-slate-700 active:scale-[0.97]",
+                    )}
                   >
                     {item}
                   </button>
@@ -642,10 +698,10 @@ export default function SearchClient({
                   </p>
                 )}
               </div>
-            </section>
+            </Card>
 
-            <section className="border border-slate-200 bg-white p-4 sm:col-span-2 xl:col-span-1">
-              <div className="mb-4 flex items-center gap-2">
+            <Card className="p-4 sm:col-span-2 xl:col-span-1">
+              <div className="mb-3 flex items-center gap-2">
                 <FileText
                   className="h-4 w-4 text-emerald-600"
                   aria-hidden="true"
@@ -654,13 +710,14 @@ export default function SearchClient({
                   게시판 좁혀보기
                 </h2>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <button
                   type="button"
                   onClick={() => setBoardFilter("all")}
                   aria-pressed={boardFilter === "all"}
                   className={cx(
-                    "flex w-full items-center justify-between px-2 py-2 text-left text-xs font-bold",
+                    "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs font-bold transition-colors duration-200",
+                    easeOut,
                     boardFilter === "all"
                       ? "bg-emerald-50 text-emerald-700"
                       : "text-slate-500 hover:bg-slate-50",
@@ -676,7 +733,8 @@ export default function SearchClient({
                     onClick={() => setBoardFilter(board.slug)}
                     aria-pressed={boardFilter === board.slug}
                     className={cx(
-                      "flex w-full items-center justify-between px-2 py-2 text-left text-xs font-bold",
+                      "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs font-bold transition-colors duration-200",
+                      easeOut,
                       boardFilter === board.slug
                         ? "bg-emerald-50 text-emerald-700"
                         : "text-slate-500 hover:bg-slate-50",
@@ -692,7 +750,7 @@ export default function SearchClient({
                   </button>
                 ))}
               </div>
-            </section>
+            </Card>
 
           </aside>
         </div>
