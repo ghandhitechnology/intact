@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 const RECHECK_INTERVAL_MS = 30_000;
@@ -100,6 +101,14 @@ export default function MaintenancePage() {
 
         <p className="mt-6 text-center text-[11px] text-slate-400">
           30초마다 자동으로 확인하고, 점검이 끝나면 바로 홈으로 데려다 드릴게요.
+        </p>
+        <p className="mt-3 text-center text-[11px] text-slate-400">
+          <Link
+            href="/admin"
+            className="underline decoration-slate-300 underline-offset-2 transition-colors hover:text-slate-600"
+          >
+            (관리자)
+          </Link>
         </p>
       </main>
     </div>
