@@ -7,8 +7,6 @@ Intact is a private community portal for students of Incheon Science High School
 - Operations and deployment handover: [DEPLOYMENT_HANDOVER.md](./DEPLOYMENT_HANDOVER.md) (Korean)
 - Runtime architecture and data flows: [ARCHITECTURE.md](./ARCHITECTURE.md) (Korean)
 
-Real passwords, encryption keys, production databases, uploaded files, and backups must never be committed to this repository.
-
 ## What it does today
 
 - Boards for Q&A, contest and project team recruitment, resource sharing, advanced-lab equipment, free discussion, and photos, plus school notices.
@@ -77,7 +75,7 @@ cd intact
 cp .env.example .env
 ```
 
-Replace every `replace-*` value in `.env` with an independent random string (`openssl rand -hex 32` works well). Even for local development, do not copy production secrets.
+Replace every `replace-*` value in `.env` with an independent random string (`openssl rand -hex 32` works well).
 
 ```bash
 docker compose config --quiet
@@ -139,10 +137,9 @@ Production deploys always start from a backup, then verify `/api/health`, the So
 
 ## Security ground rules
 
-- Never commit `.env`, private keys, database dumps, SQLite files, uploaded files, or backup archives.
 - Never use `prisma db push` against production; review migrations and apply them with `prisma migrate deploy`.
 - The MinIO bucket and the internal Web/realtime ports are never exposed publicly.
-- Back up `PORTAL_ENCRYPTION_KEY` in a separate secret store — it is required to decrypt existing real-name data.
+- `PORTAL_ENCRYPTION_KEY` is required to decrypt existing real-name data and is backed up in a separate secret store.
 - Admin and portal sessions are separate, and all admin actions are written to an audit log.
 
 ## Documentation rule
