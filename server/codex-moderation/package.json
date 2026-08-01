@@ -9,6 +9,6 @@
     "security-probe": "node src/security-probe.mjs"
   },
   "dependencies": {
-    "@openai/codex": "0.144.5"
+    "@openai/codex": "0.146.0"
   }
 }
