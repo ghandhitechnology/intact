@@ -11,18 +11,47 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    # 현재 운영 스택(Next 15, React 18, TypeScript 5, Tailwind 3, Node 22)을 유지한다.
+    ignore:
+      - dependency-name: next
+        versions: [">=16"]
+      - dependency-name: react
+        versions: [">=19"]
+      - dependency-name: react-dom
+        versions: [">=19"]
+      - dependency-name: "@types/react"
+        versions: [">=19"]
+      - dependency-name: "@types/react-dom"
+        versions: [">=19"]
+      - dependency-name: "@types/node"
+        versions: [">=23"]
+      - dependency-name: typescript
+        versions: [">=6"]
+      - dependency-name: tailwindcss
+        versions: [">=4"]
+      - dependency-name: sharp
+        versions: [">=0.35"]
 
   - package-ecosystem: npm
     directory: /server/chat
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "@types/node"
+        versions: [">=23"]
+      - dependency-name: typescript
+        versions: [">=6"]
 
   - package-ecosystem: npm
     directory: /server/codex-moderation
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # 운영 모더레이션 SDK는 검증된 버전에 고정한다.
+    ignore:
+      - dependency-name: "@openai/codex"
+        versions: [">0.144.5"]
 
   - package-ecosystem: pip
     directory: /server/riro-bridge
@@ -35,21 +64,33 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: node
+        versions: [">=23"]
 
   - package-ecosystem: docker
     directory: /server/chat
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: node
+        versions: [">=23"]
 
   - package-ecosystem: docker
     directory: /server/codex-moderation
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: node
+        versions: [">=23"]
 
   - package-ecosystem: docker
     directory: /server/riro-bridge
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: python
+        versions: [">=3.13"]
