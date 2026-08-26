@@ -14,6 +14,7 @@ import {
   requiredString,
 } from '@/lib/server/http';
 import { assertNotMaintenance } from '@/lib/server/platform-mode';
+import { getReverificationState } from '@/lib/server/reverification';
 import { attachSessionCookie, createPortalSession, publicUser } from '@/lib/server/session';
 import { parseStudentCode } from '@/lib/server/student-invites';
 
@@ -91,11 +92,11 @@ export async function POST(request: Request) {
         await prisma.user.update({ where: { id: user.id }, data: { status: 'ACTIVE' } });
       }
     }
+    const reverification = getReverificationState(user.reverifyDueAt);
     if (
       user.role === 'USER' &&
       user.status === 'ACTIVE' &&
-      user.reverifyDueAt &&
-      user.reverifyDueAt <= new Date()
+      (user.requiresRiroReverification || reverification.kind === 'required')
     ) {
       user.status = 'PENDING_REVERIFICATION';
       await prisma.user.update({

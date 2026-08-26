@@ -58,7 +58,7 @@ npm workspace가 아닌 디렉터리별 독립 lockfile을 가진 모노레포�
 | 모더레이션 | `@openai/codex` 0.144.5, 고정 모델 `gpt-5.6-luna`, Tesseract OCR(kor/eng) |
 | 프록시/TLS | Caddy 2 |
 | 실행 | Docker Compose v2, Node.js 22, Yarn 1.22.22 (corepack) |
-| 브리지 | Python 3.10+ FastAPI + uvicorn (riro-bridge) |
+| 브리지 | Python 3.11+ FastAPI + uvicorn (riro-bridge) |
 
 ## 4. 런타임 구조
 
@@ -81,7 +81,7 @@ Compose 서비스: `caddy`, `web`, `migrate`(일회성 `prisma migrate deploy`),
 
 - Node.js 22 — `.nvmrc`, `engines: >=22 <23`, `scripts/verify.sh`, Dockerfile이 모두 22를 강제합니다. (README의 "Node.js 20" 표기는 오래된 정보입니다.)
 - Yarn 1.22.22 — `corepack enable && corepack prepare yarn@1.22.22 --activate`
-- Python 3.10+ — riro-bridge 검증용 (CI는 3.12)
+- Python 3.11+ — riro-bridge 검증용 (CI는 3.12)
 - Docker Engine + Compose v2 — 전체 스택 실행용
 
 ## 6. 빌드와 실행
@@ -152,6 +152,7 @@ corepack yarn build           # tsc
 - API 응답 규약은 `client/src/lib/server/http.ts`가 만듭니다: 성공 `{ ok: true, data }`, 실패 `{ ok: false, error: { code, message, details? } }`. `json()`/`jsonError()`와 `ApiError`를 사용하고, 모든 JSON 응답에 `Cache-Control: no-store`와 `X-Request-ID`가 붙으며 429에는 `Retry-After`가 붙습니다. 이 envelope를 우회해 응답을 만들지 않습니다.
 - Route handler는 공통 helper로 입력 크기·타입, same-origin, rate limit, session scope를 검증합니다. 포털 API와 관리자 API는 별도 session scope를 사용합니다.
 - 학번 검증의 단일 기준은 `client/src/lib/student-code.ts`와 `client/src/lib/server/student-invites.ts`입니다: `^(31|32|33)(11|12|13|14)(0[1-9]|1[0-9]|20)$`. DB에도 같은 CHECK와 unique(`User.loginId`, `StudentIdentity.studentCode`)가 있고, 가입은 serializable transaction에서 `P2034` 충돌만 최대 3회 재시도, unique 충돌은 HTTP 409입니다.
+- `studentCode`는 기수와 입학 당시 1학년 반·번호를 합친 불변 로그인 ID이고, 재학 중 바뀌는 현재 학년·반·번호는 `currentStudentNumber`에 별도로 저장합니다. 리로 브리지 contract v2도 두 값을 분리합니다.
 - IGK 잔액 변경은 반드시 transaction과 lock 안에서 `IgkLedger` 원장을 통해 수행합니다(`awardIgk` 등). `User.currentIgk`를 직접 덮어쓰거나 UI 값만 수정하지 않습니다. 채팅 전송·선물처럼 재시도가 있는 경로는 idempotency key로 중복 생성을 막습니다.
 - B-side(전역 익명 모드) 마스킹은 서버의 API 응답에서 수행합니다. 화면에서만 가리는 구현으로 되돌리면 안 됩니다. 본인 정보와 관리자 scope 응답은 실명을 유지합니다.
 - 세션은 DB에 저장되고 HttpOnly cookie로 전달됩니다. 관리자 변경 사항은 `AdminAuditLog`에 사유와 함께 기록합니다.
@@ -179,7 +180,7 @@ corepack yarn build           # tsc
 - 운영에서 `PORTAL_DEMO_MODE`와 `NEXT_PUBLIC_PORTAL_DEMO_MODE`는 반드시 `false`입니다.
 - MinIO bucket과 Web/realtime 포트는 공개하지 않습니다. 다운로드는 5분 서명 URL 경유, 대용량 본문은 Web을 통과하지 않습니다.
 - `next.config.js`의 보안 header·CSP(`default-src 'self'` 등)와 Caddy의 본문 크기 상한(object 10MB, 앱 25MB)을 유지합니다.
-- riro-bridge는 Tailscale IP에만 바인딩되는 비공개 서비스입니다. `RIRO_BRIDGE_SECRET`은 32자 이상 독립 난수이고, 리로스쿨 자격증명은 메모리에서만 사용하며 로그·저장하지 않습니다.
+- riro-bridge는 Tailscale IP에만 바인딩되는 비공개 서비스입니다. `RIRO_BRIDGE_SECRET`은 독립된 64자리 hex 난수이고, 리로스쿨 자격증명은 메모리에서만 사용하며 로그·저장하지 않습니다. 가입·재인증·비밀번호 복구는 직접 리로 인증을 기본으로 하고, 목적이 고정된 관리자 코드는 재인증·복구의 비상 대체 경로로만 사용합니다.
 - codex-moderation은 공개 포트·DB URL·MinIO 자격증명·소스 mount를 갖지 않습니다. OAuth 토큰 볼륨(`codex_auth`)은 `codex-auth`·`codex-moderation`에만 연결됩니다.
 - 관리자와 포털 세션/cookie는 분리되어 있으며 이 구조를 유지합니다.
 

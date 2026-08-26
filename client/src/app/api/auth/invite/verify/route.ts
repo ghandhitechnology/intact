@@ -39,6 +39,13 @@ export async function POST(request: Request) {
     const code = requiredString(body.code, '초대 코드', { min: 20, max: 128 });
     const codeHash = hashToken(code);
     const purpose = parseVerificationPurpose(body.purpose);
+    if (purpose === 'REGISTER') {
+      throw new ApiError(
+        400,
+        'RIRO_REQUIRED',
+        '신규 가입은 리로스쿨 직접 인증으로만 진행할 수 있습니다.',
+      );
+    }
     enforceRateLimit(`student-invite-code:${codeHash}`, {
       limit: 5,
       windowMs: 15 * 60 * 1_000,
@@ -78,19 +85,10 @@ export async function POST(request: Request) {
         }
         parseStudentCode(invite.studentCode);
 
-        const [identity, existingLogin] = await Promise.all([
-          tx.studentIdentity.findUnique({
-            where: { studentCode: invite.studentCode },
-            include: { user: { select: { id: true, role: true, status: true } } },
-          }),
-          tx.user.findUnique({
-            where: { loginId: invite.studentCode },
-            select: { id: true },
-          }),
-        ]);
-        if (purpose === 'REGISTER' && (identity || existingLogin)) {
-          throw new ApiError(409, 'ALREADY_REGISTERED', '이미 가입된 학생입니다.');
-        }
+        const identity = await tx.studentIdentity.findUnique({
+          where: { studentCode: invite.studentCode },
+          include: { user: { select: { id: true, role: true, status: true } } },
+        });
         if (purpose === 'RESET') {
           if (
             !identity ||

@@ -188,6 +188,7 @@ model User {
   lastLoginAt          DateTime?  @db.Timestamptz(6)
   lastReverifiedAt     DateTime?  @db.Timestamptz(6)
   reverifyDueAt        DateTime?  @db.Timestamptz(6)
+  requiresRiroReverification Boolean @default(false)
   withdrawnAt          DateTime?  @db.Timestamptz(6)
 
   studentIdentity         StudentIdentity?

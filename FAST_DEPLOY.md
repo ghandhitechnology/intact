@@ -207,6 +207,8 @@ ssh -i ~/.ssh/ishsoutside_deploy root@187.127.206.150 \
 
 ### 4.5 C — Prisma migration 포함
 
+`20260827000000_riro_reverification_flag`가 포함된 최초 배포는 일반 C 경로를 바로 실행하지 않습니다. 먼저 Mac mini의 리로 브리지를 배포하고 `/health`의 `contractVersion: 2`, `runtime.ready: true`를 확인한 뒤, `DEPLOYMENT_HANDOVER.md` 8.6의 전환 순서로 진행합니다. 이 migration은 기존 학생의 다음 로그인을 재인증 경로로 전환합니다.
+
 ```bash
 ssh -i ~/.ssh/ishsoutside_deploy root@187.127.206.150 <<'REMOTE'
 set -eu

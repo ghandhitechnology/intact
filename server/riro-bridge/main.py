@@ -4,13 +4,17 @@ import hmac
 import logging
 import math
 import os
+import platform
 import re
+import sys
 import threading
 import time
 import unicodedata
 from contextlib import asynccontextmanager
+from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import Any, AsyncIterator, Optional
+from zoneinfo import ZoneInfo
 
 import httpx
 from bs4 import BeautifulSoup
@@ -20,8 +24,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
 RIRO_ORIGIN = "https://iscience.riroschool.kr"
-RIRO_SCHOOL_NAME = "인천과학고등학교"
 USER_AGENT = "Mozilla/5.0 (compatible; IntactRiroBridge/1.0)"
+BRIDGE_CONTRACT_VERSION = "2"
+MINIMUM_PYTHON_VERSION = (3, 11)
 MAX_CLOCK_SKEW_SECONDS = 60
 NONCE_TTL_SECONDS = 180
 MAX_BODY_BYTES = 4096
@@ -38,6 +43,7 @@ RETRYABLE_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
 HTTP_TIMEOUT = httpx.Timeout(connect=3.0, read=7.0, write=3.0, pool=2.0)
 HTTP_LIMITS = httpx.Limits(max_connections=16, max_keepalive_connections=8)
 logger = logging.getLogger("riro_bridge")
+KOREA_TIME_ZONE = ZoneInfo("Asia/Seoul")
 
 
 class LoginRequest(BaseModel):
@@ -48,6 +54,10 @@ class LoginRequest(BaseModel):
 
 
 class InvalidCredentials(Exception):
+    pass
+
+
+class PayloadTooLarge(Exception):
     pass
 
 
@@ -120,6 +130,19 @@ class CircuitBreaker:
         async with self._lock:
             self._probe_in_flight = False
 
+    async def snapshot(self, now: float) -> dict[str, Any]:
+        async with self._lock:
+            if self._opened_until <= 0:
+                state = "closed"
+                retry_after = 0
+            elif now < self._opened_until:
+                state = "open"
+                retry_after = max(1, math.ceil(self._opened_until - now))
+            else:
+                state = "half_open"
+                retry_after = 0
+            return {"state": state, "retryAfterSeconds": retry_after}
+
 
 class StatelessCookies(httpx.Cookies):
     """Prevent a shared client from retaining one student's upstream session."""
@@ -130,6 +153,8 @@ class StatelessCookies(httpx.Cookies):
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    _validate_runtime()
+    application.state.bridge_secret = _bridge_secret()
     async with httpx.AsyncClient(
         timeout=HTTP_TIMEOUT,
         limits=HTTP_LIMITS,
@@ -163,9 +188,14 @@ _nonce_lock = threading.Lock()
 
 def _bridge_secret() -> bytes:
     secret = os.environ.get("RIRO_BRIDGE_SECRET", "")
-    if len(secret) < 32:
-        raise RuntimeError("RIRO_BRIDGE_SECRET must be at least 32 characters")
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", secret):
+        raise RuntimeError("RIRO_BRIDGE_SECRET must be a 64-character hexadecimal value")
     return secret.encode("utf-8")
+
+
+def _validate_runtime() -> None:
+    if sys.version_info < MINIMUM_PYTHON_VERSION:
+        raise RuntimeError("Python 3.11 or newer is required")
 
 
 def _json_error(
@@ -193,7 +223,13 @@ def _consume_nonce(nonce: str, now: float) -> bool:
         return True
 
 
-def _verify_request(body: bytes, timestamp_text: str, nonce: str, signature: str) -> bool:
+def _verify_request(
+    body: bytes,
+    timestamp_text: str,
+    nonce: str,
+    signature: str,
+    secret: Optional[bytes] = None,
+) -> bool:
     if not re.fullmatch(r"[A-Za-z0-9_-]{20,128}", nonce):
         return False
     if not re.fullmatch(r"[0-9a-f]{64}", signature):
@@ -207,7 +243,7 @@ def _verify_request(body: bytes, timestamp_text: str, nonce: str, signature: str
         return False
     body_hash = hashlib.sha256(body).hexdigest()
     signed = f"{timestamp_text}.{nonce}.{body_hash}".encode("utf-8")
-    expected = hmac.new(_bridge_secret(), signed, hashlib.sha256).hexdigest()
+    expected = hmac.new(secret or _bridge_secret(), signed, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, signature):
         return False
     return _consume_nonce(nonce, float(now))
@@ -234,6 +270,18 @@ def _generation_from_id(riro_id: str) -> Optional[int]:
     entry_year = 1900 + year if year >= 90 else 2000 + year
     generation = entry_year - 1994 + 1
     return generation if 1 <= generation <= 99 else None
+
+
+def _current_korean_school_year(now: Optional[datetime] = None) -> int:
+    current = now.astimezone(KOREA_TIME_ZONE) if now else datetime.now(KOREA_TIME_ZONE)
+    return current.year - 1 if current.month < 3 else current.year
+
+
+def _cohort_is_plausible(generation: int, grade: int, school_year: int) -> bool:
+    # Generation 1 entered in 1994. The Korean school year changes in March.
+    entry_year = generation + 1993
+    expected_grade = school_year - entry_year + 1
+    return 1 <= grade <= 3 and grade == expected_grade
 
 
 def _element_values(element: Any) -> list[str]:
@@ -269,16 +317,30 @@ def _name_from_values(values: list[str]) -> Optional[str]:
     return None
 
 
-def _student_number_from_id(riro_id: str) -> Optional[str]:
-    """Support school IDs such as 26-10218 (entry year-grade-class-number)."""
+def _normalize_student_role(raw: str) -> Optional[str]:
+    normalized = unicodedata.normalize("NFKC", raw).strip()
+    normalized = re.sub(r"\s+", " ", normalized)
+    return "학생" if normalized == "학생" else None
+
+
+def _entry_student_number_from_id(riro_id: str) -> Optional[str]:
+    """Read the immutable first-year class/number from IDs such as 26-10218."""
     compact = re.sub(r"[^0-9]", "", riro_id)
-    match = re.fullmatch(r"\d{2}([1-3])0?([1-9])(\d{2})", compact)
+    match = re.fullmatch(r"\d{2}(1)0?([1-4])(\d{2})", compact)
     if not match:
         return None
-    return _normalize_student_number("".join(match.groups()))
+    normalized = _normalize_student_number("".join(match.groups()))
+    if not normalized or not 1 <= int(normalized[2:]) <= 20:
+        return None
+    return normalized
 
 
-def _parse_profile(html: str, submitted_id: str) -> Optional[dict[str, Any]]:
+def _parse_profile(
+    html: str,
+    submitted_id: str,
+    *,
+    school_year: Optional[int] = None,
+) -> Optional[dict[str, Any]]:
     if len(html) > 2_000_000:
         return None
     soup = BeautifulSoup(html, "html.parser")
@@ -299,6 +361,7 @@ def _parse_profile(html: str, submitted_id: str) -> Optional[dict[str, Any]]:
                 break
 
     name = _name_from_values(profile_values)
+    entry_student_number = _entry_student_number_from_id(effective_id)
     current_student_number = next(
         (
             normalized
@@ -306,17 +369,27 @@ def _parse_profile(html: str, submitted_id: str) -> Optional[dict[str, Any]]:
             if (normalized := _normalize_student_number(value))
         ),
         None,
-    ) or _student_number_from_id(effective_id)
+    ) or entry_student_number
     generation = _generation_from_id(effective_id)
     role_element = soup.select_one("span.m_level3") or soup.select_one("span.m_level1")
-    role = role_element.get_text(strip=True) if role_element else "학생"
+    role = _normalize_student_role(role_element.get_text(" ", strip=True)) if role_element else None
 
     if not name or not re.fullmatch(r"[가-힣A-Za-z .'-]{2,40}", name):
         return None
-    if not current_student_number or not generation:
+    if not entry_student_number or not current_student_number or not generation or not role:
+        return None
+    effective_school_year = (
+        school_year if school_year is not None else _current_korean_school_year()
+    )
+    if not _cohort_is_plausible(
+        generation,
+        int(current_student_number[0]),
+        effective_school_year,
+    ):
         return None
     return {
         "name": name,
+        "entryStudentNumber": entry_student_number,
         "currentStudentNumber": current_student_number,
         "generation": generation,
         "role": role[:40],
@@ -340,6 +413,18 @@ def _retry_after_seconds(response: httpx.Response) -> Optional[float]:
     return min(MAX_RETRY_AFTER_SECONDS, max(0.0, delay))
 
 
+async def _read_request_body(request: Request, max_bytes: int) -> bytes:
+    declared_length = request.headers.get("content-length", "").strip()
+    if declared_length.isdigit() and int(declared_length) > max_bytes:
+        raise PayloadTooLarge()
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > max_bytes:
+            raise PayloadTooLarge()
+        body.extend(chunk)
+    return bytes(body)
+
+
 async def _post_with_deadline(
     client: httpx.AsyncClient,
     url: str,
@@ -347,13 +432,33 @@ async def _post_with_deadline(
     deadline: float,
     headers: dict[str, str],
     data: dict[str, str],
+    accepted_statuses: frozenset[int],
+    status_error_category: str,
+    max_response_bytes: int,
+    too_large_category: str,
 ) -> httpx.Response:
     remaining = deadline - asyncio.get_running_loop().time()
     if remaining <= 0:
         raise UpstreamUnavailable("deadline_exhausted")
     try:
         async with asyncio.timeout(remaining):
-            return await client.post(url, headers=headers, data=data)
+            async with client.stream("POST", url, headers=headers, data=data) as response:
+                if response.status_code not in accepted_statuses:
+                    raise _status_error(status_error_category, response)
+                declared_length = response.headers.get("content-length", "").strip()
+                if declared_length.isdigit() and int(declared_length) > max_response_bytes:
+                    raise UpstreamUnavailable(too_large_category)
+                content = bytearray()
+                async for chunk in response.aiter_bytes():
+                    if len(content) + len(chunk) > max_response_bytes:
+                        raise UpstreamUnavailable(too_large_category)
+                    content.extend(chunk)
+                return httpx.Response(
+                    status_code=response.status_code,
+                    headers=response.headers,
+                    content=bytes(content),
+                    request=response.request,
+                )
     except (TimeoutError, httpx.TimeoutException) as error:
         raise UpstreamUnavailable("timeout") from error
     except httpx.RequestError as error:
@@ -393,11 +498,11 @@ async def _authenticate_attempt(
             "deeplink": "",
             "redirect_link": "",
         },
+        accepted_statuses=frozenset({200}),
+        status_error_category="login_http",
+        max_response_bytes=MAX_LOGIN_RESPONSE_BYTES,
+        too_large_category="login_too_large",
     )
-    if login_response.status_code != 200:
-        raise _status_error("login_http", login_response)
-    if len(login_response.content) > MAX_LOGIN_RESPONSE_BYTES:
-        raise UpstreamUnavailable("login_too_large")
     try:
         payload = login_response.json()
     except ValueError as error:
@@ -423,11 +528,11 @@ async def _authenticate_attempt(
         deadline=deadline,
         headers={**headers, "Cookie": f"cookie_token={token}"},
         data={"pw": password},
+        accepted_statuses=frozenset({200, 302}),
+        status_error_category="profile_http",
+        max_response_bytes=MAX_PROFILE_RESPONSE_BYTES,
+        too_large_category="profile_too_large",
     )
-    if profile_response.status_code not in {200, 302}:
-        raise _status_error("profile_http", profile_response)
-    if len(profile_response.content) > MAX_PROFILE_RESPONSE_BYTES:
-        raise UpstreamUnavailable("profile_too_large")
     try:
         profile = _parse_profile(profile_response.text, user_id)
     except Exception as error:
@@ -514,21 +619,44 @@ async def _authenticate_riro(
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    _bridge_secret()
-    return {"status": "ok", "school": RIRO_SCHOOL_NAME, "tenant": "iscience"}
+async def health(request: Request) -> JSONResponse:
+    runtime_ready = sys.version_info >= MINIMUM_PYTHON_VERSION
+    secret_ready = isinstance(getattr(request.app.state, "bridge_secret", None), bytes)
+    circuit = getattr(request.app.state, "riro_circuit", None)
+    if isinstance(circuit, CircuitBreaker):
+        circuit_status = await circuit.snapshot(asyncio.get_running_loop().time())
+    else:
+        circuit_status = {"state": "unavailable", "retryAfterSeconds": 0}
+    ready = runtime_ready and secret_ready and circuit_status["state"] != "unavailable"
+    return JSONResponse(
+        status_code=200 if ready else 503,
+        content={
+            "status": "ok" if ready else "unhealthy",
+            "contractVersion": BRIDGE_CONTRACT_VERSION,
+            "runtime": {
+                "pythonVersion": platform.python_version(),
+                "minimumPythonVersion": ".".join(map(str, MINIMUM_PYTHON_VERSION)),
+                "ready": runtime_ready,
+            },
+            "circuit": circuit_status,
+        },
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.post("/v1/verify")
 async def verify(request: Request) -> JSONResponse:
-    body = await request.body()
-    if len(body) > MAX_BODY_BYTES:
+    try:
+        body = await _read_request_body(request, MAX_BODY_BYTES)
+    except PayloadTooLarge:
         return _json_error(413, "PAYLOAD_TOO_LARGE", "Request is too large.")
+    secret = getattr(request.app.state, "bridge_secret", None)
     if not _verify_request(
         body,
         request.headers.get("x-riro-timestamp", ""),
         request.headers.get("x-riro-nonce", ""),
         request.headers.get("x-riro-signature", ""),
+        secret if isinstance(secret, bytes) else None,
     ):
         return _json_error(401, "INVALID_BRIDGE_SIGNATURE", "Unauthorized request.")
     try:

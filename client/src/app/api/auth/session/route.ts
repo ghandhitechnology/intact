@@ -2,6 +2,7 @@ import { json, jsonError } from '@/lib/server/http';
 import { publicUser, resolveSession } from '@/lib/server/session';
 import { secureStringEqual } from '@/lib/server/crypto';
 import { anonymousNickname, getPlatformMode } from '@/lib/server/platform-mode';
+import { getPublicReverificationState } from '@/lib/server/reverification';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,6 +14,9 @@ export async function GET(request: Request) {
       return json({
         authenticated: false as const,
         reason: session?.user.status ?? null,
+        reverification: session
+          ? getPublicReverificationState(session.user.reverifyDueAt)
+          : { kind: 'current' as const },
       });
     }
     const internalSecret = process.env.INTERNAL_API_SECRET;
@@ -44,6 +48,7 @@ export async function GET(request: Request) {
       lifetimeIgk: session.user.lifetimeIgk,
       mustChangePassword: session.user.mustChangePassword,
       expiresAt: session.expiresAt.toISOString(),
+      reverification: getPublicReverificationState(session.user.reverifyDueAt),
     });
   } catch (error) {
     return jsonError(error);

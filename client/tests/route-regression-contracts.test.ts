@@ -50,6 +50,38 @@ test('signed-out home never loads or retains authenticated home data', () => {
   assert.match(shell, /!isAdmin && portalNavigationAvailable/);
 });
 
+test('student verification UI keeps Riro as the direct path and administrator codes as fallback', () => {
+  const register = compact(source('src/app/register/page.tsx'));
+  const reverify = compact(source('src/app/reverify/page.tsx'));
+  const reset = compact(source('src/app/reset-password/page.tsx'));
+  const sessionProvider = compact(source('src/components/portal/SessionProvider.tsx'));
+  const shell = compact(source('src/components/portal/PortalShell.tsx'));
+
+  assert.match(register, /value=\{verification\.profile\.studentCode\} readOnly/);
+  assert.doesNotMatch(register, /setStudentCode|normalizedStudentCode/);
+  assert.match(register, /verificationTicket: verification\.verificationTicket, password/);
+
+  assert.match(reverify, /'\/api\/auth\/riro\/reverify'[\s\S]*30_000/);
+  assert.match(reverify, /'\/api\/auth\/reverify'[\s\S]*12_000/);
+  assert.match(reverify, /긴급 관리자 코드/);
+  assert.match(reverify, /'\/api\/auth\/logout'/);
+  assert.match(reverify, /step: 'completion'; method: ReverifyMethod; verificationTicket: string/);
+  assert.match(reverify, /completeReverification\(submitted\.verificationTicket, submitted\.method\)/);
+  assert.match(reverify, /body\.error\.code === 'INVALID_TICKET'/);
+  assert.match(reverify, /재인증 완료 다시 시도/);
+
+  assert.match(reset, /'\/api\/auth\/riro\/reset-verify'[\s\S]*30_000/);
+  assert.match(reset, /'\/api\/auth\/reset-password'[\s\S]*12_000/);
+  assert.match(reset, /긴급 관리자 코드/);
+
+  assert.match(sessionProvider, /kind: 'warning'; dueAt: string; requiredAt: string/);
+  assert.match(sessionProvider, /kind: 'grace'; dueAt: string; requiredAt: string/);
+  assert.match(sessionProvider, /reverification\?: ReverificationStatus/);
+  assert.doesNotMatch(shell, /PortalSessionSnapshot|ReverificationStatus/);
+  assert.match(shell, /requiredAt[\s\S]*접근이 제한됩니다/);
+  assert.match(shell, /href="\/reverify"[\s\S]*지금 재인증/);
+});
+
 test('my page exposes the IGK dashboard on every layout', () => {
   const profile = compact(source('src/app/profile/page.tsx'));
   assert.match(profile, /href="\/igk"[^>]*>[\s\S]*?IGK 대시보드/);

@@ -14,9 +14,11 @@ import {
 } from '@/lib/server/http';
 import {
   canonicalizeRiroId,
+  isLegacySyntheticRiroFingerprint,
   riroAccountFingerprint,
   verifyRiroAccount,
 } from '@/lib/server/riro';
+import { resolveSession } from '@/lib/server/session';
 import { parseStudentCode } from '@/lib/server/student-invites';
 
 export const runtime = 'nodejs';
@@ -24,72 +26,90 @@ export const runtime = 'nodejs';
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
-    enforceClientIpRateLimit(request, 'riro-reset', {
+    enforceClientIpRateLimit(request, 'riro-reverify', {
       limit: 30,
       windowMs: 15 * 60 * 1_000,
     });
-    await enforceDistributedClientIpRateLimit(request, 'riro-reset', {
+    await enforceDistributedClientIpRateLimit(request, 'riro-reverify', {
       limit: 30,
       windowMs: 15 * 60 * 1_000,
       failPolicy: 'closed',
     });
+
+    const session = await resolveSession(request);
+    if (
+      !session ||
+      session.user.role !== 'USER' ||
+      !['ACTIVE', 'PENDING_REVERIFICATION'].includes(session.user.status)
+    ) {
+      throw new ApiError(401, 'AUTH_REQUIRED', '재인증할 학생 계정으로 로그인해 주세요.');
+    }
+    enforceRateLimit(`riro-reverify-account:${session.user.id}`, {
+      limit: 6,
+      windowMs: 15 * 60 * 1_000,
+    });
+    await enforceDistributedRateLimit(`riro-reverify-account:${session.user.id}`, {
+      limit: 6,
+      windowMs: 15 * 60 * 1_000,
+      failPolicy: 'closed',
+    });
+
     const body = await readJson<{ id?: unknown; password?: unknown }>(request, 8_192);
     const id = canonicalizeRiroId(
       requiredString(body.id, '리로스쿨 아이디', { min: 2, max: 32 }),
     );
-    const accountFingerprint = riroAccountFingerprint(id);
-    enforceRateLimit(`riro-reset-account:${accountFingerprint}`, {
-      limit: 5,
-      windowMs: 15 * 60 * 1_000,
-    });
-    await enforceDistributedRateLimit(`riro-reset-account:${accountFingerprint}`, {
-      limit: 5,
-      windowMs: 15 * 60 * 1_000,
-      failPolicy: 'closed',
-    });
     const password = requiredString(body.password, '리로스쿨 비밀번호', {
       min: 1,
       max: 128,
       trim: false,
     });
     const profile = await verifyRiroAccount(id, password);
-    parseStudentCode(profile.studentCode);
+    const student = parseStudentCode(profile.studentCode);
+
     const identity = await prisma.studentIdentity.findUnique({
-      where: { riroAccountFingerprint: accountFingerprint },
+      where: { userId: session.user.id },
       select: {
-        id: true,
         studentCode: true,
         generation: true,
         encryptedName: true,
-        user: { select: { role: true } },
+        riroAccountFingerprint: true,
       },
     });
-    if (!identity || identity.user.role !== 'USER') {
-      throw new ApiError(404, 'ACCOUNT_NOT_FOUND', '해당 재학생의 인텍트 계정을 찾을 수 없습니다.');
+    if (!identity) {
+      throw new ApiError(400, 'STUDENT_IDENTITY_MISSING', '학생 신원 정보가 없습니다.');
     }
     const storedName = decryptText(identity.encryptedName).normalize('NFKC').trim();
     const verifiedName = profile.name.normalize('NFKC').trim();
+    const verifiedAccountFingerprint = riroAccountFingerprint(id);
     if (
-      identity.studentCode !== profile.studentCode ||
+      identity.studentCode !== student.studentCode ||
       identity.generation !== profile.generation ||
-      storedName !== verifiedName
+      storedName !== verifiedName ||
+      (
+        identity.riroAccountFingerprint !== verifiedAccountFingerprint &&
+        !isLegacySyntheticRiroFingerprint(
+          identity.riroAccountFingerprint,
+          identity.studentCode,
+        )
+      )
     ) {
       throw new ApiError(403, 'IDENTITY_MISMATCH', '기존 계정과 리로스쿨 학생 정보가 일치하지 않습니다.');
     }
 
     const ticket = randomToken();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1_000);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 10 * 60 * 1_000);
     await prisma.$transaction([
-      prisma.verificationTicket.deleteMany({ where: { expiresAt: { lt: new Date() } } }),
+      prisma.verificationTicket.deleteMany({ where: { expiresAt: { lt: now } } }),
       prisma.verificationTicket.create({
         data: {
           tokenHash: hashToken(ticket),
-          purpose: 'RESET',
+          purpose: 'REVERIFY',
           expiresAt,
-          encryptedName: encryptText(profile.name),
-          nameFingerprint: privateFingerprint(`${profile.name}|${profile.studentCode}`),
-          riroAccountFingerprint: accountFingerprint,
-          studentCode: profile.studentCode,
+          encryptedName: encryptText(verifiedName),
+          nameFingerprint: privateFingerprint(`${verifiedName}|${student.studentCode}`),
+          riroAccountFingerprint: verifiedAccountFingerprint,
+          studentCode: student.studentCode,
           currentStudentNumber: profile.currentStudentNumber,
           generation: profile.generation,
           grade: profile.grade,
@@ -103,7 +123,14 @@ export async function POST(request: Request) {
     return json({
       verificationTicket: ticket,
       expiresAt: expiresAt.toISOString(),
-      profile: { name: profile.name, studentCode: profile.studentCode },
+      profile: {
+        name: verifiedName,
+        studentCode: student.studentCode,
+        generation: profile.generation,
+        grade: profile.grade,
+        classNumber: profile.classNumber,
+        studentNumber: profile.studentNumber,
+      },
     });
   } catch (error) {
     return jsonError(error);

@@ -13,6 +13,7 @@ import {
   requiredString,
 } from '@/lib/server/http';
 import { attachSessionCookie, createPortalSession, resolveSession } from '@/lib/server/session';
+import { isLegacySyntheticRiroFingerprint } from '@/lib/server/riro';
 import { parseStudentCode } from '@/lib/server/student-invites';
 import { withTransactionRetry } from '@/lib/server/transactions';
 
@@ -54,7 +55,18 @@ export async function POST(request: Request) {
     const result = await withTransactionRetry(() => prisma.$transaction(async (tx) => {
       const ticket = await tx.verificationTicket.findUnique({ where: { tokenHash } });
       if (!ticket || ticket.purpose !== 'REVERIFY' || ticket.usedAt || ticket.expiresAt <= now) {
-        throw new ApiError(400, 'INVALID_TICKET', '재인증이 만료되었습니다. 운영자에게 새 재인증 코드를 요청해 주세요.');
+        throw new ApiError(400, 'INVALID_TICKET', '재인증이 만료되었습니다. 다시 인증해 주세요.');
+      }
+      const consumedTicket = await tx.verificationTicket.updateMany({
+        where: {
+          id: ticket.id,
+          usedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { usedAt: now },
+      });
+      if (consumedTicket.count !== 1) {
+        throw new ApiError(400, 'INVALID_TICKET', '재인증이 만료되었습니다. 다시 인증해 주세요.');
       }
       parseStudentCode(ticket.studentCode);
       const identity = await tx.studentIdentity.findUnique({
@@ -65,7 +77,20 @@ export async function POST(request: Request) {
       }
       const existingName = decryptText(identity.encryptedName).normalize('NFKC').trim();
       const verifiedName = decryptText(ticket.encryptedName).normalize('NFKC').trim();
-      if (identity.generation !== ticket.generation || existingName !== verifiedName) {
+      const linksLegacyRiroAccount =
+        identity.studentCode === ticket.studentCode &&
+        isLegacySyntheticRiroFingerprint(
+          identity.riroAccountFingerprint,
+          identity.studentCode,
+        );
+      if (
+        (
+          identity.riroAccountFingerprint !== ticket.riroAccountFingerprint &&
+          !linksLegacyRiroAccount
+        ) ||
+        identity.generation !== ticket.generation ||
+        existingName !== verifiedName
+      ) {
         throw new ApiError(403, 'IDENTITY_MISMATCH', '기존 계정과 동일한 학생에게 발급된 재인증 코드가 아닙니다.');
       }
       const [claimedIdentity, claimedLogin] = await Promise.all([
@@ -109,41 +134,43 @@ export async function POST(request: Request) {
           status: 'ACTIVE',
           lastReverifiedAt: now,
           reverifyDueAt: new Date(ticket.schoolYear + 1, 2, 31),
+          requiresRiroReverification: false,
         },
       });
       await tx.session.updateMany({
         where: { userId: session.user.id, scope: 'PORTAL', revokedAt: null },
         data: { revokedAt: now },
       });
-      if (!ticket.studentInviteId) {
-        throw new ApiError(400, 'INVALID_TICKET', '관리자가 발급한 재인증 코드가 아닙니다.');
+      if (ticket.studentInviteId) {
+        const consumedInvite = await tx.studentInvite.updateMany({
+          where: {
+            id: ticket.studentInviteId,
+            purpose: 'REVERIFY',
+            claimedAt: { not: null },
+            usedAt: null,
+            revokedAt: null,
+            expiresAt: { gt: now },
+          },
+          data: {
+            usedAt: now,
+            usedById: session.user.id,
+            activeKey: null,
+          },
+        });
+        if (consumedInvite.count !== 1) {
+          throw new ApiError(409, 'INVITE_STATE_CHANGED', '재인증 코드 상태가 변경되었습니다. 새 코드를 요청해 주세요.');
+        }
       }
-      const consumedInvite = await tx.studentInvite.updateMany({
-        where: {
-          id: ticket.studentInviteId,
-          purpose: 'REVERIFY',
-          claimedAt: { not: null },
-          usedAt: null,
-          revokedAt: null,
-          expiresAt: { gt: now },
-        },
-        data: {
-          usedAt: now,
-          usedById: session.user.id,
-          activeKey: null,
-        },
-      });
-      if (consumedInvite.count !== 1) {
-        throw new ApiError(409, 'INVITE_STATE_CHANGED', '재인증 코드 상태가 변경되었습니다. 새 코드를 요청해 주세요.');
-      }
-      await tx.verificationTicket.update({
-        where: { id: ticket.id },
-        data: { usedAt: now },
-      });
       return { studentCode: ticket.studentCode, schoolYear: ticket.schoolYear };
     }, { isolationLevel: 'Serializable' }));
 
-    const rotatedSession = await createPortalSession(session.user.id, request, 'PORTAL', true);
+    const rotatedSession = await createPortalSession(
+      session.user.id,
+      request,
+      'PORTAL',
+      true,
+      session.expiresAt,
+    );
     return attachSessionCookie(
       json({
         reverified: true,

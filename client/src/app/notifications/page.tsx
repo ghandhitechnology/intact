@@ -200,7 +200,7 @@ const initialNotifications: NotificationItem[] = [
     time: "어제",
     createdAt: "2026-07-12T15:00:00+09:00",
     unread: false,
-    href: "/profile/verification",
+    href: "/reverify",
     sourceType: "SYSTEM",
     metadata: {},
   },

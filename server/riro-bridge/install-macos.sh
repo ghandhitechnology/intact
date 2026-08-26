@@ -19,8 +19,8 @@ if [[ -z "${PYTHON_BIN}" ]]; then
     PYTHON_BIN="$(command -v python3 || true)"
   fi
 fi
-if [[ -z "${PYTHON_BIN}" ]] || ! "${PYTHON_BIN}" -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'; then
-  echo "Python 3.10 or newer is required. Set RIRO_PYTHON_BIN to a compatible interpreter." >&2
+if [[ -z "${PYTHON_BIN}" ]] || ! "${PYTHON_BIN}" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))'; then
+  echo "Python 3.11 or newer is required. Set RIRO_PYTHON_BIN to a compatible interpreter." >&2
   exit 1
 fi
 TAILSCALE_BIN="$(command -v tailscale || true)"
@@ -36,6 +36,32 @@ if [[ ! "${TAILSCALE_IP}" =~ '^100\.' ]]; then
   echo "A Tailscale IPv4 address is required." >&2
   exit 1
 fi
+
+PREFLIGHT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/intact-riro-preflight.XXXXXX")"
+cleanup_preflight() {
+  rm -rf -- "${PREFLIGHT_DIR}"
+}
+trap cleanup_preflight EXIT
+"${PYTHON_BIN}" -m venv "${PREFLIGHT_DIR}/.venv"
+"${PREFLIGHT_DIR}/.venv/bin/python" -m pip install --disable-pip-version-check --quiet --upgrade pip==26.1.2
+"${PREFLIGHT_DIR}/.venv/bin/python" -m pip install --disable-pip-version-check --quiet -r "${SCRIPT_DIR}/requirements.txt"
+"${PREFLIGHT_DIR}/.venv/bin/python" -m pip check
+(
+  cd "${SCRIPT_DIR}"
+  RIRO_BRIDGE_SECRET="${RIRO_BRIDGE_SECRET}" "${PREFLIGHT_DIR}/.venv/bin/python" - <<'PY'
+import asyncio
+
+from main import app, lifespan
+
+
+async def preflight() -> None:
+    async with lifespan(app):
+        pass
+
+
+asyncio.run(preflight())
+PY
+)
 
 mkdir -p "${INSTALL_DIR}" "${HOME}/Library/LaunchAgents"
 chmod 700 "${INSTALL_DIR}"

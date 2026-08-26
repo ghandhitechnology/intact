@@ -4,6 +4,7 @@ import type { PublicUser } from '@/types/api';
 import { hashToken, privateFingerprint, randomToken } from './crypto';
 import { ApiError, getClientIp } from './http';
 import { assertNotMaintenance } from './platform-mode';
+import { getReverificationState } from './reverification';
 
 export const SESSION_COOKIE = 'igwak_session';
 export const ADMIN_SESSION_COOKIE = 'igwak_admin_session';
@@ -42,9 +43,10 @@ export async function createPortalSession(
   request: Request,
   scope: 'PORTAL' | 'ADMIN' = 'PORTAL',
   remember = true,
+  absoluteExpiresAt?: Date,
 ) {
   const token = randomToken();
-  const expiresAt = new Date(
+  const expiresAt = absoluteExpiresAt ?? new Date(
     Date.now() +
       (scope === 'ADMIN'
         ? ADMIN_SESSION_AGE_MS
@@ -188,8 +190,7 @@ async function resolveScopedSession(
     scope === 'PORTAL' &&
     session.user.role === 'USER' &&
     session.user.status === 'ACTIVE' &&
-    session.user.reverifyDueAt &&
-    session.user.reverifyDueAt <= now
+    getReverificationState(session.user.reverifyDueAt, now).kind === 'required'
   ) {
     await prisma.user.update({
       where: { id: session.user.id },

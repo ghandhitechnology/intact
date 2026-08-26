@@ -1,5 +1,5 @@
 import prisma from '@/lib/prisma';
-import { decryptText, hashPassword, hashToken } from '@/lib/server/crypto';
+import { decryptText, hashPassword, hashToken, verifyPassword } from '@/lib/server/crypto';
 import {
   ApiError,
   assertSameOrigin,
@@ -20,9 +20,10 @@ import { withTransactionRetry } from '@/lib/server/transactions';
 
 export const runtime = 'nodejs';
 
+const recoveryDummyHash = hashPassword('invalid-register-recovery-timing-equalizer-1');
+
 interface RegisterBody {
   verificationTicket?: unknown;
-  studentCode?: unknown;
   password?: unknown;
 }
 
@@ -66,9 +67,6 @@ export async function POST(request: Request) {
       windowMs: 15 * 60 * 1_000,
       failPolicy: 'closed',
     });
-    const submittedStudent = parseStudentCode(
-      requiredString(body.studentCode, '학번', { min: 6, max: 6 }),
-    );
     const password = requiredString(body.password, '비밀번호', {
       min: 10,
       max: 128,
@@ -82,21 +80,43 @@ export async function POST(request: Request) {
     if (
       !preparedTicket ||
       preparedTicket.purpose !== 'REGISTER' ||
-      preparedTicket.usedAt ||
       preparedTicket.expiresAt <= checkedAt
     ) {
       throw new ApiError(400, 'INVALID_TICKET', '인증이 만료되었습니다. 다시 인증해 주세요.');
     }
+    if (preparedTicket.usedAt) {
+      const identity = await prisma.studentIdentity.findUnique({
+        where: { riroAccountFingerprint: preparedTicket.riroAccountFingerprint },
+        include: { user: { include: { studentIdentity: true } } },
+      });
+      const identityMatches = Boolean(
+        identity &&
+        identity.studentCode === preparedTicket.studentCode &&
+        identity.nameFingerprint === preparedTicket.nameFingerprint &&
+        identity.riroAccountFingerprint === preparedTicket.riroAccountFingerprint &&
+        identity.generation === preparedTicket.generation &&
+        identity.user.loginId === preparedTicket.studentCode &&
+        identity.user.role === 'USER' &&
+        identity.user.status === 'ACTIVE',
+      );
+      const passwordMatches = await verifyPassword(
+        password,
+        identityMatches && identity ? identity.user.passwordHash : await recoveryDummyHash,
+      );
+      if (!identity || !identityMatches || !passwordMatches) {
+        throw new ApiError(400, 'INVALID_TICKET', '인증이 만료되었습니다. 다시 인증해 주세요.');
+      }
+
+      const session = await createPortalSession(identity.user.id, request);
+      return attachSessionCookie(
+        json({ user: publicUser(identity.user), mustChangePassword: false }, 201),
+        session.token,
+        session.expiresAt,
+      );
+    }
     parseStudentCode(preparedTicket.studentCode);
     if (preparedTicket.studentInvite) {
       throw new ApiError(400, 'RIRO_REQUIRED', '회원가입 전에 리로스쿨 인증이 필요합니다.');
-    }
-    if (submittedStudent.studentCode !== preparedTicket.studentCode) {
-      throw new ApiError(
-        400,
-        'STUDENT_CODE_MISMATCH',
-        '입력한 학번이 리로스쿨 학적 정보와 일치하지 않습니다.',
-      );
     }
     const realName = decryptText(preparedTicket.encryptedName);
     validatePassword(password, realName);
@@ -125,13 +145,6 @@ export async function POST(request: Request) {
         parseStudentCode(ticket.studentCode);
         if (ticket.studentInvite) {
           throw new ApiError(400, 'RIRO_REQUIRED', '회원가입 전에 리로스쿨 인증이 필요합니다.');
-        }
-        if (submittedStudent.studentCode !== ticket.studentCode) {
-          throw new ApiError(
-            400,
-            'STUDENT_CODE_MISMATCH',
-            '입력한 학번이 리로스쿨 학적 정보와 일치하지 않습니다.',
-          );
         }
         const consumed = await tx.verificationTicket.updateMany({
           where: {
@@ -175,6 +188,7 @@ export async function POST(request: Request) {
             status: 'ACTIVE',
             lastReverifiedAt: registrationTime,
             reverifyDueAt: new Date(ticket.schoolYear + 1, 2, 31),
+            requiresRiroReverification: false,
             studentIdentity: {
               create: {
                 studentCode: ticket.studentCode,

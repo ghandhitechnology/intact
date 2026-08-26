@@ -3,7 +3,6 @@
 import AuthFrame from '@/components/operations/AuthFrame';
 import { apiErrorMessage, Button, cn, Field, Input, LoadingLabel, readApiEnvelope } from '@/components/operations/ui';
 import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
-import { isValidStudentCode, normalizeStudentCode, STUDENT_CODE_REQUIREMENTS } from '@/lib/student-code';
 import { ArrowRight, Check, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
@@ -22,7 +21,6 @@ export default function RegisterPage() {
   const [riroId, setRiroId] = useState('');
   const [riroPassword, setRiroPassword] = useState('');
   const [verification, setVerification] = useState<RiroVerification | null>(null);
-  const [studentCode, setStudentCode] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -53,10 +51,10 @@ export default function RegisterPage() {
         throw new Error(apiErrorMessage(payload, '리로스쿨 인증에 실패했습니다.'));
       }
       setVerification(payload.data);
-      setRiroPassword('');
     } catch (cause) {
       setError(requestErrorMessage(cause, '리로스쿨 인증에 실패했습니다.'));
     } finally {
+      setRiroPassword('');
       setLoading(false);
     }
   }
@@ -65,15 +63,6 @@ export default function RegisterPage() {
     event.preventDefault();
     if (loading || !verification) return;
     setError(null);
-    const normalizedStudentCode = normalizeStudentCode(studentCode);
-    if (!isValidStudentCode(normalizedStudentCode)) {
-      setError(STUDENT_CODE_REQUIREMENTS);
-      return;
-    }
-    if (normalizedStudentCode !== verification.profile.studentCode) {
-      setError('입력한 학번이 리로스쿨 학적 정보와 일치하지 않습니다.');
-      return;
-    }
     if (password.length < 10 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
       setError('비밀번호는 영문과 숫자를 포함해 10자 이상이어야 합니다.');
       return;
@@ -95,7 +84,6 @@ export default function RegisterPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             verificationTicket: verification.verificationTicket,
-            studentCode: normalizedStudentCode,
             password,
           }),
         });
@@ -104,7 +92,6 @@ export default function RegisterPage() {
           throw new Error(apiErrorMessage(payload, '계정을 만들지 못했습니다.'));
         }
       }
-      setStudentCode(normalizedStudentCode);
       setPassword('');
       setPasswordConfirm('');
       setDone(true);
@@ -158,7 +145,7 @@ export default function RegisterPage() {
             <ShieldCheck className="h-7 w-7" />
           </span>
           <h2 className="mt-5 text-lg font-bold tracking-[-0.02em] text-slate-950">{verification?.profile.name}님, 가입을 마쳤습니다.</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">로그인할 때 사용할 학번은 <strong className="font-bold text-slate-900">{studentCode}</strong>입니다.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">로그인할 때 사용할 학번은 <strong className="font-bold text-slate-900">{verification?.profile.studentCode}</strong>입니다.</p>
           <Link href="/" className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-emerald-800/60 bg-emerald-700 text-[15px] font-semibold text-white shadow-[var(--shadow-xs)] transition-colors duration-150 hover:bg-emerald-800 hover:shadow-[var(--shadow-sm)]">
             인텍트 시작하기 <ArrowRight className="h-4 w-4" />
           </Link>
@@ -188,10 +175,10 @@ export default function RegisterPage() {
         <form key="account" onSubmit={createAccount} className="anim-rise space-y-5" aria-busy={loading}>
           <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/60 px-4 py-3.5 text-sm leading-6 text-emerald-950">
             <p className="flex items-center gap-1.5 font-semibold"><ShieldCheck className="h-4 w-4 shrink-0" />인천과학고등학교 리로스쿨 인증 완료</p>
-            <p className="mt-1 text-xs leading-5 text-emerald-800">{verification.profile.name} 학생으로 확인했습니다. 포털에서 사용할 학번과 별도 비밀번호를 설정하세요.</p>
+            <p className="mt-1 text-xs leading-5 text-emerald-800">{verification.profile.name} 학생으로 확인했습니다. 확인된 학번과 별도로 사용할 포털 비밀번호를 설정하세요.</p>
           </div>
-          <Field label="6자리 학번" required hint="리로스쿨에 등록된 현재 학번을 입력하세요.">
-            <Input inputMode="numeric" value={studentCode} onChange={(event) => setStudentCode(normalizeStudentCode(event.target.value))} autoComplete="username" maxLength={6} placeholder="예: 331101" />
+          <Field label="확인된 학번" hint="리로스쿨 학적 정보에서 확인했습니다.">
+            <Input value={verification.profile.studentCode} readOnly aria-readonly="true" />
           </Field>
           <Field label="포털 비밀번호" required hint="리로스쿨 비밀번호와 다른 비밀번호 사용 권장 · 영문+숫자 10자 이상">
             <div className="relative">
@@ -232,7 +219,7 @@ export default function RegisterPage() {
             <p role="alert" className="anim-rise rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs font-semibold text-red-700">{error}</p>
           ) : null}
           <Button type="submit" disabled={loading} className="h-12 w-full text-[15px]">{loading ? <LoadingLabel>계정 생성 중</LoadingLabel> : <>회원가입 <ArrowRight className="h-4 w-4" /></>}</Button>
-          <button type="button" onClick={() => { setVerification(null); setStudentCode(''); setError(null); }} className="w-full text-xs font-semibold text-slate-400 underline decoration-slate-300 underline-offset-4 transition-colors hover:text-slate-600">다른 리로스쿨 계정으로 다시 인증</button>
+          <button type="button" onClick={() => { setVerification(null); setError(null); }} className="w-full text-xs font-semibold text-slate-400 underline decoration-slate-300 underline-offset-4 transition-colors hover:text-slate-600">다른 리로스쿨 계정으로 다시 인증</button>
         </form>
       )}
     </AuthFrame>
