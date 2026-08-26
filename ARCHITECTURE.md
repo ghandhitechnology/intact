@@ -160,7 +160,7 @@ IGK는 `IgkLedger`가 원장이며 잔액, 선물, 활동 보상과 등급이 �
 - 인증: login, registration, invite, reverify, reset, admin scope
 - 게시판: draft, create, edit, revision, comment, recommendation, bookmark, search
 - 파일: upload, attach, permissioned download, delete, backup pair
-- 메시지: room switch, reconnect, history prepend, read state, autoscroll
+- 메시지: room switch, reconnect, history prepend, read state, autoscroll, member add/leave, mute, rename
 - 알림: grouping key, unread count, group read, independent system notices
 - IGK: idempotency, balance, ledger, concurrent transfer, ranking
 - 운영: migration, health, audit log, backup, rollback
