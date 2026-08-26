@@ -381,7 +381,7 @@ REMOTE
 `20260827000000_riro_reverification_flag` migration은 기존 `USER` 계정에 다음 로그인 시 리로스쿨 재인증을 요구합니다. 이미 발급된 포털 세션은 즉시 끊지 않습니다. 직접 인증 경로가 준비되지 않은 상태에서 migration과 Web을 먼저 배포하면 다음 로그인부터 학생이 막힐 수 있으므로 아래 순서를 지킵니다.
 
 1. DB 백업을 완료합니다.
-2. Mac mini에 `server/riro-bridge`를 먼저 배포합니다. Python 3.11 이상, 동일한 64자리 hex `RIRO_BRIDGE_SECRET`, Tailscale ACL을 확인합니다. 설치와 갱신 절차는 `server/riro-bridge/README.md`를 따릅니다.
+2. Mac mini에 `server/riro-bridge`를 먼저 배포합니다. Python 3.11 이상, 동일한 64자리 hex `RIRO_BRIDGE_SECRET`, Tailscale ACL을 확인합니다. 설치와 갱신 절차는 `server/riro-bridge/README.md`를 따릅니다. 전용 Mac mini는 AC 절전 해제·정전 후 자동 재시작·전용 계정 자동 로그인을 유지하고, 설치 뒤 로컬과 VPS 양쪽에서 `/health`를 확인합니다.
 3. VPS에서 브리지 `/health`가 HTTP 200이고 `contractVersion`이 `2`, `runtime.ready`가 `true`인지 확인합니다. 응답이나 로그에 학교·학생·자격증명 정보가 없어야 합니다.
 4. migration 전에 승인된 테스트 학생 계정으로 브리지 `/v1/verify`의 서명된 실제 인증을 1회 수행해 현재 리로스쿨 응답을 contract v2 profile로 해석하는지 확인합니다. 자격증명과 응답 본문은 shell history나 로그에 남기지 않습니다. `/health`만으로 이 단계를 대체할 수 없습니다.
 5. 운영 `.env`의 `RIRO_AUTH_MODE=BRIDGE`, `RIRO_BRIDGE_URL`, `RIRO_BRIDGE_SECRET`을 확인한 뒤 migration과 Web을 같은 배포 창에서 적용합니다.

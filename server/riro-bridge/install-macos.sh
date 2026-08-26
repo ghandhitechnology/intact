@@ -23,15 +23,16 @@ if [[ -z "${PYTHON_BIN}" ]] || ! "${PYTHON_BIN}" -c 'import sys; raise SystemExi
   echo "Python 3.11 or newer is required. Set RIRO_PYTHON_BIN to a compatible interpreter." >&2
   exit 1
 fi
-TAILSCALE_BIN="$(command -v tailscale || true)"
-if [[ -z "${TAILSCALE_BIN}" && -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ]]; then
+if [[ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ]]; then
   TAILSCALE_BIN=/Applications/Tailscale.app/Contents/MacOS/Tailscale
+else
+  TAILSCALE_BIN="$(command -v tailscale || true)"
 fi
 if [[ -z "${TAILSCALE_BIN}" ]]; then
   echo "Tailscale CLI was not found." >&2
   exit 1
 fi
-TAILSCALE_IP="${RIRO_BRIDGE_TAILSCALE_IP:-$(${TAILSCALE_BIN} ip -4 | head -n 1)}"
+TAILSCALE_IP="${RIRO_BRIDGE_TAILSCALE_IP:-$("${TAILSCALE_BIN}" ip -4 | head -n 1)}"
 if [[ ! "${TAILSCALE_IP}" =~ '^100\.' ]]; then
   echo "A Tailscale IPv4 address is required." >&2
   exit 1
@@ -43,9 +44,10 @@ cleanup_preflight() {
 }
 trap cleanup_preflight EXIT
 "${PYTHON_BIN}" -m venv "${PREFLIGHT_DIR}/.venv"
-"${PREFLIGHT_DIR}/.venv/bin/python" -m pip install --disable-pip-version-check --quiet --upgrade pip==26.1.2
+"${PREFLIGHT_DIR}/.venv/bin/python" -m pip install --disable-pip-version-check --quiet --upgrade pip==26.0.1
 "${PREFLIGHT_DIR}/.venv/bin/python" -m pip install --disable-pip-version-check --quiet -r "${SCRIPT_DIR}/requirements.txt"
 "${PREFLIGHT_DIR}/.venv/bin/python" -m pip check
+zsh -n "${SCRIPT_DIR}/run-bridge.zsh"
 (
   cd "${SCRIPT_DIR}"
   RIRO_BRIDGE_SECRET="${RIRO_BRIDGE_SECRET}" "${PREFLIGHT_DIR}/.venv/bin/python" - <<'PY'
@@ -65,18 +67,32 @@ PY
 
 mkdir -p "${INSTALL_DIR}" "${HOME}/Library/LaunchAgents"
 chmod 700 "${INSTALL_DIR}"
-cp "${SCRIPT_DIR}/main.py" "${SCRIPT_DIR}/requirements.txt" "${INSTALL_DIR}/"
-"${PYTHON_BIN}" -m venv "${INSTALL_DIR}/.venv"
-"${INSTALL_DIR}/.venv/bin/python" -m pip install --disable-pip-version-check --quiet --upgrade pip==26.1.2
-"${INSTALL_DIR}/.venv/bin/python" -m pip install --disable-pip-version-check --quiet -r "${INSTALL_DIR}/requirements.txt"
-"${INSTALL_DIR}/.venv/bin/python" -m pip check
+PYTHON_RELEASE="${INSTALL_DIR}/venv-$("${PYTHON_BIN}" -c 'import platform; print(platform.python_version())')-$(date -u +%Y%m%dT%H%M%SZ)"
+"${PYTHON_BIN}" -m venv "${PYTHON_RELEASE}"
+"${PYTHON_RELEASE}/bin/python" -m pip install --disable-pip-version-check --quiet --upgrade pip==26.0.1
+"${PYTHON_RELEASE}/bin/python" -m pip install --disable-pip-version-check --quiet -r "${SCRIPT_DIR}/requirements.txt"
+"${PYTHON_RELEASE}/bin/python" -m pip check
 
+APP_STAGE="$(mktemp -d "${INSTALL_DIR}/.app-stage.XXXXXX")"
+cp "${SCRIPT_DIR}/main.py" "${SCRIPT_DIR}/requirements.txt" "${SCRIPT_DIR}/run-bridge.zsh" "${APP_STAGE}/"
+chmod 700 "${APP_STAGE}/run-bridge.zsh"
+mv -f "${APP_STAGE}/main.py" "${APP_STAGE}/requirements.txt" "${APP_STAGE}/run-bridge.zsh" "${INSTALL_DIR}/"
+rmdir "${APP_STAGE}"
+
+PLIST_TEMP="$(mktemp "${HOME}/Library/LaunchAgents/.com.intact.riro-bridge.XXXXXX")"
+cleanup_plist_temp() {
+  rm -f -- "${PLIST_TEMP}"
+}
+trap 'cleanup_plist_temp; cleanup_preflight' EXIT
 sed \
   -e "s|__INSTALL_DIR__|${INSTALL_DIR}|g" \
-  -e "s|__TAILSCALE_IP__|${TAILSCALE_IP}|g" \
+  -e "s|__TAILSCALE_BIN__|${TAILSCALE_BIN}|g" \
+  -e "s|__PYTHON_BIN__|${PYTHON_RELEASE}/bin/python|g" \
   -e "s|__BRIDGE_SECRET__|${RIRO_BRIDGE_SECRET}|g" \
-  "${SCRIPT_DIR}/com.intact.riro-bridge.plist.template" > "${PLIST_PATH}"
-chmod 600 "${PLIST_PATH}"
+  "${SCRIPT_DIR}/com.intact.riro-bridge.plist.template" > "${PLIST_TEMP}"
+plutil -lint "${PLIST_TEMP}" >/dev/null
+chmod 600 "${PLIST_TEMP}"
+mv -f "${PLIST_TEMP}" "${PLIST_PATH}"
 
 launchctl bootout "gui/${UID}/com.intact.riro-bridge" >/dev/null 2>&1 || true
 if launchctl bootstrap "gui/${UID}" "${PLIST_PATH}"; then
@@ -87,8 +103,9 @@ else
   launchctl unload "${PLIST_PATH}" >/dev/null 2>&1 || true
   launchctl load -w "${PLIST_PATH}"
 fi
+launchctl kickstart -k "gui/${UID}/com.intact.riro-bridge"
 
-for _ in {1..20}; do
+for _ in {1..30}; do
   if curl --fail --silent --max-time 2 "http://${TAILSCALE_IP}:8765/health" >/dev/null; then
     echo "Riroschool bridge is healthy at http://${TAILSCALE_IP}:8765"
     exit 0
