@@ -763,8 +763,9 @@ model ChatMember {
   leftAt            DateTime?      @db.Timestamptz(6)
   role              ChatMemberRole @default(MEMBER)
   lastReadMessageId String?        @db.Uuid
-  lastReadSequence  BigInt         @default(0)
-  mutedUntil        DateTime?      @db.Timestamptz(6)
+  lastReadSequence    BigInt         @default(0)
+  mutedUntil          DateTime?      @db.Timestamptz(6)
+  notificationsMuted  Boolean        @default(false)
 
   room            ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)

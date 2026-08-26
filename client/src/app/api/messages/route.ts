@@ -306,6 +306,7 @@ export async function POST(request: Request) {
             roomId,
             leftAt: null,
             userId: { not: session.user.id },
+            notificationsMuted: false,
             OR: [{ mutedUntil: null }, { mutedUntil: { lte: new Date() } }],
           },
           select: { userId: true },

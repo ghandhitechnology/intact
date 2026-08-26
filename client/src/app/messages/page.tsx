@@ -15,7 +15,6 @@ import {
   cn,
 } from "@/components/operations/ui";
 import {
-  Archive,
   ArrowDown,
   Bell,
   BellOff,
@@ -23,7 +22,6 @@ import {
   CheckCheck,
   ChevronLeft,
   FileText,
-  Image as ImageIcon,
   Info,
   Loader2,
   MessageSquare,
@@ -35,10 +33,15 @@ import {
   Send,
   Smile,
   UserPlus,
-  Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { ParticipantChips } from "@/components/community/ParticipantChips";
+import {
+  CHAT_MAX_OTHER_MEMBERS,
+  CHAT_MIN_GROUP_TITLE_LENGTH,
+  chatTooManyMembersMessage,
+} from "@/lib/chat-limits";
 import { isValidStudentCode, STUDENT_CODE_REQUIREMENTS } from "@/lib/student-code";
 import { fetchWithTimeout, isAbortError, requestErrorMessage } from "@/lib/client/request";
 import { usePortalSession } from "@/components/portal/SessionProvider";
@@ -58,16 +61,13 @@ import {
 const DEMO_MODE = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === "true";
 const REALTIME_URL = process.env.NEXT_PUBLIC_REALTIME_URL;
 
-function participantCodes(value: string) {
-  return Array.from(
-    new Set(
-      value
-        .split(/[\s,]+/)
-        .map((item) => item.trim())
-        .filter(Boolean),
-    ),
-  );
-}
+type RoomPerson = {
+  userId: string;
+  role: "OWNER" | "MANAGER" | "MEMBER";
+  name: string;
+  studentCode: string;
+  profileImage?: string | null;
+};
 
 type Room = {
   id: string;
@@ -82,6 +82,8 @@ type Room = {
   pinned?: boolean;
   tone: "blue" | "green" | "violet" | "amber" | "slate";
   memberIds: string[];
+  people: RoomPerson[];
+  myRole?: RoomPerson["role"];
 };
 
 type ChatMessage = {
@@ -126,11 +128,13 @@ type ServerRoom = {
   type: "DIRECT" | "GROUP";
   title: string | null;
   members: Array<{
+    role?: RoomPerson["role"];
+    notificationsMuted?: boolean;
     user: ServerAuthor;
     lastReadSequence?: string;
     lastReadMessage?: { createdAt: string; sequence?: string } | null;
   }>;
-  messages: Array<{
+  messages?: Array<{
     id: string;
     sequence?: string;
     content: string;
@@ -243,6 +247,82 @@ function mapServerMessage(
   };
 }
 
+function peopleFromMembers(
+  members: ServerRoom["members"],
+  userId: string | null,
+): RoomPerson[] {
+  return members.map((member) => ({
+    userId: member.user.id,
+    role: member.role ?? "MEMBER",
+    name:
+      member.user.id === userId
+        ? "나"
+        : member.user.realName || member.user.nickname,
+    studentCode: member.user.studentIdentity?.studentCode ?? "",
+    profileImage: member.user.profileImage,
+  }));
+}
+
+function roomFromServer(
+  serverRoom: ServerRoom,
+  userId: string | null,
+  index: number,
+): Room {
+  const otherMembers = serverRoom.members.filter(
+    (member) => member.user.id !== userId,
+  );
+  const latest = serverRoom.messages?.[0];
+  const self = serverRoom.members.find((member) => member.user.id === userId);
+  return {
+    id: serverRoom.id,
+    name:
+      serverRoom.title ||
+      otherMembers
+        .map((member) => member.user.realName || member.user.nickname)
+        .join(", ") ||
+      "1:1 대화",
+    type: serverRoom.type === "DIRECT" ? "direct" : "group",
+    preview: latest
+      ? `${latest.sender.realName || latest.sender.nickname}: ${latest.content}`
+      : "메시지 없음",
+    time: latest
+      ? new Intl.DateTimeFormat("ko-KR", {
+          month: "numeric",
+          day: "numeric",
+        }).format(new Date(latest.createdAt))
+      : "",
+    unread: Number(serverRoom.unreadCount || 0),
+    members: serverRoom.members.length,
+    tone: (["blue", "green", "violet", "amber", "slate"] as const)[index % 5],
+    memberIds: serverRoom.members.map((member) => member.user.id),
+    people: peopleFromMembers(serverRoom.members, userId),
+    myRole: self?.role,
+    muted: Boolean(self?.notificationsMuted),
+  };
+}
+
+function dayLabel(iso?: string) {
+  if (!iso) return "";
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  }).format(new Date(iso));
+}
+
+function sameMinute(left?: string, right?: string) {
+  if (!left || !right) return false;
+  const a = new Date(left);
+  const b = new Date(right);
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate() &&
+    a.getHours() === b.getHours() &&
+    a.getMinutes() === b.getMinutes()
+  );
+}
+
 async function persistMessage(
   roomId: string,
   content: string,
@@ -322,6 +402,12 @@ const initialRooms: Room[] = [
     pinned: true,
     tone: "blue",
     memberIds: ["demo-user-1", "demo-user-2"],
+    myRole: "OWNER",
+    people: [
+      { userId: "me", role: "OWNER", name: "나", studentCode: "331201" },
+      { userId: "demo-user-1", role: "MEMBER", name: "최서윤", studentCode: "331108" },
+      { userId: "demo-user-2", role: "MEMBER", name: "박민서", studentCode: "331203" },
+    ],
   },
   {
     id: "minseo",
@@ -334,6 +420,10 @@ const initialRooms: Room[] = [
     members: 2,
     tone: "green",
     memberIds: ["demo-user-2"],
+    people: [
+      { userId: "me", role: "MEMBER", name: "나", studentCode: "331201" },
+      { userId: "demo-user-2", role: "MEMBER", name: "박민서", studentCode: "331203" },
+    ],
   },
   {
     id: "festival",
@@ -346,6 +436,11 @@ const initialRooms: Room[] = [
     muted: true,
     tone: "violet",
     memberIds: [],
+    myRole: "MEMBER",
+    people: [
+      { userId: "me", role: "MEMBER", name: "나", studentCode: "331201" },
+      { userId: "demo-user-1", role: "OWNER", name: "최서윤", studentCode: "331108" },
+    ],
   },
   {
     id: "junho",
@@ -358,6 +453,10 @@ const initialRooms: Room[] = [
     members: 2,
     tone: "amber",
     memberIds: [],
+    people: [
+      { userId: "me", role: "MEMBER", name: "나", studentCode: "331201" },
+      { userId: "demo-junho", role: "MEMBER", name: "이준호", studentCode: "321111" },
+    ],
   },
   {
     id: "math",
@@ -369,6 +468,9 @@ const initialRooms: Room[] = [
     members: 21,
     tone: "slate",
     memberIds: [],
+    people: [
+      { userId: "me", role: "MEMBER", name: "나", studentCode: "331201" },
+    ],
   },
 ];
 
@@ -484,16 +586,27 @@ export default function MessagesPage() {
   const [draft, setDraft] = useState("");
   const [messageFile, setMessageFile] = useState<File | null>(null);
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [showDetails, setShowDetails] = useState(true);
+  const [showDetails, setShowDetails] = useState(false);
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedPeople, setSelectedPeople] = useState<string[]>(
     DEMO_MODE ? ["331108", "331203"] : [],
   );
   const [participantDraft, setParticipantDraft] = useState("");
+  const [participantChips, setParticipantChips] = useState<string[]>([]);
   const [roomName, setRoomName] = useState("");
   const [creatingRoom, setCreatingRoom] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [addDraft, setAddDraft] = useState("");
+  const [addChips, setAddChips] = useState<string[]>([]);
+  const [addError, setAddError] = useState("");
+  const [addingMembers, setAddingMembers] = useState(false);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [leaveArmed, setLeaveArmed] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [kickTarget, setKickTarget] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"rooms" | "chat" | "details">(
     "rooms",
   );
@@ -537,10 +650,7 @@ export default function MessagesPage() {
         : [],
     ),
   );
-  const enteredParticipantCodes = useMemo(
-    () => participantCodes(participantDraft),
-    [participantDraft],
-  );
+  const enteredParticipantCodes = participantChips;
   const invalidParticipantCodes = useMemo(
     () => enteredParticipantCodes.filter((code) =>
       bSideEnabled ? !/^#[A-F0-9]{8}$/i.test(code) : !isValidStudentCode(code),
@@ -553,11 +663,11 @@ export default function MessagesPage() {
   const createIsGroup = createMemberCount > 1;
   const canCreateRoom =
     createMemberCount > 0 &&
-    createMemberCount <= 9 &&
+    createMemberCount <= CHAT_MAX_OTHER_MEMBERS &&
     invalidParticipantCodes.length === 0 &&
     (bSideEnabled || !currentStudentCode ||
       !enteredParticipantCodes.includes(currentStudentCode)) &&
-    (!createIsGroup || roomName.trim().length >= 2);
+    (!createIsGroup || roomName.trim().length >= CHAT_MIN_GROUP_TITLE_LENGTH);
 
   useEffect(() => {
     if (DEMO_MODE) return;
@@ -566,7 +676,12 @@ export default function MessagesPage() {
     Object.values(cached.messages || {}).forEach((list) =>
       list.forEach((message) => initialMessageIdsRef.current.add(message.id)),
     );
-    setRooms(cached.rooms);
+    setRooms(
+      cached.rooms.map((item) => ({
+        ...item,
+        people: item.people ?? [],
+      })),
+    );
     setMessages(cached.messages || {});
     setSelectedId(cached.selectedId || cached.rooms[0]?.id || "");
     setCurrentUserId(cached.currentUserId);
@@ -682,37 +797,7 @@ export default function MessagesPage() {
           );
         const userId = authenticatedUser.id;
         const loadedRooms: Room[] = roomsPayload.data.rooms.map(
-          (serverRoom, index) => {
-            const otherMembers = serverRoom.members.filter(
-              (member) => member.user.id !== userId,
-            );
-            const latest = serverRoom.messages[0];
-            return {
-              id: serverRoom.id,
-              name:
-                serverRoom.title ||
-                otherMembers
-                  .map((member) => member.user.realName || member.user.nickname)
-                  .join(", ") ||
-                "1:1 대화",
-              type: serverRoom.type === "DIRECT" ? "direct" : "group",
-              preview: latest
-                ? `${latest.sender.realName || latest.sender.nickname}: ${latest.content}`
-                : "메시지 없음",
-              time: latest
-                ? new Intl.DateTimeFormat("ko-KR", {
-                    month: "numeric",
-                    day: "numeric",
-                  }).format(new Date(latest.createdAt))
-                : "",
-              unread: Number(serverRoom.unreadCount || 0),
-              members: serverRoom.members.length,
-              tone: (["blue", "green", "violet", "amber", "slate"] as const)[
-                index % 5
-              ],
-              memberIds: serverRoom.members.map((member) => member.user.id),
-            };
-          },
+          (serverRoom, index) => roomFromServer(serverRoom, userId, index),
         );
         setCurrentUserId(userId);
         setCurrentStudentCode(authenticatedUser.studentCode ?? "");
@@ -973,6 +1058,7 @@ export default function MessagesPage() {
       members: 0,
       tone: "slate" as const,
       memberIds: [],
+      people: [],
     };
   const roomMessages = messages[selectedId] ?? [];
   const visibleMessages = messageQuery.trim()
@@ -1299,8 +1385,8 @@ export default function MessagesPage() {
       setCreateError(bSideEnabled ? "대화할 사용자의 익명 해시를 입력해 주세요." : "대화할 학생의 학번을 입력해 주세요.");
       return;
     }
-    if (memberIds.length > 9) {
-      setCreateError("한 번에 최대 9명까지 초대할 수 있습니다.");
+    if (memberIds.length > CHAT_MAX_OTHER_MEMBERS) {
+      setCreateError(chatTooManyMembersMessage());
       return;
     }
     if (invalidParticipantCodes.length) {
@@ -1311,7 +1397,7 @@ export default function MessagesPage() {
       setCreateError("본인 학번은 참여자에서 빼 주세요.");
       return;
     }
-    if (memberIds.length > 1 && roomName.trim().length < 2) {
+    if (memberIds.length > 1 && roomName.trim().length < CHAT_MIN_GROUP_TITLE_LENGTH) {
       setCreateError("그룹 대화방 이름을 2자 이상 입력해 주세요.");
       return;
     }
@@ -1328,6 +1414,13 @@ export default function MessagesPage() {
         members: memberIds.length + 1,
         tone: "green",
         memberIds,
+        people: memberIds.map((id) => ({
+          userId: id,
+          role: "MEMBER" as const,
+          name: people.find((person) => person.id === id)?.name || id,
+          studentCode: id,
+        })),
+        myRole: "OWNER",
       };
       setRooms((current) => [next, ...current]);
       setMessages((current) => ({ ...current, [id]: [] }));
@@ -1361,26 +1454,14 @@ export default function MessagesPage() {
         throw new Error(
           apiErrorMessage(payload, "대화방을 만들지 못했습니다."),
         );
-      const serverRoom = payload.data.room;
-      const otherMembers = serverRoom.members.filter(
-        (member) => member.user.id !== currentUserId,
+      const next = roomFromServer(
+        {
+          ...payload.data.room,
+          messages: [],
+        },
+        currentUserId,
+        0,
       );
-      const next: Room = {
-        id: serverRoom.id,
-        name:
-          serverRoom.title ||
-          otherMembers
-            .map((member) => member.user.realName || member.user.nickname)
-            .join(", ") ||
-          "1:1 대화",
-        type: serverRoom.type === "DIRECT" ? "direct" : "group",
-        preview: "메시지 없음",
-        time: "",
-        unread: 0,
-        members: serverRoom.members.length,
-        tone: "green",
-        memberIds: serverRoom.members.map((member) => member.user.id),
-      };
       setRooms((current) =>
         current.some((item) => item.id === next.id)
           ? current
@@ -1393,6 +1474,7 @@ export default function MessagesPage() {
       setSelectedId(next.id);
       setRoomName("");
       setParticipantDraft("");
+      setParticipantChips([]);
       setCreateOpen(false);
       setMobileView("chat");
       setToast(
@@ -1406,6 +1488,224 @@ export default function MessagesPage() {
       );
     } finally {
       setCreatingRoom(false);
+    }
+  }
+
+  function selectedRoom() {
+    return rooms.find((item) => item.id === selectedId);
+  }
+
+  function applyRoom(serverRoom: ServerRoom) {
+    const mapped = roomFromServer(serverRoom, currentUserId, 0);
+    setRooms((current) => {
+      const index = current.findIndex((item) => item.id === mapped.id);
+      if (index < 0) return [mapped, ...current];
+      const previous = current[index];
+      const next = [...current];
+      next[index] = {
+        ...previous,
+        ...mapped,
+        tone: previous.tone,
+        unread: previous.unread,
+        preview: previous.preview,
+        time: previous.time,
+        online: previous.online,
+      };
+      return next;
+    });
+  }
+
+  async function addMembersToRoom() {
+    const active = selectedRoom();
+    const memberIds = addChips;
+    setAddError("");
+    if (!active?.id || memberIds.length === 0) {
+      setAddError(bSideEnabled ? "초대할 익명 해시를 입력해 주세요." : "초대할 학번을 입력해 주세요.");
+      return;
+    }
+    if (DEMO_MODE) {
+      setRooms((current) =>
+        current.map((item) =>
+          item.id === active.id
+            ? {
+                ...item,
+                type: "group",
+                members: item.members + memberIds.length,
+                memberIds: [...item.memberIds, ...memberIds],
+                people: [
+                  ...item.people,
+                  ...memberIds.map((id) => ({
+                    userId: id,
+                    role: "MEMBER" as const,
+                    name: people.find((person) => person.id === id)?.name || id,
+                    studentCode: id,
+                  })),
+                ],
+              }
+            : item,
+        ),
+      );
+      setAddOpen(false);
+      setAddChips([]);
+      setAddDraft("");
+      setToast("참여자를 추가했습니다.");
+      return;
+    }
+    setAddingMembers(true);
+    try {
+      const response = await fetchWithTimeout(
+        `/api/chat/rooms/${encodeURIComponent(active.id)}/members`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ memberIds }),
+        },
+      );
+      const payload = await readApiEnvelope<{ room: ServerRoom }>(response);
+      if (!response.ok || !payload?.ok)
+        throw new Error(apiErrorMessage(payload, "참여자를 추가하지 못했습니다."));
+      applyRoom({ ...payload.data.room, messages: payload.data.room.messages ?? [] });
+      setAddOpen(false);
+      setAddChips([]);
+      setAddDraft("");
+      setToast("참여자를 추가했습니다.");
+    } catch (cause) {
+      setAddError(requestErrorMessage(cause, "참여자를 추가하지 못했습니다."));
+    } finally {
+      setAddingMembers(false);
+    }
+  }
+
+  async function renameSelectedRoom() {
+    const active = selectedRoom();
+    const title = renameDraft.trim();
+    if (!active?.id || active.type !== "group" || title.length < CHAT_MIN_GROUP_TITLE_LENGTH) return;
+    if (DEMO_MODE) {
+      setRooms((current) =>
+        current.map((item) => (item.id === active.id ? { ...item, name: title } : item)),
+      );
+      return;
+    }
+    setRenaming(true);
+    try {
+      const response = await fetchWithTimeout(`/api/chat/rooms/${encodeURIComponent(active.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      const payload = await readApiEnvelope<{ room: ServerRoom }>(response);
+      if (!response.ok || !payload?.ok)
+        throw new Error(apiErrorMessage(payload, "이름을 바꾸지 못했습니다."));
+      applyRoom({ ...payload.data.room, messages: payload.data.room.messages ?? [] });
+    } catch (cause) {
+      setToast(requestErrorMessage(cause, "이름을 바꾸지 못했습니다."));
+    } finally {
+      setRenaming(false);
+    }
+  }
+
+  async function toggleRoomMute() {
+    const active = selectedRoom();
+    if (!active?.id) return;
+    const nextMuted = !active.muted;
+    if (DEMO_MODE) {
+      setRooms((current) =>
+        current.map((item) => (item.id === active.id ? { ...item, muted: nextMuted } : item)),
+      );
+      return;
+    }
+    try {
+      const response = await fetchWithTimeout(`/api/chat/rooms/${encodeURIComponent(active.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationsMuted: nextMuted }),
+      });
+      const payload = await readApiEnvelope<{ room: ServerRoom }>(response);
+      if (!response.ok || !payload?.ok)
+        throw new Error(apiErrorMessage(payload, "알림 설정을 바꾸지 못했습니다."));
+      applyRoom({ ...payload.data.room, messages: payload.data.room.messages ?? [] });
+    } catch (cause) {
+      setToast(requestErrorMessage(cause, "알림 설정을 바꾸지 못했습니다."));
+    }
+  }
+
+  async function leaveSelectedRoom() {
+    const active = selectedRoom();
+    if (!active?.id) return;
+    if (!leaveArmed) {
+      setLeaveArmed(true);
+      return;
+    }
+    if (DEMO_MODE) {
+      setRooms((current) => current.filter((item) => item.id !== active.id));
+      setLeaveArmed(false);
+      setShowDetails(false);
+      setMobileView("rooms");
+      return;
+    }
+    setLeaving(true);
+    try {
+      const response = await fetchWithTimeout(
+        `/api/chat/rooms/${encodeURIComponent(active.id)}/members`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+      const payload = await readApiEnvelope<{ left?: boolean; roomId?: string }>(response);
+      if (!response.ok || !payload?.ok)
+        throw new Error(apiErrorMessage(payload, "대화방을 나가지 못했습니다."));
+      setRooms((current) => current.filter((item) => item.id !== active.id));
+      setShowDetails(false);
+      setMobileView("rooms");
+      setLeaveArmed(false);
+    } catch (cause) {
+      setToast(requestErrorMessage(cause, "대화방을 나가지 못했습니다."));
+    } finally {
+      setLeaving(false);
+    }
+  }
+
+  async function kickMember(userId: string) {
+    const active = selectedRoom();
+    if (!active?.id) return;
+    if (kickTarget !== userId) {
+      setKickTarget(userId);
+      return;
+    }
+    if (DEMO_MODE) {
+      setRooms((current) =>
+        current.map((item) =>
+          item.id === active.id
+            ? {
+                ...item,
+                people: item.people.filter((person) => person.userId !== userId),
+                memberIds: item.memberIds.filter((id) => id !== userId),
+                members: Math.max(1, item.members - 1),
+              }
+            : item,
+        ),
+      );
+      setKickTarget(null);
+      return;
+    }
+    try {
+      const response = await fetchWithTimeout(
+        `/api/chat/rooms/${encodeURIComponent(active.id)}/members`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId }),
+        },
+      );
+      const payload = await readApiEnvelope<{ room: ServerRoom }>(response);
+      if (!response.ok || !payload?.ok)
+        throw new Error(apiErrorMessage(payload, "참여자를 내보내지 못했습니다."));
+      applyRoom({ ...payload.data.room, messages: payload.data.room.messages ?? [] });
+      setKickTarget(null);
+    } catch (cause) {
+      setToast(requestErrorMessage(cause, "참여자를 내보내지 못했습니다."));
     }
   }
 
@@ -1627,6 +1927,16 @@ export default function MessagesPage() {
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </IconButton>
+                <button
+                  type="button"
+                  className="flex min-w-0 items-center gap-3 rounded-2xl px-1 py-0.5 text-left transition-colors hover:bg-slate-50"
+                  onClick={() => {
+                    setShowDetails(true);
+                    setMobileView("details");
+                    setRenameDraft(room.name);
+                    setLeaveArmed(false);
+                  }}
+                >
                 <Avatar
                   name={room.name}
                   size="sm"
@@ -1657,25 +1967,23 @@ export default function MessagesPage() {
                             : "접속 상태 확인 중"}
                   </p>
                 </div>
+                </button>
               </div>
               <div className="flex items-center">
                 <span
                   className={cn(
-                    "mr-2 hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold sm:inline-flex",
-                    connectionState === "live"
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-amber-50 text-amber-700",
+                    "mr-2 hidden h-2 w-2 rounded-full sm:inline-block",
+                    connectionState === "live" ? "bg-emerald-500" : "bg-amber-400",
                   )}
                   role="status"
-                >
-                  <span
-                    className={cn(
-                      "h-1.5 w-1.5 rounded-full",
-                      connectionState === "live" ? "bg-emerald-500" : "bg-amber-500",
-                    )}
-                  />
-                  {connectionState === "live" ? "실시간" : connectionState === "connecting" ? "연결 중" : "재연결 중"}
-                </span>
+                  aria-label={
+                    connectionState === "live"
+                      ? "실시간"
+                      : connectionState === "connecting"
+                        ? "연결 중"
+                        : "재연결 중"
+                  }
+                />
                 <IconButton
                   label="대화 내용 검색"
                   onClick={() => setShowMessageSearch((value) => !value)}
@@ -1687,6 +1995,8 @@ export default function MessagesPage() {
                   onClick={() => {
                     setShowDetails((value) => !value);
                     setMobileView("details");
+                    setRenameDraft(room.name);
+                    setLeaveArmed(false);
                   }}
                 >
                   <Info className="h-4 w-4" />
@@ -1778,18 +2088,41 @@ export default function MessagesPage() {
                   {messagesError}
                 </div>
               ) : null}
-              <div className="space-y-3">
+              <div>
                 {visibleMessages.map((message, index) => {
                   const previous = visibleMessages[index - 1];
+                  const next = visibleMessages[index + 1];
                   const grouped =
                     previous?.sender === message.sender &&
-                    previous.mine === message.mine;
+                    previous.mine === message.mine &&
+                    (!previous.createdAt ||
+                      !message.createdAt ||
+                      sameMinute(previous.createdAt, message.createdAt));
+                  const lastInGroup =
+                    next?.sender !== message.sender ||
+                    next.mine !== message.mine ||
+                    Boolean(
+                      message.createdAt &&
+                      next.createdAt &&
+                      !sameMinute(message.createdAt, next.createdAt),
+                    );
+                  const showDay =
+                    Boolean(message.createdAt) &&
+                    dayLabel(previous?.createdAt) !== dayLabel(message.createdAt);
                   const animateIn = !initialMessageIdsRef.current.has(message.id);
                   return (
+                    <div key={message.id}>
+                    {showDay ? (
+                      <div className="my-4 flex justify-center">
+                        <span className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-[var(--shadow-xs)]">
+                          {dayLabel(message.createdAt)}
+                        </span>
+                      </div>
+                    ) : null}
                     <div
-                      key={message.id}
                       className={cn(
-                        "flex gap-2.5",
+                        "flex gap-2",
+                        grouped ? "mt-0.5" : "mt-3",
                         message.mine && "justify-end",
                         animateIn && "anim-rise",
                       )}
@@ -1805,29 +2138,23 @@ export default function MessagesPage() {
                           message.mine && "items-end",
                         )}
                       >
-                        {!message.mine && !grouped ? (
-                          <p className="mb-1.5 flex flex-wrap items-center gap-1 text-xs font-bold text-slate-700">
-                            {message.senderId ? <Link href={`/users/${message.senderId}`} className="hover:text-emerald-700">{message.sender}</Link> : message.sender}{" "}
-                            {message.studentId && message.studentId !== '------' ? (
-                              <span className="ml-1 font-normal tabular-nums text-slate-400">
-                                {message.studentId}
-                              </span>
-                            ) : null}
-                            {message.standing ? <><Badge tone="green">{message.standing.tierLabel}</Badge>{message.standing.rankLabel ? <Badge tone="blue">{message.standing.rankLabel}</Badge> : null}</> : null}
+                        {!message.mine && !grouped && room.type === "group" ? (
+                          <p className="mb-1 px-1 text-[11px] font-semibold text-slate-500">
+                            {message.senderId ? <Link href={`/users/${message.senderId}`} className="hover:text-emerald-700">{message.sender}</Link> : message.sender}
                           </p>
                         ) : null}
-                        <div className="flex items-end gap-2">
+                        <div className="flex items-end gap-1.5">
                           <div
                             className={cn(
-                              "border px-3.5 py-2.5 text-sm leading-6 shadow-[var(--shadow-xs)] transition-shadow duration-200",
+                              "px-3.5 py-2 text-[15px] leading-5",
                               message.mine
-                                ? "order-2 rounded-2xl rounded-br-md"
-                                : "rounded-2xl rounded-bl-md",
+                                ? "order-2 rounded-[18px] rounded-br-md"
+                                : "rounded-[18px] rounded-bl-md",
                               message.failed
-                                ? "border-red-200 bg-red-50 text-red-800"
+                                ? "bg-red-50 text-red-800"
                                 : message.mine
-                                  ? "border-emerald-700 bg-emerald-700 text-white"
-                                  : "border-slate-200/80 bg-white text-slate-800",
+                                  ? "bg-emerald-700 text-white"
+                                  : "bg-[#e9e9eb] text-slate-900",
                             )}
                           >
                             <p className="whitespace-pre-wrap break-words">
@@ -1878,11 +2205,11 @@ export default function MessagesPage() {
                           </div>
                           <span
                             className={cn(
-                              "mb-0.5 flex shrink-0 flex-col items-end text-[11px] tabular-nums text-slate-400",
+                              "mb-0.5 flex shrink-0 flex-col items-end text-[10px] tabular-nums text-slate-400",
                               message.mine && "order-1",
                             )}
                           >
-                            {message.mine ? (
+                            {message.mine && lastInGroup ? (
                               message.read ? (
                                 <CheckCheck
                                   className="mb-0.5 h-3 w-3 text-emerald-600"
@@ -1895,10 +2222,11 @@ export default function MessagesPage() {
                                 />
                               )
                             ) : null}
-                            {message.time}
+                            {lastInGroup ? message.time : null}
                           </span>
                         </div>
                       </div>
+                    </div>
                     </div>
                   );
                 })}
@@ -2056,141 +2384,112 @@ export default function MessagesPage() {
             <div className="flex-1 overflow-y-auto">
               <div className="border-b border-slate-100 px-4 py-6 text-center">
                 <Avatar name={room.name} size="xl" tone={room.tone} />
-                <h3 className="mt-3 text-base font-bold text-slate-950">
-                  {room.name}
-                </h3>
+                {room.type === "group" ? (
+                  <div className="mx-auto mt-3 flex max-w-[220px] items-center gap-1.5">
+                    <Input
+                      value={renameDraft}
+                      onChange={(event) => setRenameDraft(event.target.value)}
+                      onBlur={() => void renameSelectedRoom()}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void renameSelectedRoom();
+                        }
+                      }}
+                      className="h-9 text-center text-sm font-bold"
+                      disabled={renaming || !room.id}
+                    />
+                  </div>
+                ) : (
+                  <h3 className="mt-3 text-base font-bold text-slate-950">
+                    {room.name}
+                  </h3>
+                )}
                 <p className="mt-1 text-xs text-slate-500">
                   {room.type === "group"
-                    ? `${room.members}명의 멤버`
+                    ? `${(room.people ?? []).length || room.members}명 참여`
                     : room.online
                       ? "현재 접속 중"
-                      : "오프라인"}
+                      : "1:1 대화"}
                 </p>
-                {DEMO_MODE ? (
-                  <div className="mt-5 grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setRooms((current) =>
-                          current.map((item) =>
-                            item.id === room.id
-                              ? { ...item, muted: !item.muted }
-                              : item,
-                          ),
-                        )
-                      }
-                      className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500 transition-colors hover:text-slate-800"
-                    >
-                      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700 transition-colors duration-150 hover:bg-slate-200">
-                        {room.muted ? (
-                          <BellOff className="h-4 w-4" />
-                        ) : (
-                          <Bell className="h-4 w-4" />
-                        )}
-                      </span>
-                      데모 알림
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setRooms((current) =>
-                          current.map((item) =>
-                            item.id === room.id
-                              ? { ...item, pinned: !item.pinned }
-                              : item,
-                          ),
-                        )
-                      }
-                      className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500 transition-colors hover:text-slate-800"
-                    >
-                      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700 transition-colors duration-150 hover:bg-slate-200">
-                        <Pin className="h-4 w-4" />
-                      </span>
-                      데모 고정
-                    </button>
-                    <button
-                      type="button"
-                      className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500 transition-colors hover:text-slate-800"
-                    >
-                      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700 transition-colors duration-150 hover:bg-slate-200">
-                        <Search className="h-4 w-4" />
-                      </span>
-                      검색
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-              {room.type === "group" ? (
-                <div className="border-b border-slate-100 p-5">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold text-slate-900">
-                      참여자 {room.members}
-                    </h3>
-                    {DEMO_MODE ? (
-                      <IconButton label="멤버 초대">
-                        <UserPlus className="h-4 w-4" />
-                      </IconButton>
-                    ) : null}
-                  </div>
-                  {DEMO_MODE ? (
-                    <div className="mt-3 space-y-3">
-                      {["최서윤", "박민서", "김도윤", "나"].map(
-                        (name, index) => (
-                          <div key={name} className="flex items-center gap-2.5">
-                            <Avatar
-                              name={name}
-                              size="sm"
-                              tone={index % 2 ? "green" : "violet"}
-                            />
-                            <span className="min-w-0 flex-1 text-xs font-bold text-slate-700">
-                              {name}
-                            </span>
-                            {name === "최서윤" ? (
-                              <Badge tone="blue">방장</Badge>
-                            ) : null}
-                          </div>
-                        ),
+                <div className="mt-5 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void toggleRoomMute()}
+                    className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500 transition-colors hover:text-slate-800"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-700 transition-colors duration-150 hover:bg-slate-200">
+                      {room.muted ? (
+                        <BellOff className="h-4 w-4" />
+                      ) : (
+                        <Bell className="h-4 w-4" />
                       )}
+                    </span>
+                    {room.muted ? "알림 켜기" : "알림 끄기"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddOpen(true);
+                      setAddError("");
+                    }}
+                    className="flex flex-col items-center gap-1.5 text-xs font-bold text-slate-500 transition-colors hover:text-slate-800"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-700 transition-colors duration-150 hover:bg-slate-200">
+                      <UserPlus className="h-4 w-4" />
+                    </span>
+                    초대
+                  </button>
+                </div>
+              </div>
+              <div className="border-b border-slate-100 p-5">
+                <h3 className="text-xs font-semibold text-slate-900">
+                  참여자 {(room.people ?? []).length || room.members}
+                </h3>
+                <div className="mt-3 space-y-3">
+                  {(room.people ?? []).map((person) => (
+                    <div key={person.userId} className="flex items-center gap-2.5">
+                      <Avatar
+                        name={person.name}
+                        imageUrl={person.profileImage}
+                        size="sm"
+                        tone={person.role === "OWNER" ? "blue" : "green"}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <strong className="block truncate text-xs text-slate-800">
+                          {person.name}
+                        </strong>
+                        {person.studentCode && person.studentCode !== "------" ? (
+                          <span className="text-[11px] tabular-nums text-slate-400">
+                            {person.studentCode}
+                          </span>
+                        ) : null}
+                      </span>
+                      {person.role === "OWNER" ? <Badge tone="blue">방장</Badge> : null}
+                      {room.myRole === "OWNER" && person.userId !== currentUserId && person.name !== "나" ? (
+                        <button
+                          type="button"
+                          onClick={() => void kickMember(person.userId)}
+                          className="text-[11px] font-bold text-red-600"
+                        >
+                          {kickTarget === person.userId ? "내보낼까요?" : "내보내기"}
+                        </button>
+                      ) : null}
                     </div>
-                  ) : null}
+                  ))}
                 </div>
-              ) : null}
-              {DEMO_MODE ? (
-                <div className="border-b border-slate-100 p-5">
-                  <h3 className="text-xs font-semibold text-slate-900">
-                    데모 공유 파일
-                  </h3>
-                  <div className="mt-3 grid grid-cols-3 gap-1.5">
-                    {[ImageIcon, FileText, ImageIcon].map((Icon, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        className="grid aspect-square place-items-center rounded-xl border border-slate-200 bg-slate-50 text-slate-400 transition-colors hover:bg-slate-100"
-                      >
-                        <Icon className="h-5 w-5" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {DEMO_MODE ? (
-                <div className="p-3">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50"
-                  >
-                    <Archive className="h-4 w-4" />
-                    데모 대화 보관
-                  </button>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-xs font-bold text-red-600 transition-colors hover:bg-red-50"
-                  >
-                    <X className="h-4 w-4" />
-                    데모 대화 나가기
-                  </button>
-                </div>
-              ) : null}
+              </div>
+              <div className="p-3">
+                <button
+                  type="button"
+                  disabled={!room.id || leaving}
+                  onClick={() => void leaveSelectedRoom()}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-xs font-bold text-red-600 transition-colors hover:bg-red-50"
+                >
+                  <X className="h-4 w-4" />
+                  {leaveArmed ? "한번 더 누르면 나갑니다" : "대화 나가기"}
+                </button>
+              </div>
             </div>
           </aside>
         </div>
@@ -2298,33 +2597,24 @@ export default function MessagesPage() {
             </div>
           ) : (
             <label className="block">
-              <span className="mb-2 flex items-center justify-between text-sm font-bold text-slate-800">
-                <span>
-                  {bSideEnabled ? '참여자 익명 해시' : '참여자 학번'} <span className="text-blue-700">*</span>
-                </span>
-                <span className="text-xs font-normal text-blue-700">
-                  {enteredParticipantCodes.length}/9명
-                </span>
+              <span className="mb-2 block text-sm font-bold text-slate-800">
+                {bSideEnabled ? "참여자 익명 해시" : "참여자 학번"} <span className="text-blue-700">*</span>
               </span>
-              <Input
-                inputMode={bSideEnabled ? "text" : "numeric"}
-                value={participantDraft}
-                onChange={(event) => {
-                  setParticipantDraft(bSideEnabled ? event.target.value.toUpperCase() : event.target.value);
+              <ParticipantChips
+                chips={participantChips}
+                draft={participantDraft}
+                onChipsChange={(chips) => {
+                  setParticipantChips(chips);
                   setCreateError("");
                 }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && canCreateRoom) {
-                    event.preventDefault();
-                    void createRoom();
-                  }
+                onDraftChange={(value) => {
+                  setParticipantDraft(value);
+                  setCreateError("");
                 }}
-                aria-invalid={Boolean(
-                  createError || invalidParticipantCodes.length,
-                )}
-                placeholder={bSideEnabled ? "예: #A1B2C3D4, #91F0E2A7" : "예: 331108, 331203"}
+                bSideEnabled={bSideEnabled}
+                currentStudentCode={currentStudentCode}
+                disabled={creatingRoom}
               />
-              <span className="mt-2 block text-xs leading-5 text-slate-500">{bSideEnabled ? '화면에 표시된 해시 · 쉼표/공백 구분 · 본인 제외' : '31~33기 학번 · 쉼표/공백 구분 · 본인 제외'}</span>
             </label>
           )}
           {createError ? (
@@ -2340,6 +2630,58 @@ export default function MessagesPage() {
             </p>
           ) : null}
         </div>
+      </Modal>
+      <Modal
+        open={addOpen}
+        onClose={() => {
+          if (!addingMembers) {
+            setAddOpen(false);
+            setAddError("");
+          }
+        }}
+        title="참여자 초대"
+        description="학번을 입력하면 바로 대화에 들어옵니다."
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setAddOpen(false);
+                setAddError("");
+              }}
+              disabled={addingMembers}
+            >
+              취소
+            </Button>
+            <Button
+              onClick={() => void addMembersToRoom()}
+              disabled={addingMembers || addChips.length === 0}
+            >
+              {addingMembers ? "초대 중…" : "초대"}
+            </Button>
+          </>
+        }
+      >
+        <ParticipantChips
+          chips={addChips}
+          draft={addDraft}
+          onChipsChange={(chips) => {
+            setAddChips(chips);
+            setAddError("");
+          }}
+          onDraftChange={setAddDraft}
+          bSideEnabled={bSideEnabled}
+          currentStudentCode={currentStudentCode}
+          disabled={addingMembers}
+        />
+        {addError ? (
+          <p
+            role="alert"
+            className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700"
+          >
+            {addError}
+          </p>
+        ) : null}
       </Modal>
       <Toast
         message={toast}
