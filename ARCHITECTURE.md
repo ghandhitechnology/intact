@@ -57,6 +57,18 @@ Route handler는 입력 크기와 타입, same-origin, rate limit, session scope
 - 가입은 serializable transaction이며 `P2034` 충돌만 최대 3회 짧게 재시도
 - unique conflict는 HTTP 409
 
+리로스쿨 인증은 일반 포털 로그인을 대체하지 않습니다. 사용자는 별도 포털 비밀번호로 로그인하고, 리로스쿨 계정은 가입·연간 재인증·비밀번호 복구 때 학생 신원을 확인하는 데만 사용합니다.
+
+1. 브라우저가 same-origin Web API에 리로스쿨 자격증명을 제출합니다.
+2. Web이 요청 본문 hash, timestamp, nonce를 `RIRO_BRIDGE_SECRET`으로 HMAC 서명해 Tailscale 전용 Mac mini 브리지에 전달합니다.
+3. 브리지는 학생 역할과 현재 학적을 확인하고 정규화된 profile만 반환합니다. 자격증명과 upstream token은 저장하거나 로그에 남기지 않습니다.
+   - `studentCode`는 기수와 입학 당시 1학년 반·번호를 합친 불변 로그인 식별자입니다.
+   - 현재 학년·반·번호는 `currentStudentNumber`로 별도 갱신하며, 연간 재인증이 로그인 식별자를 현재 학년 값으로 바꾸지 않습니다.
+4. Web은 목적이 `REGISTER`, `REVERIFY`, `RESET` 중 하나로 고정된 10분짜리 단일 사용 ticket을 발급합니다. DB에는 ticket hash와 암호화·fingerprint 처리된 신원 snapshot만 저장합니다.
+5. 후속 API가 serializable transaction에서 ticket을 소비합니다. 재인증과 복구에는 목적이 고정된 관리자 code를 비상 대체 경로로 사용할 수 있습니다.
+
+연간 재인증은 만료 14일 전부터 경고하고 만료 뒤 7일 동안 유예합니다. 유예가 끝나면 `PENDING_REVERIFICATION`으로 전환해 재인증과 로그아웃만 허용합니다. 이번 직접 인증 전환 전에 만들어진 학생 계정은 다음 정상 로그인에서 한 번 직접 재인증합니다. 이때 로그인된 계정의 fingerprint가 과거 open-registration 또는 관리자 가입 코드에서 만든 알려진 합성값이고, 리로에서 확인한 실명·기수·불변 학번이 모두 일치할 때만 재인증 transaction에서 한 번 실제 리로 계정 fingerprint로 연결합니다. 관리자 비상 경로를 먼저 사용해도 합성값은 유지되므로 이후 직접 재인증으로 연결할 수 있습니다. 비밀번호 복구 자체는 fingerprint 불일치 예외를 허용하지 않습니다. 이미 열린 세션은 배포 시점에 일괄 종료하지 않습니다.
+
 세션은 DB에 저장되며 HttpOnly cookie로 전달됩니다. 포털과 관리자 session/cookie는 분리됩니다. `PORTAL_ENCRYPTION_KEY`는 실명처럼 복호화가 필요한 개인정보에 사용되므로 분실하거나 무계획하게 회전하면 안 됩니다.
 
 ## 4. 게시판과 첨부 파일

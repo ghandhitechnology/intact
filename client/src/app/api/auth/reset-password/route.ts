@@ -1,5 +1,5 @@
 import prisma from '@/lib/prisma';
-import { hashPassword, hashToken, privateFingerprint } from '@/lib/server/crypto';
+import { decryptText, hashPassword, hashToken, privateFingerprint } from '@/lib/server/crypto';
 import {
   ApiError,
   assertSameOrigin,
@@ -63,18 +63,31 @@ export async function POST(request: Request) {
         throw new ApiError(400, 'INVALID_TICKET', '인증이 만료되었습니다. 운영자에게 새 비밀번호 재설정 코드를 요청해 주세요.');
       }
       parseStudentCode(ticket.studentCode);
-      const identity = await tx.studentIdentity.findFirst({
-        where: {
-          OR: [
-            { studentCode: ticket.studentCode },
-            { nameFingerprint: ticket.nameFingerprint },
-            { riroAccountFingerprint: ticket.riroAccountFingerprint },
-          ],
+      const identity = await tx.studentIdentity.findUnique({
+        where: { studentCode: ticket.studentCode },
+        include: {
+          user: {
+            select: {
+              id: true,
+              nickname: true,
+              realName: true,
+              role: true,
+              status: true,
+            },
+          },
         },
-        include: { user: { select: { id: true, nickname: true, realName: true, role: true, status: true } } },
       });
       if (!identity || identity.user.role !== 'USER') {
         throw new ApiError(404, 'ACCOUNT_NOT_FOUND', '해당 재학생의 인텍트 계정을 찾을 수 없습니다.');
+      }
+      const existingName = decryptText(identity.encryptedName).normalize('NFKC').trim();
+      const verifiedName = decryptText(ticket.encryptedName).normalize('NFKC').trim();
+      if (
+        identity.generation !== ticket.generation ||
+        existingName !== verifiedName ||
+        identity.riroAccountFingerprint !== ticket.riroAccountFingerprint
+      ) {
+        throw new ApiError(403, 'IDENTITY_MISMATCH', '기존 계정과 동일한 학생에게 발급된 비밀번호 재설정 코드가 아닙니다.');
       }
       const normalizedPassword = newPassword.toLowerCase();
       if (
@@ -108,6 +121,7 @@ export async function POST(request: Request) {
           status: identity.user.status === 'PENDING_REVERIFICATION' ? 'ACTIVE' : identity.user.status,
           lastReverifiedAt: now,
           reverifyDueAt: new Date(ticket.schoolYear + 1, 2, 31),
+          requiresRiroReverification: false,
         },
       });
       await tx.session.updateMany({

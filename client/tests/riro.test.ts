@@ -2,9 +2,16 @@ import assert from 'node:assert/strict';
 import { createHash, createHmac } from 'node:crypto';
 import test from 'node:test';
 import { ApiError } from '../src/lib/server/http';
-import { signRiroBridgeRequest, verifyRiroAccount } from '../src/lib/server/riro';
+import { privateFingerprint } from '../src/lib/server/crypto';
+import {
+  canonicalizeRiroId,
+  isLegacySyntheticRiroFingerprint,
+  riroAccountFingerprint,
+  signRiroBridgeRequest,
+  verifyRiroAccount,
+} from '../src/lib/server/riro';
 
-const BRIDGE_SECRET = 's'.repeat(64);
+const BRIDGE_SECRET = 'a'.repeat(64);
 
 async function withMockBridge(
   mockFetch: typeof fetch,
@@ -59,12 +66,53 @@ test('signatures change when a credential request is modified', () => {
   assert.notEqual(first, second);
 });
 
+test('canonicalizes Riroschool IDs before authentication and fingerprinting', () => {
+  assert.equal(canonicalizeRiroId('  Ｓtudent  '), 'student');
+  assert.equal(
+    riroAccountFingerprint('  Ｓtudent  '),
+    riroAccountFingerprint('student'),
+  );
+});
+
+test('recognizes only the two historical synthetic Riroschool fingerprints', () => {
+  const studentCode = '331218';
+  assert.equal(
+    isLegacySyntheticRiroFingerprint(
+      privateFingerprint(`open-registration:${studentCode}`),
+      studentCode,
+    ),
+    true,
+  );
+  assert.equal(
+    isLegacySyntheticRiroFingerprint(
+      privateFingerprint(`student-code:${studentCode}`),
+      studentCode,
+    ),
+    true,
+  );
+  assert.equal(
+    isLegacySyntheticRiroFingerprint(
+      riroAccountFingerprint('26-10218'),
+      studentCode,
+    ),
+    false,
+  );
+  assert.equal(
+    isLegacySyntheticRiroFingerprint(
+      privateFingerprint(`open-registration:${studentCode}`),
+      '321218',
+    ),
+    false,
+  );
+});
+
 test('sends one signed request and normalizes the bridge profile', async () => {
   let calls = 0;
   const mockFetch: typeof fetch = async (input, init) => {
     calls += 1;
     assert.equal(String(input), 'https://bridge.example.test/v1/verify');
     assert.equal(init?.method, 'POST');
+    assert.equal(init?.redirect, 'error');
     const body = String(init?.body);
     assert.equal(body, JSON.stringify({ id: '26-10218', password: 'private-password' }));
     const headers = new Headers(init?.headers);
@@ -79,6 +127,7 @@ test('sends one signed request and normalizes the bridge profile', async () => {
       ok: true,
       profile: {
         name: '홍길동',
+        entryStudentNumber: '1218',
         currentStudentNumber: '1218',
         generation: 33,
         role: '학생',
@@ -95,6 +144,70 @@ test('sends one signed request and normalizes the bridge profile', async () => {
     assert.equal(profile.studentNumber, 18);
   });
   assert.equal(calls, 1);
+});
+
+test('requires the bridge profile role to be student', async () => {
+  const mockFetch: typeof fetch = async () => jsonResponse({
+    ok: true,
+    profile: {
+      name: '홍길동',
+      entryStudentNumber: '1218',
+      currentStudentNumber: '1218',
+      generation: 33,
+      role: '교사',
+    },
+  });
+
+  await withMockBridge(mockFetch, async () => {
+    await assert.rejects(
+      verifyRiroAccount('teacher', 'private-password'),
+      (error: unknown) => error instanceof ApiError
+        && error.status === 503
+        && error.code === 'RIRO_UNAVAILABLE',
+    );
+  });
+});
+
+test('keeps the entry student code stable while current grade and class change', async () => {
+  const mockFetch: typeof fetch = async () => jsonResponse({
+    ok: true,
+    profile: {
+      name: '홍길동',
+      entryStudentNumber: '1218',
+      currentStudentNumber: '2307',
+      generation: 32,
+      role: '학생',
+    },
+  });
+
+  await withMockBridge(mockFetch, async () => {
+    const profile = await verifyRiroAccount('25-10218', 'private-password');
+    assert.equal(profile.studentCode, '321218');
+    assert.equal(profile.entryStudentNumber, '1218');
+    assert.equal(profile.currentStudentNumber, '2307');
+    assert.equal(profile.grade, 2);
+    assert.equal(profile.classNumber, 3);
+    assert.equal(profile.studentNumber, 7);
+  });
+});
+
+test('rejects oversized bridge JSON before parsing it', async () => {
+  const mockFetch: typeof fetch = async () => new Response('{"ok":true}', {
+    status: 200,
+    headers: {
+      'content-type': 'application/json',
+      'content-length': '20000',
+    },
+  });
+
+  await withMockBridge(mockFetch, async () => {
+    await assert.rejects(
+      verifyRiroAccount('student', 'private-password'),
+      (error: unknown) => error instanceof ApiError
+        && error.status === 503
+        && error.code === 'RIRO_UNAVAILABLE',
+    );
+  });
 });
 
 test('does not retry invalid credentials and preserves the public 401 contract', async () => {
@@ -149,4 +262,26 @@ test('does not amplify bridge retries and redacts malformed upstream errors', as
   assert.equal(logText.includes('private-password'), false);
   assert.equal(logText.includes('홍길동'), false);
   assert.equal(logText.includes('1218'), false);
+});
+
+test('preserves a bounded bridge Retry-After value in the public error details', async () => {
+  const mockFetch: typeof fetch = async () => new Response(JSON.stringify({
+    ok: false,
+    error: { code: 'RIRO_UNAVAILABLE', message: 'retry later' },
+  }), {
+    status: 503,
+    headers: {
+      'content-type': 'application/json',
+      'retry-after': '7',
+    },
+  });
+
+  await withMockBridge(mockFetch, async () => {
+    await assert.rejects(
+      verifyRiroAccount('student', 'private-password'),
+      (error: unknown) => error instanceof ApiError
+        && error.code === 'RIRO_UNAVAILABLE'
+        && (error.details as { retryAfter?: number } | undefined)?.retryAfter === 7,
+    );
+  });
 });

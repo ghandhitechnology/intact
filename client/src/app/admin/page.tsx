@@ -71,6 +71,8 @@ type UserStatus =
 type ContentStatus = "draft" | "scheduled" | "published" | "hidden" | "deleted";
 type ReportStatus = "open" | "reviewing";
 type InviteState = "active" | "used" | "expired" | "revoked";
+type InvitePurpose = "REGISTER" | "RESET" | "REVERIFY";
+type IssuableInvitePurpose = Exclude<InvitePurpose, "REGISTER">;
 
 type PortalUser = {
   id: string;
@@ -157,7 +159,7 @@ type AdminInvite = {
   id: string;
   realName: string;
   studentCode: string;
-  purpose?: string;
+  purpose: InvitePurpose;
   createdAt: string;
   expiresAt: string;
   usedAt: string | null;
@@ -167,6 +169,13 @@ type AdminInvite = {
 type CreatedInvite = {
   invite: AdminInvite;
   code: string;
+};
+
+type InviteDraft = {
+  purpose: IssuableInvitePurpose;
+  realName: string;
+  studentCode: string;
+  expiresAt: string;
 };
 
 type Summary = {
@@ -515,6 +524,56 @@ function defaultInviteExpiry() {
   );
 }
 
+const invitePurposeDetails: Record<InvitePurpose, {
+  label: string;
+  description: string;
+}> = {
+  REGISTER: {
+    label: "신규 가입",
+    description: "과거 발급 기록입니다. 신규 가입은 리로스쿨 직접 인증만 사용합니다.",
+  },
+  RESET: {
+    label: "비밀번호 재설정",
+    description: "기존 학생 계정의 포털 비밀번호를 다시 설정할 때만 사용합니다.",
+  },
+  REVERIFY: {
+    label: "재학생 재인증",
+    description: "기존 학생 계정의 새 학년도 재학생 자격을 갱신할 때만 사용합니다.",
+  },
+};
+
+const invitePurposeOptions: ReadonlyArray<{
+  value: IssuableInvitePurpose;
+  label: string;
+  description: string;
+}> = [
+  { value: "RESET", ...invitePurposeDetails.RESET },
+  { value: "REVERIFY", ...invitePurposeDetails.REVERIFY },
+];
+
+function invitePurposeOption(purpose: InvitePurpose) {
+  return invitePurposeDetails[purpose];
+}
+
+function parseIssuableInvitePurpose(value: string): IssuableInvitePurpose | null {
+  if (value === "RESET" || value === "REVERIFY") {
+    return value;
+  }
+  return null;
+}
+
+function invitePurposeBadge(purpose: InvitePurpose) {
+  const tone =
+    purpose === "REGISTER" ? "blue" : purpose === "RESET" ? "amber" : "green";
+  return <Badge tone={tone}>{invitePurposeOption(purpose).label}</Badge>;
+}
+
+function invitePurposeReason(purpose: InvitePurpose) {
+  if (purpose === "REGISTER") return "신규 재학생 가입 초대 발급";
+  if (purpose === "RESET") return "재학생 비밀번호 재설정 코드 발급";
+  return "재학생 재인증 코드 발급";
+}
+
 function safeInvite(invite: AdminInvite): AdminInvite {
   return {
     id: invite.id,
@@ -537,7 +596,7 @@ function inviteState(invite: AdminInvite): InviteState {
 
 function inviteStateBadge(state: InviteState) {
   if (state === "active") return <Badge tone="green">사용 가능</Badge>;
-  if (state === "used") return <Badge tone="blue">가입 완료</Badge>;
+  if (state === "used") return <Badge tone="blue">사용 완료</Badge>;
   if (state === "expired") return <Badge tone="amber">만료</Badge>;
   return <Badge tone="red">회수</Badge>;
 }
@@ -565,8 +624,8 @@ function auditActionLabel(action: string) {
     REPORT_REVIEW: "신고 검토 시작",
     REPORT_RESOLVE: "신고 해결",
     REPORT_DISMISS: "신고 기각",
-    STUDENT_INVITE_CREATE: "가입 초대 발급",
-    STUDENT_INVITE_REVOKE: "가입 초대 회수",
+    STUDENT_INVITE_CREATE: "학생 인증 코드 발급",
+    STUDENT_INVITE_REVOKE: "학생 인증 코드 회수",
     B_SIDE_ENABLE: "B-side 활성화",
     B_SIDE_DISABLE: "B-side 비활성화",
     MAINTENANCE_ENABLE: "점검 모드 활성화",
@@ -620,7 +679,8 @@ export default function AdminPage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteStatus, setInviteStatus] = useState<"all" | InviteState>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteDraft, setInviteDraft] = useState(() => ({
+  const [inviteDraft, setInviteDraft] = useState<InviteDraft>(() => ({
+    purpose: "RESET",
     realName: "",
     studentCode: "",
     expiresAt: defaultInviteExpiry(),
@@ -695,7 +755,7 @@ export default function AdminPage() {
     setInvitesLoading(true);
     setInviteError(null);
     try {
-      const response = await fetch("/api/admin/invites?purpose=REGISTER", {
+      const response = await fetch("/api/admin/invites", {
         cache: "no-store",
       });
       const payload = await readApiEnvelope<{ invites: AdminInvite[] }>(
@@ -708,7 +768,7 @@ export default function AdminPage() {
           return;
         }
         throw new Error(
-          apiErrorMessage(payload, "가입 초대 목록을 불러오지 못했습니다."),
+          apiErrorMessage(payload, "학생 인증 코드 목록을 불러오지 못했습니다."),
         );
       }
       setInvites(payload.data.invites.map(safeInvite));
@@ -716,7 +776,7 @@ export default function AdminPage() {
       setInviteError(
         cause instanceof Error
           ? cause.message
-          : "가입 초대 목록을 불러오지 못했습니다.",
+          : "학생 인증 코드 목록을 불러오지 못했습니다.",
       );
     } finally {
       setInvitesLoading(false);
@@ -998,6 +1058,7 @@ export default function AdminPage() {
 
   function resetInviteDraft() {
     setInviteDraft({
+      purpose: "RESET",
       realName: "",
       studentCode: "",
       expiresAt: defaultInviteExpiry(),
@@ -1037,12 +1098,12 @@ export default function AdminPage() {
       return;
     }
     if (expiresAt.getTime() > Date.now() + 90 * 24 * 60 * 60 * 1_000) {
-      setInviteFormError("초대 유효기간은 최대 90일입니다.");
+      setInviteFormError("코드 유효기간은 최대 90일입니다.");
       return;
     }
     if (demoMode) {
       setInviteFormError(
-        "데모 데이터 모드에서는 실제 초대 코드를 발급할 수 없습니다.",
+        "데모 데이터 모드에서는 실제 학생 인증 코드를 발급할 수 없습니다.",
       );
       return;
     }
@@ -1053,10 +1114,11 @@ export default function AdminPage() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          purpose: inviteDraft.purpose,
           realName,
           studentCode,
           expiresAt: expiresAt.toISOString(),
-          reason: "신규 재학생 가입 초대 발급",
+          reason: invitePurposeReason(inviteDraft.purpose),
         }),
       });
       const payload = await readApiEnvelope<{
@@ -1070,12 +1132,12 @@ export default function AdminPage() {
           return;
         }
         throw new Error(
-          apiErrorMessage(payload, "가입 초대 코드를 발급하지 못했습니다."),
+          apiErrorMessage(payload, "학생 인증 코드를 발급하지 못했습니다."),
         );
       }
       if (!payload.data.code) {
         throw new Error(
-          "발급 응답에 초대 코드가 없습니다. 목록을 확인한 뒤 새로 발급해 주세요.",
+          "발급 응답에 인증 코드가 없습니다. 목록을 확인한 뒤 새로 발급해 주세요.",
         );
       }
       const invite = safeInvite(payload.data.invite);
@@ -1086,12 +1148,12 @@ export default function AdminPage() {
       setInviteOpen(false);
       resetInviteDraft();
       setCreatedInvite({ invite, code: payload.data.code });
-      showToast("가입 초대를 발급하고 감사 로그에 기록했습니다.");
+      showToast("학생 인증 코드를 발급하고 감사 로그에 기록했습니다.");
     } catch (cause) {
       setInviteFormError(
         cause instanceof Error
           ? cause.message
-          : "가입 초대 코드를 발급하지 못했습니다.",
+          : "학생 인증 코드를 발급하지 못했습니다.",
       );
     } finally {
       setInviteApplying(false);
@@ -1131,7 +1193,7 @@ export default function AdminPage() {
           return;
         }
         throw new Error(
-          apiErrorMessage(payload, "가입 초대를 회수하지 못했습니다."),
+          apiErrorMessage(payload, "학생 인증 코드를 회수하지 못했습니다."),
         );
       }
       const revoked = safeInvite(payload.data.invite);
@@ -1140,12 +1202,12 @@ export default function AdminPage() {
       );
       setRevokingInvite(null);
       setRevokeReason("");
-      showToast("가입 초대를 회수하고 감사 로그에 기록했습니다.");
+      showToast("학생 인증 코드를 회수하고 감사 로그에 기록했습니다.");
     } catch (cause) {
       showToast(
         cause instanceof Error
           ? cause.message
-          : "가입 초대를 회수하지 못했습니다.",
+          : "학생 인증 코드를 회수하지 못했습니다.",
         "error",
       );
     } finally {
@@ -1561,7 +1623,7 @@ export default function AdminPage() {
               운영 현황
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              가입 초대, 사용자, 콘텐츠, 공지를 실제 운영 데이터로 검토하고 모든
+              학생 인증 코드, 사용자, 콘텐츠, 공지를 실제 운영 데이터로 검토하고 모든
               위험 조치를 감사 기록으로 남깁니다.
             </p>
           </div>
@@ -1718,7 +1780,7 @@ export default function AdminPage() {
             title={
               <span className="flex items-center gap-2">
                 <KeyRound className="h-4 w-4 text-blue-700" />
-                가입 초대 관리
+                학생 인증 코드 관리
               </span>
             }
             description={
@@ -1730,7 +1792,7 @@ export default function AdminPage() {
             action={
               <div className="flex items-center gap-1">
                 <IconButton
-                  label="가입 초대 목록 새로고침"
+                  label="학생 인증 코드 목록 새로고침"
                   onClick={() => void loadInvites()}
                   disabled={invitesLoading}
                 >
@@ -1748,7 +1810,7 @@ export default function AdminPage() {
                       : undefined
                   }
                 >
-                  <Plus className="h-4 w-4" />새 초대
+                  <Plus className="h-4 w-4" />새 코드
                 </Button>
               </div>
             }
@@ -1757,8 +1819,8 @@ export default function AdminPage() {
             <div className="flex items-start gap-2 text-xs leading-5 text-slate-600">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
               <p>
-                학생 실명과 허용된 6자리 학번을 확인한 뒤 발급하세요. 목록에는 원본
-                초대 코드가 저장되거나 다시 표시되지 않습니다.
+                학생 실명과 허용된 6자리 학번, 코드 용도를 확인한 뒤 발급하세요.
+                목록에는 원본 코드가 저장되거나 다시 표시되지 않습니다.
               </p>
             </div>
             <Select
@@ -1771,7 +1833,7 @@ export default function AdminPage() {
             >
               <option value="all">전체 상태</option>
               <option value="active">사용 가능</option>
-              <option value="used">가입 완료</option>
+              <option value="used">사용 완료</option>
               <option value="expired">만료</option>
               <option value="revoked">회수</option>
             </Select>
@@ -1790,11 +1852,12 @@ export default function AdminPage() {
             </div>
           ) : null}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-xs">
+            <table className="w-full min-w-[840px] text-left text-xs">
               <thead className="bg-slate-50/80 text-slate-500">
                 <tr>
                   <th className="border-b border-slate-100 px-4 py-3 font-bold">학생</th>
                   <th className="border-b border-slate-100 px-4 py-3 font-bold">학번</th>
+                  <th className="border-b border-slate-100 px-4 py-3 font-bold">용도</th>
                   <th className="border-b border-slate-100 px-4 py-3 font-bold">발급 시각</th>
                   <th className="border-b border-slate-100 px-4 py-3 font-bold">만료 시각</th>
                   <th className="border-b border-slate-100 px-4 py-3 font-bold">상태</th>
@@ -1809,14 +1872,12 @@ export default function AdminPage() {
                     <tr key={invite.id} className="border-t border-slate-100 transition-colors hover:bg-slate-50/80">
                       <td className="px-4 py-3 font-semibold text-slate-900">
                         {invite.realName}
-                        {invite.purpose && invite.purpose !== "REGISTER" ? (
-                          <span className="mt-1 block text-xs font-medium text-slate-400">
-                            용도 {invite.purpose}
-                          </span>
-                        ) : null}
                       </td>
                       <td className="px-4 py-3 font-mono font-bold tracking-[0.08em] text-blue-700">
                         {invite.studentCode}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        {invitePurposeBadge(invite.purpose)}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-slate-500">
                         {formatDateTime(invite.createdAt)}
@@ -1857,16 +1918,16 @@ export default function AdminPage() {
             </table>
             {invitesLoading && invites.length === 0 ? (
               <div className="border-t border-slate-100 py-10 text-center text-sm text-slate-500">
-                가입 초대 목록을 불러오는 중…
+                학생 인증 코드 목록을 불러오는 중…
               </div>
             ) : null}
             {!invitesLoading && filteredInvites.length === 0 ? (
               <div className="border-t border-slate-100 py-10 text-center text-sm text-slate-500">
                 {demoMode
-                  ? "데모 데이터 모드에서는 실제 가입 초대가 표시되지 않습니다."
+                  ? "데모 데이터 모드에서는 실제 학생 인증 코드가 표시되지 않습니다."
                   : inviteStatus === "all"
-                    ? "발급된 가입 초대가 없습니다."
-                    : "선택한 상태의 가입 초대가 없습니다."}
+                    ? "발급된 학생 인증 코드가 없습니다."
+                    : "선택한 상태의 학생 인증 코드가 없습니다."}
               </div>
             ) : null}
           </div>
@@ -2229,8 +2290,8 @@ export default function AdminPage() {
           setInviteOpen(false);
           resetInviteDraft();
         }}
-        title="새 가입 초대 발급"
-        description="확인된 재학생 한 명에게 사용할 일회성 가입 코드를 발급합니다."
+        title="새 학생 인증 코드 발급"
+        description="확인된 재학생 한 명에게 용도가 제한된 일회성 코드를 발급합니다."
         footer={
           <>
             <Button
@@ -2267,6 +2328,27 @@ export default function AdminPage() {
               대조하세요. 발급과 회수 작업은 관리자 감사 로그에 기록됩니다.
             </p>
           </div>
+          <Field label="코드 용도" required hint="발급 후 변경할 수 없음">
+            <Select
+              value={inviteDraft.purpose}
+              onChange={(event) => {
+                const purpose = parseIssuableInvitePurpose(event.target.value);
+                if (!purpose) return;
+                setInviteDraft((current) => ({ ...current, purpose }));
+              }}
+              required
+              className="bg-white"
+            >
+              {invitePurposeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              {invitePurposeOption(inviteDraft.purpose).description}
+            </p>
+          </Field>
           <Field label="학생 실명" required hint="학적 명부 기준">
             <Input
               value={inviteDraft.realName}
@@ -2328,7 +2410,7 @@ export default function AdminPage() {
       <Modal
         open={Boolean(createdInvite)}
         onClose={closeCreatedInvite}
-        title="가입 초대 코드가 발급되었습니다"
+        title="학생 인증 코드가 발급되었습니다"
         description="이 화면을 닫으면 원본 코드를 다시 확인할 수 없습니다."
         footer={
           <Button variant="green" onClick={closeCreatedInvite}>
@@ -2361,6 +2443,15 @@ export default function AdminPage() {
                 </dd>
               </div>
               <div className="col-span-2 bg-white p-3">
+                <dt className="text-xs text-slate-500">코드 용도</dt>
+                <dd className="mt-1">
+                  {invitePurposeBadge(createdInvite.invite.purpose)}
+                  <span className="ml-2 text-xs text-slate-500">
+                    {invitePurposeOption(createdInvite.invite.purpose).description}
+                  </span>
+                </dd>
+              </div>
+              <div className="col-span-2 bg-white p-3">
                 <dt className="text-xs text-slate-500">사용 만료</dt>
                 <dd className="mt-1 font-bold text-slate-900">
                   {new Date(createdInvite.invite.expiresAt).toLocaleString(
@@ -2370,7 +2461,7 @@ export default function AdminPage() {
               </div>
             </dl>
             <div>
-              <p className="mb-2 text-xs font-semibold text-slate-500">일회용 초대 코드</p>
+              <p className="mb-2 text-xs font-semibold text-slate-500">일회용 인증 코드</p>
               <div
                 className="rounded-2xl border-2 border-blue-700 bg-blue-50 px-4 py-5 text-center font-mono text-xl font-bold tracking-[0.12em] text-blue-950 selection:bg-blue-700 selection:text-white"
                 aria-live="polite"
@@ -2396,7 +2487,7 @@ export default function AdminPage() {
           setRevokingInvite(null);
           setRevokeReason("");
         }}
-        title="가입 초대 회수"
+        title="학생 인증 코드 회수"
         description="회수 즉시 해당 코드는 사용할 수 없으며 다시 활성화할 수 없습니다."
         footer={
           <>
@@ -2415,7 +2506,7 @@ export default function AdminPage() {
               onClick={() => void revokeInvite()}
               disabled={inviteApplying || revokeReason.trim().length < 4}
             >
-              {inviteApplying ? "회수 중…" : "초대 회수"}
+              {inviteApplying ? "회수 중…" : "코드 회수"}
             </Button>
           </>
         }
@@ -2426,6 +2517,7 @@ export default function AdminPage() {
               <p className="font-semibold text-slate-900">
                 {revokingInvite.realName} · {revokingInvite.studentCode}
               </p>
+              <div className="mt-2">{invitePurposeBadge(revokingInvite.purpose)}</div>
               <p className="mt-1 text-xs text-slate-500">
                 만료{" "}
                 {new Date(revokingInvite.expiresAt).toLocaleString("ko-KR")}
@@ -3096,7 +3188,7 @@ export default function AdminPage() {
             <option value="content">콘텐츠 조치</option>
             <option value="NOTICE">공지 변경</option>
             <option value="REPORT">신고 처리</option>
-            <option value="STUDENT_INVITE">가입 초대</option>
+            <option value="STUDENT_INVITE">학생 인증 코드</option>
           </Select>
         </div>
         <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">

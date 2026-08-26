@@ -1,6 +1,6 @@
 import prisma from '@/lib/prisma';
 import { writeAdminAudit } from '@/lib/server/audit';
-import { decryptText, encryptText, hashToken, privateFingerprint, randomToken } from '@/lib/server/crypto';
+import { decryptText, hashToken, randomToken } from '@/lib/server/crypto';
 import {
   ApiError,
   assertSameOrigin,
@@ -114,6 +114,13 @@ export async function POST(request: Request) {
       requiredString(body.studentCode, '학번', { min: 6, max: 6 }),
     );
     const purpose = parseVerificationPurpose(body.purpose);
+    if (purpose === 'REGISTER') {
+      throw new ApiError(
+        400,
+        'RIRO_REQUIRED',
+        '신규 가입은 리로스쿨 직접 인증으로만 진행할 수 있습니다.',
+      );
+    }
     const reason = requiredString(body.reason, '발급 사유', { min: 2, max: 1_000 });
     const now = new Date();
     const expiresAt = parseExpiry(body.expiresAt, now);
@@ -141,49 +148,38 @@ export async function POST(request: Request) {
           );
         }
 
-        const [identity, existingLogin] = await Promise.all([
-          tx.studentIdentity.findUnique({
-            where: { studentCode: student.studentCode },
-            include: { user: { select: { id: true, role: true, status: true } } },
-          }),
-          tx.user.findUnique({
-            where: { loginId: student.studentCode },
-            select: { id: true },
-          }),
-        ]);
-        if (purpose === 'REGISTER' && (identity || existingLogin)) {
-          throw new ApiError(409, 'ALREADY_REGISTERED', '이미 가입된 학생입니다.');
+        const identity = await tx.studentIdentity.findUnique({
+          where: { studentCode: student.studentCode },
+          include: { user: { select: { id: true, role: true, status: true } } },
+        });
+        if (
+          !identity ||
+          identity.user.role !== 'USER' ||
+          !['ACTIVE', 'PENDING_REVERIFICATION', 'SUSPENDED'].includes(identity.user.status)
+        ) {
+          throw new ApiError(404, 'ACCOUNT_NOT_FOUND', '해당 학번의 재학생 계정을 찾을 수 없습니다.');
         }
-        if (purpose !== 'REGISTER') {
-          if (
-            !identity ||
-            identity.user.role !== 'USER' ||
-            !['ACTIVE', 'PENDING_REVERIFICATION', 'SUSPENDED'].includes(identity.user.status)
-          ) {
-            throw new ApiError(404, 'ACCOUNT_NOT_FOUND', '해당 학번의 재학생 계정을 찾을 수 없습니다.');
-          }
-          const registeredName = decryptText(identity.encryptedName).normalize('NFKC').trim();
-          if (registeredName !== realName) {
-            throw new ApiError(409, 'IDENTITY_MISMATCH', '입력한 이름과 등록된 학생 정보가 일치하지 않습니다.');
-          }
+        const registeredName = decryptText(identity.encryptedName).normalize('NFKC').trim();
+        if (registeredName !== realName) {
+          throw new ApiError(409, 'IDENTITY_MISMATCH', '입력한 이름과 등록된 학생 정보가 일치하지 않습니다.');
         }
 
-        const encryptedName = identity?.encryptedName ?? encryptText(realName);
-        const nameFingerprint = identity?.nameFingerprint ??
-          privateFingerprint(`${realName}|${student.studentCode}`);
-        const identityFingerprint = identity?.riroAccountFingerprint ??
-          privateFingerprint(`student-code:${student.studentCode}`);
         const invite = await tx.studentInvite.create({
           data: {
             purpose,
             codeHash: hashToken(code),
             activeKey,
             expiresAt,
-            encryptedName,
-            nameFingerprint,
-            identityFingerprint,
-            ...student,
-            schoolYear,
+            encryptedName: identity.encryptedName,
+            nameFingerprint: identity.nameFingerprint,
+            identityFingerprint: identity.riroAccountFingerprint,
+            studentCode: identity.studentCode,
+            currentStudentNumber: identity.currentStudentNumber,
+            generation: identity.generation,
+            grade: identity.grade,
+            classNumber: identity.classNumber,
+            studentNumber: identity.studentNumber,
+            schoolYear: Math.max(schoolYear, identity.schoolYear),
             createdById: admin.user.id,
           },
           include: studentInviteAdminInclude,

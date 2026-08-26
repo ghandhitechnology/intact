@@ -3,11 +3,13 @@ import { ReactNode } from 'react';
 
 export default function AuthFrame({
   mode,
+  eyebrow,
   title,
   description,
   children,
 }: {
   mode: 'login' | 'register';
+  eyebrow?: string;
   title: string;
   description?: string;
   children: ReactNode;
@@ -32,7 +34,7 @@ export default function AuthFrame({
 
         <section className="anim-rise anim-delay-1 mt-8 w-full max-w-[440px] rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-6 py-8 shadow-[var(--shadow-sm)] sm:px-9 sm:py-10">
           <p className="text-[11px] font-bold tracking-[0.16em] text-[var(--green)]">
-            {mode === 'login' ? '재학생 로그인' : '재학생 확인 후 가입'}
+            {eyebrow ?? (mode === 'login' ? '재학생 로그인' : '재학생 확인 후 가입')}
           </p>
           <h1 className="mt-2.5 text-[24px] font-bold leading-snug tracking-[-0.03em] text-[var(--ink)]">
             {title}

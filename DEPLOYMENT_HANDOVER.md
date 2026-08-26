@@ -97,7 +97,7 @@ Caddy는 `/socket.io/*`를 `realtime:3001`로, 서명된 `/<S3_BUCKET>/*` GET/HE
 
 - Node.js 22
 - Corepack 및 Yarn 1.22.22
-- Python 3.10 이상 (리로스쿨 브리지 검증, 필요하면 `PYTHON_BIN` 지정)
+- Python 3.11 이상 (리로스쿨 브리지 검증, 필요하면 `PYTHON_BIN` 지정)
 - Docker Engine/Compose 또는 별도 PostgreSQL 16, Redis, MinIO
 - Prisma CLI는 `client`의 dev dependency 사용
 
@@ -145,7 +145,7 @@ openssl rand -hex 32
 | `INTERNAL_API_SECRET` | web ↔ realtime 내부 인증 |
 | `S3_*` | MinIO endpoint, private bucket, 접근 키 |
 | `ADMIN_INITIAL_*` | 최초 관리자 생성용. 최초 로그인 뒤 관리자 비밀번호 변경 |
-| `RIRO_AUTH_MODE` | 한국 인증 브리지 사용 시 `BRIDGE`, 장애 시 `OFF` |
+| `RIRO_AUTH_MODE` | 직접 가입·재인증·복구에 브리지를 사용할 때 `BRIDGE`; `OFF`이면 기존 포털 로그인은 유지되지만 직접 학생 인증은 중단 |
 | `RIRO_BRIDGE_URL` | Mac mini의 Tailscale 전용 주소(기본 `http://100.85.99.14:8765`) |
 | `RIRO_BRIDGE_SECRET` | 포털과 브리지에만 저장하는 독립 64자리 hex 비밀값 |
 | `TRUST_PROXY` | 프록시 헤더가 신뢰 가능한 경우에만 `true` |
@@ -375,6 +375,20 @@ REMOTE
 ```
 
 파괴적 migration, column rename/drop, 대량 backfill은 위 명령을 바로 쓰지 말고 별도 maintenance 계획과 복구 시험을 먼저 만듭니다. `prisma db push`는 production에서 사용하지 않습니다.
+
+### 8.6 리로스쿨 인증 전환 배포
+
+`20260827000000_riro_reverification_flag` migration은 기존 `USER` 계정에 다음 로그인 시 리로스쿨 재인증을 요구합니다. 이미 발급된 포털 세션은 즉시 끊지 않습니다. 직접 인증 경로가 준비되지 않은 상태에서 migration과 Web을 먼저 배포하면 다음 로그인부터 학생이 막힐 수 있으므로 아래 순서를 지킵니다.
+
+1. DB 백업을 완료합니다.
+2. Mac mini에 `server/riro-bridge`를 먼저 배포합니다. Python 3.11 이상, 동일한 64자리 hex `RIRO_BRIDGE_SECRET`, Tailscale ACL을 확인합니다. 설치와 갱신 절차는 `server/riro-bridge/README.md`를 따릅니다.
+3. VPS에서 브리지 `/health`가 HTTP 200이고 `contractVersion`이 `2`, `runtime.ready`가 `true`인지 확인합니다. 응답이나 로그에 학교·학생·자격증명 정보가 없어야 합니다.
+4. migration 전에 승인된 테스트 학생 계정으로 브리지 `/v1/verify`의 서명된 실제 인증을 1회 수행해 현재 리로스쿨 응답을 contract v2 profile로 해석하는지 확인합니다. 자격증명과 응답 본문은 shell history나 로그에 남기지 않습니다. `/health`만으로 이 단계를 대체할 수 없습니다.
+5. 운영 `.env`의 `RIRO_AUTH_MODE=BRIDGE`, `RIRO_BRIDGE_URL`, `RIRO_BRIDGE_SECRET`을 확인한 뒤 migration과 Web을 같은 배포 창에서 적용합니다.
+6. 직접 리로 가입·재인증·비밀번호 복구와 목적별 관리자 비상 코드를 각각 end-to-end smoke test합니다.
+7. 기존 학생 계정 하나로 다음 로그인 시 재인증 화면으로 제한되고, 성공 후 새 포털 세션으로 정상 진입하는지 확인합니다.
+
+브리지가 준비되지 않았으면 migration을 적용하지 않습니다. 장애 중 `RIRO_AUTH_MODE=OFF`는 기존 포털 로그인 자체를 끄지 않지만 직접 가입·재인증·복구를 중단하므로, 이미 재인증 대상으로 전환된 사용자는 관리자 비상 코드가 필요합니다.
 
 ## 9. 배포 후 검증
 

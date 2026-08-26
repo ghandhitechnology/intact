@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  AlertTriangle,
   Bell,
   BookOpen,
   ChevronRight,
@@ -19,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import Link from '@/components/portal/IntentLink';
+import { cn } from '@/components/operations/ui';
 import { usePathname, useRouter } from 'next/navigation';
 import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import { usePortalSession } from '@/components/portal/SessionProvider';
@@ -37,6 +39,17 @@ const boardNavigation = navigation.slice(1);
 
 const PUBLIC_PATHS = new Set(['/', '/login', '/register', '/reset-password', '/privacy', '/rules', '/terms', '/offline', '/reverify']);
 const DEMO_MODE = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === 'true';
+
+function formatReverificationDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(date);
+}
 
 function requiresPortalSession(pathname: string) {
   return !PUBLIC_PATHS.has(pathname) && !pathname.startsWith('/admin');
@@ -117,6 +130,9 @@ export default function PortalShell({ children }: { children: ReactNode }) {
   const writeHref = `${currentBoard?.href ?? '/boards/free'}/write`;
   const portalNavigationAvailable = DEMO_MODE || session?.authenticated === true;
   const signedOut = !DEMO_MODE && !sessionLoading && session?.authenticated === false;
+  const reverification = session?.authenticated === true
+    ? session.reverification
+    : undefined;
 
   if (isFocusedAuth) {
     return <div className="min-h-screen bg-[var(--surface-muted)]">{children}</div>;
@@ -264,6 +280,40 @@ export default function PortalShell({ children }: { children: ReactNode }) {
           <button type="button" className="ml-2 font-bold underline underline-offset-2" onClick={() => void refreshSession()}>
             다시 연결
           </button>
+        </div>
+      ) : null}
+
+      {!isAdmin && reverification && reverification.kind !== 'current' ? (
+        <div
+          className={cn(
+            'border-b px-4 py-2.5 text-xs',
+            reverification.kind === 'grace'
+              ? 'border-amber-300 bg-amber-50 text-amber-950'
+              : 'border-blue-200 bg-blue-50 text-blue-950',
+          )}
+          role="status"
+        >
+          <div className="portal-container flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+            <span className="flex items-start gap-2 leading-5 sm:items-center">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 sm:mt-0" aria-hidden="true" />
+              {reverification.kind === 'grace' ? (
+                <span>
+                  재학생 재인증 유예 기간입니다. 인증 기준일은{' '}
+                  <time dateTime={reverification.dueAt} className="font-bold">{formatReverificationDate(reverification.dueAt)}</time>이며,{' '}
+                  <time dateTime={reverification.requiredAt} className="font-bold">{formatReverificationDate(reverification.requiredAt)}</time>부터 접근이 제한됩니다.
+                </span>
+              ) : (
+                <span>
+                  재학생 인증 갱신일은{' '}
+                  <time dateTime={reverification.dueAt} className="font-bold">{formatReverificationDate(reverification.dueAt)}</time>, 이용 제한 시작일은{' '}
+                  <time dateTime={reverification.requiredAt} className="font-bold">{formatReverificationDate(reverification.requiredAt)}</time>입니다.
+                </span>
+              )}
+            </span>
+            <Link href="/reverify" className="shrink-0 font-bold underline decoration-current/40 underline-offset-4 hover:decoration-current">
+              지금 재인증
+            </Link>
+          </div>
         </div>
       ) : null}
 

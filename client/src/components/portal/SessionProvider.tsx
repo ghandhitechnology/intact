@@ -12,6 +12,11 @@ export type PortalSessionUser = {
   level?: number;
 };
 
+export type ReverificationStatus =
+  | { kind: 'current' }
+  | { kind: 'warning'; dueAt: string; requiredAt: string }
+  | { kind: 'grace'; dueAt: string; requiredAt: string };
+
 export type PortalSessionSnapshot = {
   authenticated: boolean;
   reason?: string | null;
@@ -19,6 +24,7 @@ export type PortalSessionSnapshot = {
   currentIgk?: number;
   lifetimeIgk?: number;
   expiresAt?: string;
+  reverification?: ReverificationStatus;
 };
 
 type SessionContextValue = {

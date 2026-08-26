@@ -16,7 +16,7 @@ Intact is a private community portal for students of Incheon Science High School
 - 1:1 and group messaging over Socket.IO, with read state, reconnect handling, and paginated history. Messages persist in PostgreSQL; Redis is only used for realtime fan-out.
 - Notifications grouped per post or conversation, delivered in-app and via Web Push as an installable PWA.
 - IGK, an activity-points system: a ledger-backed balance, transfers between members, contribution ranking and levels, daily attendance rewards, and a shop selling cosmetic items (nickname colors, avatar frames, titles, streak freezes).
-- Invite-based student accounts with re-verification and password reset. An optional bridge can authenticate students against the school's Riroschool system over a private Tailscale link (`server/riro-bridge`).
+- Student accounts use the school's Riroschool system for self-service registration, annual re-verification, and password recovery. A private Mac mini bridge connects over Tailscale, while purpose-bound administrator codes remain an emergency fallback for re-verification and recovery (`server/riro-bridge`).
 - An admin console covering notices, reports and sanctions, user and invite management, and support requests, with an audit log for every privileged change.
 - An optional "B-side" mode that anonymizes every other member server-side (stable per-activation hashes for names, hidden student codes) across posts, search, rankings, and chat, while each user still sees their own identity.
 
@@ -47,7 +47,7 @@ Uniqueness is enforced twice: unique indexes on `User.loginId` and `StudentIdent
 ├── client/                    Next.js app: UI, REST API, Prisma schema/migrations, PWA
 ├── server/chat/               Socket.IO realtime gateway
 ├── server/codex-moderation/   Isolated Codex-based post moderation adapter
-├── server/riro-bridge/        Optional Riroschool auth bridge (runs on a private Mac mini)
+├── server/riro-bridge/        Private Riroschool identity bridge (runs on a Mac mini)
 ├── deploy/                    Production backup script and systemd units
 ├── design/                    Archived prototypes; not loaded in production
 ├── scripts/                   Verification helpers
@@ -65,6 +65,7 @@ Legacy internal identifiers such as `igwak`, `igwak-portal`, and `IGK` are kept 
 
 - Node.js 22
 - Corepack / Yarn 1.22.22
+- Python 3.11+ for Riroschool bridge checks
 - Docker Engine with Docker Compose v2
 
 ### Full stack

@@ -13,7 +13,11 @@ import {
   readJson,
   requiredString,
 } from '@/lib/server/http';
-import { verifyRiroAccount } from '@/lib/server/riro';
+import {
+  canonicalizeRiroId,
+  riroAccountFingerprint,
+  verifyRiroAccount,
+} from '@/lib/server/riro';
 import { parseStudentCode } from '@/lib/server/student-invites';
 
 export const runtime = 'nodejs';
@@ -36,12 +40,15 @@ export async function POST(request: Request) {
       failPolicy: 'closed',
     });
     const body = await readJson<VerifyBody>(request, 8_192);
-    const id = requiredString(body.id, '리로스쿨 아이디', { min: 2, max: 32 });
-    enforceRateLimit(`riro-account:${privateFingerprint(id)}`, {
+    const id = canonicalizeRiroId(
+      requiredString(body.id, '리로스쿨 아이디', { min: 2, max: 32 }),
+    );
+    const accountFingerprint = riroAccountFingerprint(id);
+    enforceRateLimit(`riro-account:${accountFingerprint}`, {
       limit: 6,
       windowMs: 15 * 60 * 1_000,
     });
-    await enforceDistributedRateLimit(`riro-account:${privateFingerprint(id)}`, {
+    await enforceDistributedRateLimit(`riro-account:${accountFingerprint}`, {
       limit: 6,
       windowMs: 15 * 60 * 1_000,
       failPolicy: 'closed',
@@ -54,13 +61,12 @@ export async function POST(request: Request) {
 
     const profile = await verifyRiroAccount(id, password);
     const student = parseStudentCode(profile.studentCode);
-    const riroAccountFingerprint = privateFingerprint(`riro-account:${id}`);
     const [duplicateIdentity, duplicateLogin] = await Promise.all([
       prisma.studentIdentity.findFirst({
         where: {
           OR: [
             { studentCode: student.studentCode },
-            { riroAccountFingerprint },
+            { riroAccountFingerprint: accountFingerprint },
           ],
         },
         select: { id: true },
@@ -89,13 +95,13 @@ export async function POST(request: Request) {
           nameFingerprint: privateFingerprint(
             `${profile.name}|${profile.studentCode}`,
           ),
-          riroAccountFingerprint,
+          riroAccountFingerprint: accountFingerprint,
           studentCode: student.studentCode,
-          currentStudentNumber: student.currentStudentNumber,
-          generation: student.generation,
-          grade: student.grade,
-          classNumber: student.classNumber,
-          studentNumber: student.studentNumber,
+          currentStudentNumber: profile.currentStudentNumber,
+          generation: profile.generation,
+          grade: profile.grade,
+          classNumber: profile.classNumber,
+          studentNumber: profile.studentNumber,
           schoolYear: profile.schoolYear,
         },
       }),
