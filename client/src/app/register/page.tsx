@@ -7,6 +7,7 @@ import { isValidStudentCode, normalizeStudentCode, STUDENT_CODE_REQUIREMENTS } f
 import { ArrowRight, Check, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
+import { usePortalSession } from '@/components/portal/SessionProvider';
 
 interface RiroVerification {
   verificationTicket: string;
@@ -19,6 +20,7 @@ interface RiroVerification {
 
 export default function RegisterPage() {
   const demoMode = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === 'true';
+  const { refresh: refreshSession } = usePortalSession();
   const [riroId, setRiroId] = useState('');
   const [riroPassword, setRiroPassword] = useState('');
   const [verification, setVerification] = useState<RiroVerification | null>(null);
@@ -103,6 +105,9 @@ export default function RegisterPage() {
         if (!response.ok || !payload?.ok) {
           throw new Error(apiErrorMessage(payload, '계정을 만들지 못했습니다.'));
         }
+        // Registration signs the user in via Set-Cookie; refresh the session
+        // context so the home link on the done screen lands in the portal.
+        await refreshSession();
       }
       setStudentCode(normalizedStudentCode);
       setPassword('');

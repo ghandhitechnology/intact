@@ -16,6 +16,12 @@ type PlatformModeContextValue = PlatformModeSnapshot & {
 
 const PlatformModeContext = createContext<PlatformModeContextValue | null>(null);
 const MODE_STORAGE_KEY = 'intact:platform-mode:v1';
+const DEMO_MODE = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === 'true';
+const DEMO_PLATFORM_MODE: PlatformModeSnapshot = {
+  bSideEnabled: false,
+  maintenanceEnabled: false,
+  version: 'demo',
+};
 
 function applyDocumentMode(enabled: boolean) {
   document.documentElement.classList.toggle('b-side', enabled);
@@ -55,12 +61,20 @@ function storeModeVersion(version: string) {
 }
 
 export default function PlatformModeProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<PlatformModeSnapshot | null>(null);
+  const [mode, setMode] = useState<PlatformModeSnapshot | null>(DEMO_MODE ? DEMO_PLATFORM_MODE : null);
   const [unavailable, setUnavailable] = useState(false);
   const [retrying, setRetrying] = useState(false);
-  const currentRef = useRef<PlatformModeSnapshot | null>(null);
+  const currentRef = useRef<PlatformModeSnapshot | null>(DEMO_MODE ? DEMO_PLATFORM_MODE : null);
 
   const refresh = useCallback(async () => {
+    if (DEMO_MODE) {
+      applyDocumentMode(DEMO_PLATFORM_MODE.bSideEnabled);
+      storeModeVersion(DEMO_PLATFORM_MODE.version);
+      currentRef.current = DEMO_PLATFORM_MODE;
+      setUnavailable(false);
+      setMode(DEMO_PLATFORM_MODE);
+      return DEMO_PLATFORM_MODE;
+    }
     setRetrying(true);
     try {
       const next = await requestPlatformMode();
@@ -99,6 +113,12 @@ export default function PlatformModeProvider({ children }: { children: ReactNode
   }, []);
 
   useEffect(() => {
+    if (DEMO_MODE) {
+      applyDocumentMode(DEMO_PLATFORM_MODE.bSideEnabled);
+      storeModeVersion(DEMO_PLATFORM_MODE.version);
+      return undefined;
+    }
+
     void refresh();
     const onFocus = () => void refresh();
     const onVisibility = () => {

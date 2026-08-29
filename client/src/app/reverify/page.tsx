@@ -6,9 +6,11 @@ import { CheckCircle2, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
+import { usePortalSession } from '@/components/portal/SessionProvider';
 
 export default function ReverifyPage() {
   const router = useRouter();
+  const { refresh: refreshSession } = usePortalSession();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -36,6 +38,7 @@ export default function ReverifyPage() {
       });
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.ok) throw new Error(body?.error?.message || '재인증을 완료하지 못했습니다.');
+      await refreshSession();
       setDone(true);
       window.setTimeout(() => {
         router.replace('/');
