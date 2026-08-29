@@ -11,6 +11,7 @@ import {
   Tabs,
 } from '@/components/operations/ui';
 import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
+import { usePortalSession } from '@/components/portal/SessionProvider';
 import { CheckCircle2, LogOut, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useRef, useState } from 'react';
@@ -37,6 +38,7 @@ function verificationState(method: ReverifyMethod = 'riro', error = ''): Reverif
 
 export default function ReverifyPage() {
   const router = useRouter();
+  const { refresh: refreshSession } = usePortalSession();
   const [state, setState] = useState<ReverifyState>(() => verificationState());
   const [loading, setLoading] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -77,6 +79,7 @@ export default function ReverifyPage() {
         return;
       }
 
+      await refreshSession();
       setState({ step: 'done' });
       window.setTimeout(() => {
         router.replace('/');
