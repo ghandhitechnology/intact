@@ -79,6 +79,7 @@ test('sends one signed request and normalizes the bridge profile', async () => {
       ok: true,
       profile: {
         name: '홍길동',
+        entryStudentNumber: '1218',
         currentStudentNumber: '1218',
         generation: 33,
         role: '학생',
@@ -95,6 +96,62 @@ test('sends one signed request and normalizes the bridge profile', async () => {
     assert.equal(profile.studentNumber, 18);
   });
   assert.equal(calls, 1);
+});
+
+test('keeps the login code stable when the current grade and class change', async () => {
+  const mockFetch: typeof fetch = async () => jsonResponse({
+    ok: true,
+    profile: {
+      name: '홍길동',
+      entryStudentNumber: '1218',
+      currentStudentNumber: '2307',
+      generation: 32,
+      role: '학생',
+    },
+  });
+
+  await withMockBridge(mockFetch, async () => {
+    const profile = await verifyRiroAccount('25-10218', 'private-password');
+    assert.equal(profile.studentCode, '321218');
+    assert.equal(profile.entryStudentNumber, '1218');
+    assert.equal(profile.currentStudentNumber, '2307');
+    assert.equal(profile.grade, 2);
+    assert.equal(profile.classNumber, 3);
+    assert.equal(profile.studentNumber, 7);
+  });
+});
+
+test('rejects nonstudent roles and missing or invalid entry student numbers', async () => {
+  const invalidProfiles = [
+    { role: '교사' },
+    { role: '졸업생' },
+    { role: undefined },
+    { entryStudentNumber: undefined },
+    { entryStudentNumber: '2307' },
+    { entryStudentNumber: '1520' },
+    { entryStudentNumber: '1121' },
+  ];
+  for (const invalid of invalidProfiles) {
+    const mockFetch: typeof fetch = async () => jsonResponse({
+      ok: true,
+      profile: {
+        name: '홍길동',
+        entryStudentNumber: '1218',
+        currentStudentNumber: '2307',
+        generation: 32,
+        role: '학생',
+        ...invalid,
+      },
+    });
+    await withMockBridge(mockFetch, async () => {
+      await assert.rejects(
+        verifyRiroAccount('25-10218', 'private-password'),
+        (error: unknown) => error instanceof ApiError
+          && error.status === 503
+          && error.code === 'RIRO_UNAVAILABLE',
+      );
+    });
+  }
 });
 
 test('does not retry invalid credentials and preserves the public 401 contract', async () => {

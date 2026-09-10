@@ -4,6 +4,7 @@ import { currentKoreanSchoolYear } from './student-invites';
 
 export interface RiroProfile {
   name: string;
+  entryStudentNumber: string;
   currentStudentNumber: string;
   generation: number;
   grade: number;
@@ -15,6 +16,7 @@ export interface RiroProfile {
 
 interface BridgeProfile {
   name?: unknown;
+  entryStudentNumber?: unknown;
   currentStudentNumber?: unknown;
   generation?: unknown;
   role?: unknown;
@@ -56,11 +58,19 @@ export function signRiroBridgeRequest(body: string, secret: string, timestamp: s
 
 function normalizeBridgeProfile(profile: BridgeProfile): RiroProfile {
   const name = typeof profile.name === 'string' ? profile.name.normalize('NFKC').trim() : '';
+  const entryStudentNumber = typeof profile.entryStudentNumber === 'string'
+    ? profile.entryStudentNumber
+    : '';
   const currentStudentNumber = typeof profile.currentStudentNumber === 'string'
     ? profile.currentStudentNumber
     : '';
   const generation = Number(profile.generation);
+  const role = typeof profile.role === 'string' ? profile.role.normalize('NFKC').trim() : '';
   if (!/^[\p{L} .'-]{2,40}$/u.test(name)) throw new Error('Invalid bridge student name.');
+  if (role !== '학생') throw new Error('Invalid bridge student role.');
+  if (!/^1[1-4](?:0[1-9]|1[0-9]|20)$/.test(entryStudentNumber)) {
+    throw new Error('Invalid bridge entry student number.');
+  }
   if (!/^[1-3][1-9]\d{2}$/.test(currentStudentNumber)) {
     throw new Error('Invalid bridge student number.');
   }
@@ -73,12 +83,13 @@ function normalizeBridgeProfile(profile: BridgeProfile): RiroProfile {
   const classNumber = Number(currentStudentNumber[1]);
   return {
     name,
+    entryStudentNumber,
     currentStudentNumber,
     generation,
     grade,
     classNumber,
     studentNumber,
-    studentCode: `${String(generation).padStart(2, '0')}${currentStudentNumber}`,
+    studentCode: `${String(generation).padStart(2, '0')}${entryStudentNumber}`,
     schoolYear: currentKoreanSchoolYear(),
   };
 }

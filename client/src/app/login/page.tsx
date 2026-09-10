@@ -1,6 +1,7 @@
 'use client';
 
 import AuthFrame from '@/components/operations/AuthFrame';
+import { usePortalSession } from '@/components/portal/SessionProvider';
 import { apiErrorMessage, Button, Field, Input, LoadingLabel, readApiEnvelope } from '@/components/operations/ui';
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
@@ -26,6 +27,7 @@ function safeReturnTo(raw: string | null) {
 }
 
 export default function LoginPage() {
+  const { refresh: refreshSession } = usePortalSession();
   const router = useRouter();
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
@@ -66,6 +68,7 @@ export default function LoginPage() {
       if (!response.ok || !payload?.ok) {
         throw new Error(apiErrorMessage(payload, '학번 또는 비밀번호를 확인해 주세요.'));
       }
+      await refreshSession();
       if (payload.data.requiresReverification) {
         router.push('/reverify');
       } else {

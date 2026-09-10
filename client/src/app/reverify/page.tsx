@@ -1,6 +1,7 @@
 'use client';
 
 import AuthFrame from '@/components/operations/AuthFrame';
+import { usePortalSession } from '@/components/portal/SessionProvider';
 import { Button, Field, Input, LoadingLabel } from '@/components/operations/ui';
 import { CheckCircle2, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -8,6 +9,7 @@ import { FormEvent, useState } from 'react';
 import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
 
 export default function ReverifyPage() {
+  const { refresh: refreshSession } = usePortalSession();
   const router = useRouter();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,6 +38,7 @@ export default function ReverifyPage() {
       });
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.ok) throw new Error(body?.error?.message || '재인증을 완료하지 못했습니다.');
+      await refreshSession();
       setDone(true);
       window.setTimeout(() => {
         router.replace('/');

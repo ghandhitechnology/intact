@@ -1,6 +1,7 @@
 'use client';
 
 import AuthFrame from '@/components/operations/AuthFrame';
+import { usePortalSession } from '@/components/portal/SessionProvider';
 import { apiErrorMessage, Button, cn, Field, Input, LoadingLabel, readApiEnvelope } from '@/components/operations/ui';
 import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
 import { isValidStudentCode, normalizeStudentCode, STUDENT_CODE_REQUIREMENTS } from '@/lib/student-code';
@@ -18,6 +19,7 @@ interface RiroVerification {
 }
 
 export default function RegisterPage() {
+  const { refresh: refreshSession } = usePortalSession();
   const demoMode = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === 'true';
   const [riroId, setRiroId] = useState('');
   const [riroPassword, setRiroPassword] = useState('');
@@ -103,6 +105,7 @@ export default function RegisterPage() {
         if (!response.ok || !payload?.ok) {
           throw new Error(apiErrorMessage(payload, '계정을 만들지 못했습니다.'));
         }
+        await refreshSession();
       }
       setStudentCode(normalizedStudentCode);
       setPassword('');
@@ -190,7 +193,7 @@ export default function RegisterPage() {
             <p className="flex items-center gap-1.5 font-semibold"><ShieldCheck className="h-4 w-4 shrink-0" />인천과학고등학교 리로스쿨 인증 완료</p>
             <p className="mt-1 text-xs leading-5 text-emerald-800">{verification.profile.name} 학생으로 확인했습니다. 포털에서 사용할 학번과 별도 비밀번호를 설정하세요.</p>
           </div>
-          <Field label="6자리 학번" required hint="리로스쿨에 등록된 현재 학번을 입력하세요.">
+          <Field label="6자리 학번" required hint="기수와 입학 당시 1학년 반·번호를 합친 6자리 학번을 입력하세요.">
             <Input inputMode="numeric" value={studentCode} onChange={(event) => setStudentCode(normalizeStudentCode(event.target.value))} autoComplete="username" maxLength={6} placeholder="예: 331101" />
           </Field>
           <Field label="포털 비밀번호" required hint="리로스쿨 비밀번호와 다른 비밀번호 사용 권장 · 영문+숫자 10자 이상">
