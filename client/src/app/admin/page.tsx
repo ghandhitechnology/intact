@@ -309,6 +309,19 @@ type DashboardReport = {
   } | null;
 };
 
+type RiroBridgeSummary = {
+  state: "ok" | "degraded" | "unreachable" | "disabled" | "misconfigured";
+  degraded: boolean;
+  contractVersion: string | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastFailureCategory: string | null;
+  lastFailureReason: string | null;
+  failureStreak: number | null;
+  captureEnabled: boolean | null;
+  checkedAt: string;
+};
+
 type DashboardPayload = {
   summary: Summary;
   adminSession: { expiresAt: string };
@@ -318,6 +331,7 @@ type DashboardPayload = {
     maintenanceEnabled?: boolean;
     updatedAt: string;
   };
+  riro: RiroBridgeSummary;
   users: DashboardUser[];
   posts: DashboardPost[];
   comments: DashboardComment[];
@@ -474,6 +488,14 @@ function normalizeUserStatus(status: string): UserStatus {
   if (status === "GRADUATED") return "graduated";
   if (status === "WITHDRAWN") return "withdrawn";
   return "reverify";
+}
+
+function riroStatusLabel(state: RiroBridgeSummary["state"]) {
+  if (state === "ok") return "정상";
+  if (state === "degraded") return "점검 필요";
+  if (state === "unreachable") return "연결 안 됨";
+  if (state === "disabled") return "사용 안 함";
+  return "설정 오류";
 }
 
 function normalizeContentStatus(status: string): ContentStatus {
@@ -661,6 +683,7 @@ export default function AdminPage() {
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [adminExpiresAt, setAdminExpiresAt] = useState<string | null>(null);
+  const [riroStatus, setRiroStatus] = useState<RiroBridgeSummary | null>(null);
   const [summary, setSummary] = useState<Summary>(
     demoMode ? demoSummary : emptySummary,
   );
@@ -963,6 +986,7 @@ export default function AdminPage() {
       setBSideEpoch(payload.data.platform.bSideEpoch);
       setMaintenanceEnabled(Boolean(payload.data.platform.maintenanceEnabled));
       setAdminExpiresAt(payload.data.adminSession.expiresAt);
+      setRiroStatus(payload.data.riro ?? null);
       setLastUpdated(new Date());
       setAccessState("ready");
     } catch (cause) {
@@ -1632,6 +1656,34 @@ export default function AdminPage() {
               <Lock className="h-3.5 w-3.5 text-emerald-700" />
               관리자 세션 {adminExpiryLabel} 만료 · 자동 연장 없음
             </span>
+            {riroStatus ? (
+              <span
+                title={
+                  "마지막 성공 " +
+                  (riroStatus.lastSuccessAt
+                    ? formatDateTime(riroStatus.lastSuccessAt)
+                    : "없음") +
+                  " · 마지막 실패 " +
+                  (riroStatus.lastFailureAt
+                    ? formatDateTime(riroStatus.lastFailureAt)
+                    : "없음") +
+                  (riroStatus.lastFailureReason
+                    ? " (" + riroStatus.lastFailureReason + ")"
+                    : "") +
+                  " · 확인 " +
+                  formatDateTime(riroStatus.checkedAt)
+                }
+                className={cn(
+                  "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-[var(--shadow-xs)]",
+                  riroStatus.state === "degraded"
+                    ? "border-red-200 bg-red-50 text-red-700"
+                    : "border-slate-200 bg-white text-slate-500",
+                )}
+              >
+                <ShieldAlert className="h-3.5 w-3.5" />
+                리로 인증 {riroStatusLabel(riroStatus.state)}
+              </span>
+            ) : null}
             <Button
               variant="secondary"
               className="h-9 px-3 text-xs"

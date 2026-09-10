@@ -57,15 +57,8 @@ export function isLegacySyntheticRiroFingerprint(
   );
 }
 
-function bridgeConfiguration() {
-  if (process.env.RIRO_AUTH_MODE !== 'BRIDGE') {
-    throw new ApiError(503, 'RIRO_DISABLED', '리로스쿨 인증이 일시적으로 비활성화되어 있습니다.');
-  }
+export function riroBridgeBaseUrl() {
   const configuredUrl = process.env.RIRO_BRIDGE_URL ?? '';
-  const secret = process.env.RIRO_BRIDGE_SECRET ?? '';
-  if (!/^[0-9a-f]{64}$/.test(secret)) {
-    throw new Error('RIRO_BRIDGE_SECRET must be a 64-character hexadecimal value.');
-  }
   const url = new URL(configuredUrl);
   const tailscaleIpv4 = /^100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}$/.test(url.hostname);
   const tailscaleDns = url.hostname.endsWith('.ts.net');
@@ -75,7 +68,18 @@ function bridgeConfiguration() {
   if (url.username || url.password || url.search || url.hash) {
     throw new Error('RIRO_BRIDGE_URL must not contain credentials, query parameters, or fragments.');
   }
-  return { url: new URL('/v1/verify', url), secret };
+  return url;
+}
+
+function bridgeConfiguration() {
+  if (process.env.RIRO_AUTH_MODE !== 'BRIDGE') {
+    throw new ApiError(503, 'RIRO_DISABLED', '리로스쿨 인증이 일시적으로 비활성화되어 있습니다.');
+  }
+  const secret = process.env.RIRO_BRIDGE_SECRET ?? '';
+  if (!/^[0-9a-f]{64}$/.test(secret)) {
+    throw new Error('RIRO_BRIDGE_SECRET must be a 64-character hexadecimal value.');
+  }
+  return { url: new URL('/v1/verify', riroBridgeBaseUrl()), secret };
 }
 
 export function signRiroBridgeRequest(body: string, secret: string, timestamp: string, nonce: string) {
