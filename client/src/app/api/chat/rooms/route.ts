@@ -17,7 +17,12 @@ import {
   publishRealtimeEvent,
   queueRealtimeEvent,
 } from '@/lib/server/realtime';
-import { getPlatformMode, maskPublicIdentities } from '@/lib/server/platform-mode';
+import {
+  chatMemberSelect,
+  collectMemberIdentifiers,
+  resolveChatMemberIds,
+} from '@/lib/server/chat-members';
+import { maskPublicIdentities } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,12 +38,7 @@ export async function GET(request: Request) {
         members: {
           where: { leftAt: null },
           select: {
-            userId: true,
-            role: true,
-            joinedAt: true,
-            lastReadSequence: true,
-            lastReadMessage: { select: { createdAt: true, sequence: true } },
-            user: { select: publicAuthorSelect },
+            ...chatMemberSelect,
           },
         },
         messages: {
@@ -133,11 +133,7 @@ export async function POST(request: Request) {
       failPolicy: 'open',
     });
     const body = await readJson<CreateRoomBody>(request, 16_384);
-    let memberIds = Array.isArray(body.memberIds)
-      ? body.memberIds.filter((id): id is string => typeof id === 'string')
-      : typeof body.recipientId === 'string'
-        ? [body.recipientId]
-        : [];
+    let memberIds = collectMemberIdentifiers(body);
 
     // Legacy clients used a nickname; resolve it without exposing any private data.
     if (memberIds.length === 0 && typeof body.authorNickname === 'string') {
@@ -147,66 +143,10 @@ export async function POST(request: Request) {
       });
       if (legacyMember && legacyMember.id !== session.user.id) memberIds = [legacyMember.id];
     }
-    memberIds = Array.from(new Set(memberIds.map((id) => id.trim()).filter(Boolean)));
-    if (memberIds.length > 9) {
-      throw new ApiError(400, 'TOO_MANY_MEMBERS', '한 대화방에는 최대 9명까지 초대할 수 있습니다.');
-    }
-    if (memberIds.length < 1) {
-      throw new ApiError(400, 'MEMBER_REQUIRED', '대화 상대를 한 명 이상 선택해 주세요.');
-    }
-    const platformMode = await getPlatformMode();
-    const anonymousIdentifiers = platformMode.bSideEnabled
-      ? memberIds.filter((value) => /^#[A-F0-9]{8}$/i.test(value))
-      : [];
-    const anonymousAliases = anonymousIdentifiers.length
-      ? await prisma.platformAlias.findMany({
-          where: {
-            epoch: platformMode.bSideEpoch,
-            alias: { in: anonymousIdentifiers.map((value) => value.toUpperCase()) },
-          },
-          select: { alias: true, userId: true },
-        })
-      : [];
-    const uuidIdentifiers = memberIds.filter((value) =>
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value),
-    );
-    const members = await prisma.user.findMany({
-      where: {
-        status: 'ACTIVE',
-        OR: [
-          { loginId: { in: memberIds } },
-          { studentIdentity: { studentCode: { in: memberIds } } },
-          ...(uuidIdentifiers.length ? [{ id: { in: uuidIdentifiers } }] : []),
-        ],
-      },
-      select: {
-        id: true,
-        loginId: true,
-        studentIdentity: { select: { studentCode: true } },
-      },
+    memberIds = await resolveChatMemberIds({
+      identifiers: memberIds,
+      actorId: session.user.id,
     });
-    const resolvedMemberIds = memberIds.map((identifier) => {
-      if (platformMode.bSideEnabled && /^#[A-F0-9]{8}$/i.test(identifier)) {
-        return anonymousAliases.find(
-          (candidate) => candidate.alias.toLowerCase() === identifier.toLowerCase(),
-        )?.userId ?? null;
-      }
-      return members.find((member) =>
-        member.id === identifier ||
-        member.loginId === identifier ||
-        member.studentIdentity?.studentCode === identifier,
-      )?.id ?? null;
-    });
-    if (resolvedMemberIds.some((id) => !id)) {
-      throw new ApiError(400, 'INVALID_MEMBER', '대화할 수 없는 사용자가 포함되어 있습니다.');
-    }
-    memberIds = resolvedMemberIds as string[];
-    if (memberIds.includes(session.user.id)) {
-      throw new ApiError(400, 'SELF_MEMBER', '본인은 대화 상대 목록에 넣지 않아도 됩니다.');
-    }
-    if (new Set(memberIds).size !== memberIds.length) {
-      throw new ApiError(400, 'DUPLICATE_MEMBER', '같은 대화 상대가 중복으로 입력되었습니다.');
-    }
 
     const allMemberIds = [session.user.id, ...memberIds].sort();
     const direct = allMemberIds.length === 2;

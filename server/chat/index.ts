@@ -208,7 +208,7 @@ app.post('/internal/room-created', async (request, response) => {
   }
   const roomId = typeof request.body?.roomId === 'string' ? request.body.roomId : '';
   const memberIds = Array.isArray(request.body?.memberIds)
-    ? request.body.memberIds.filter((id: unknown): id is string => typeof id === 'string').slice(0, 10)
+        ? request.body.memberIds.filter((id: unknown): id is string => typeof id === 'string').slice(0, 32)
     : [];
   if (!roomId || !memberIds.length) {
     response.status(400).json({ ok: false });

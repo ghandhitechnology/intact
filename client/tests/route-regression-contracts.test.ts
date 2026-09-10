@@ -39,6 +39,15 @@ test('chat unread aggregation casts request identifiers to PostgreSQL uuid', () 
   assert.match(route, /message\."senderId"\s*<>\s*\$\{session\.user\.id\}::uuid/);
 });
 
+test('chat room membership writes stay owner-gated and capacity-bound', () => {
+  const members = compact(source('src/app/api/chat/rooms/[id]/members/route.ts'));
+  const room = compact(source('src/app/api/chat/rooms/[id]/route.ts'));
+  assert.match(members, /NOT_ROOM_OWNER/);
+  assert.match(members, /assertRoomCapacity/);
+  assert.match(room, /notificationsMuted/);
+  assert.match(room, /DIRECT_TITLE/);
+});
+
 test('signed-out home never loads or retains authenticated home data', () => {
   const home = compact(source('src/components/community/HomePage.tsx'));
   const shell = compact(source('src/components/portal/PortalShell.tsx'));
