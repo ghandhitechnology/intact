@@ -10,13 +10,16 @@ import { publishPlatformInvalidationMessage } from '../src/lib/server/platform-m
 import { deliverNotificationPush } from '../src/lib/server/push';
 import { closeRedis } from '../src/lib/server/redis';
 import { deliverRealtimeEvent } from '../src/lib/server/realtime';
+import { checkRiroBridgeAndAlert } from '../src/lib/server/riro-alert';
 
 const prisma = new PrismaClient();
 const workerId = `outbox-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
 const pollMs = Math.max(100, Number(process.env.OUTBOX_POLL_MS || 1_000));
 const noticeIntervalMs = Math.max(5_000, Number(process.env.NOTICE_SCHEDULER_INTERVAL_MS || 15_000));
+const riroHealthIntervalMs = Math.max(60_000, Number(process.env.RIRO_HEALTH_INTERVAL_MS || 300_000));
 let stopping = false;
 let nextNoticeRun = 0;
+let nextRiroHealthRun = 0;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -95,10 +98,23 @@ async function runNoticeScheduler() {
   }
 }
 
+async function runRiroHealthCheck() {
+  if (Date.now() < nextRiroHealthRun) return;
+  nextRiroHealthRun = Date.now() + riroHealthIntervalMs;
+  try {
+    const created = await checkRiroBridgeAndAlert(prisma);
+    if (created > 0) console.info(`[${workerId}] riro alerts created: ${created}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[${workerId}] riro health: ${message.slice(0, 500)}`);
+  }
+}
+
 async function main() {
   console.info(`[${workerId}] outbox worker started`);
   while (!stopping) {
     await runNoticeScheduler();
+    await runRiroHealthCheck();
     const events = await claimOutboxEvents(prisma, { limit: 20, leaseMs: 60_000 });
     if (!events.length) {
       await sleep(pollMs);
