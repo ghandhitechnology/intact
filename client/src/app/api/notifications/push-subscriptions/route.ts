@@ -14,6 +14,7 @@ type SubscriptionBody = {
   endpoint?: unknown;
   expirationTime?: unknown;
   keys?: { p256dh?: unknown; auth?: unknown };
+  reassign?: unknown;
 };
 
 function validEndpoint(value: unknown) {
@@ -85,6 +86,7 @@ export async function POST(request: Request) {
     const p256dh = validKey(body.keys?.p256dh, 'p256dh 키', 512);
     const auth = validKey(body.keys?.auth, 'auth 키', 256);
     const expiresAt = expirationDate(body.expirationTime);
+    const reassign = body.reassign === true;
     const encryptedEndpoint = encryptText(endpoint);
     const encryptedP256dh = encryptText(p256dh);
     const encryptedAuth = encryptText(auth);
@@ -94,12 +96,13 @@ export async function POST(request: Request) {
         where: { endpointHash },
         select: { userId: true },
       });
-      if (existing && existing.userId !== session.user.id) {
+      if (existing && existing.userId !== session.user.id && !reassign) {
         throw new ApiError(409, 'PUSH_ENDPOINT_OWNED', '이미 다른 계정에 등록된 푸시 구독입니다.');
       }
       return tx.pushSubscription.upsert({
         where: { endpointHash },
         update: {
+          userId: session.user.id,
           endpoint: encryptedEndpoint,
           p256dh: encryptedP256dh,
           auth: encryptedAuth,

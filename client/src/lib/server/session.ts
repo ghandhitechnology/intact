@@ -284,6 +284,15 @@ export async function revokeAdminRequestSession(request: Request) {
   });
 }
 
+const SESSION_SWEEP_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function sweepExpiredSessions(now: Date = new Date()) {
+  const result = await prisma.session.deleteMany({
+    where: { expiresAt: { lt: new Date(now.getTime() - SESSION_SWEEP_RETENTION_MS) } },
+  });
+  return result.count;
+}
+
 export function publicUser(user: {
   id: string;
   nickname: string;

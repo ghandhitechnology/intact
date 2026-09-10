@@ -11,7 +11,9 @@ import {
   STUDENT_CODE_REQUIREMENTS,
 } from '@/lib/student-code';
 import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
+import { rebindPushSubscription } from '@/lib/client/push';
 import { loginPasswordError } from '@/lib/login-credentials';
+import { usePortalSession } from '@/components/portal/SessionProvider';
 
 function safeReturnTo(raw: string | null) {
   if (!raw || raw.includes('\\') || /[\u0000-\u001f]/.test(raw)) return '/';
@@ -27,6 +29,7 @@ function safeReturnTo(raw: string | null) {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { refresh: refreshSession } = usePortalSession();
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
@@ -66,6 +69,10 @@ export default function LoginPage() {
       if (!response.ok || !payload?.ok) {
         throw new Error(apiErrorMessage(payload, '학번 또는 비밀번호를 확인해 주세요.'));
       }
+      // The session context was mounted while signed out; refresh it before
+      // navigating or the home page keeps rendering the signed-out hero.
+      await refreshSession();
+      void rebindPushSubscription();
       if (payload.data.requiresReverification) {
         router.push('/reverify');
       } else {
