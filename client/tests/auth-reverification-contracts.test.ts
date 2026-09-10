@@ -28,8 +28,11 @@ test('login applies the one-time flag while active session resolution only appli
 
 test('session API exposes only the public reverification state', () => {
   const route = compact(source('src/app/api/auth/session/route.ts'));
-  assert.match(route, /reverification: getPublicReverificationState\(session\.user\.reverifyDueAt\)/);
+  const snapshot = compact(source('src/lib/server/portal-bootstrap.ts'));
+  assert.match(route, /json\(portalSessionSnapshot\(session\)\)/);
+  assert.match(snapshot, /reverification: getPublicReverificationState\(session\.user\.reverifyDueAt\)/);
   assert.doesNotMatch(route, /requiresRiroReverification/);
+  assert.doesNotMatch(snapshot, /requiresRiroReverification/);
 });
 
 test('direct Riroschool reverification binds the ticket to the signed-in identity', () => {

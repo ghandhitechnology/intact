@@ -1,32 +1,10 @@
 'use client';
 
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { clearClientDataCache } from './ClientDataProvider';
 import { onSessionExpired } from '@/lib/client/session-events';
-
-export type PortalSessionUser = {
-  id: string;
-  nickname?: string;
-  realName?: string;
-  studentCode?: string | null;
-  profileImage?: string | null;
-  level?: number;
-};
-
-export type ReverificationStatus =
-  | { kind: 'current' }
-  | { kind: 'warning'; dueAt: string; requiredAt: string }
-  | { kind: 'grace'; dueAt: string; requiredAt: string };
-
-export type PortalSessionSnapshot = {
-  authenticated: boolean;
-  reason?: string | null;
-  user?: PortalSessionUser;
-  currentIgk?: number;
-  lifetimeIgk?: number;
-  expiresAt?: string;
-  reverification?: ReverificationStatus;
-};
+import type { PortalSessionSnapshot } from '@/lib/contracts/portal-bootstrap';
+export type { PortalSessionUser, PortalSessionSnapshot, ReverificationStatus } from '@/lib/contracts/portal-bootstrap';
 
 type SessionContextValue = {
   session: PortalSessionSnapshot | null;
@@ -36,6 +14,7 @@ type SessionContextValue = {
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
+const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 async function requestSession() {
   const controller = new AbortController();
@@ -51,11 +30,17 @@ async function requestSession() {
   }
 }
 
-export default function SessionProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<PortalSessionSnapshot | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function SessionProvider({ children, initialSession = null }: { children: ReactNode; initialSession?: PortalSessionSnapshot | null }) {
+  const [session, setSession] = useState<PortalSessionSnapshot | null>(initialSession);
+  const [loading, setLoading] = useState(initialSession === null);
+  const hadInitialSession = useRef(initialSession !== null);
+  const initialSessionRef = useRef(initialSession);
   const [error, setError] = useState<Error | null>(null);
   const latestRefresh = useRef<Promise<PortalSessionSnapshot | undefined> | null>(null);
+
+  useClientLayoutEffect(() => {
+    if (initialSessionRef.current?.authenticated === false) clearClientDataCache();
+  }, []);
 
   const refresh = useCallback(() => {
     const pending: Promise<PortalSessionSnapshot | undefined> = requestSession()
@@ -83,7 +68,7 @@ export default function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => onSessionExpired(() => { void refresh(); }), [refresh]);
 
   useEffect(() => {
-    void refresh();
+    if (!hadInitialSession.current) void refresh();
     let lastRefresh = Date.now();
     const refreshIfNeeded = () => {
       if (Date.now() - lastRefresh < 15_000) return;

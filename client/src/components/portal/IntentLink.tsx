@@ -16,6 +16,7 @@ function canWarmData() {
 
 export default function IntentLink({
   href,
+  prefetch = false,
   onPointerEnter,
   onFocus,
   onTouchStart,
@@ -25,11 +26,10 @@ export default function IntentLink({
   const destination = typeof href === 'string' ? href : href.pathname || '';
 
   const warm = () => {
-    if (!destination) return;
+    if (!destination.startsWith('/')) return;
     router.prefetch(destination);
     if (destination.startsWith('/messages') && canWarmData()) {
-      void import('socket.io-client');
-      void fetch('/api/chat/rooms').catch(() => undefined);
+      void import('socket.io-client').catch(() => undefined);
     }
   };
 
@@ -37,6 +37,7 @@ export default function IntentLink({
     <NextLink
       href={href}
       {...props}
+      prefetch={prefetch}
       onPointerEnter={(event) => { onPointerEnter?.(event); warm(); }}
       onFocus={(event) => { onFocus?.(event); warm(); }}
       onTouchStart={(event) => { onTouchStart?.(event); warm(); }}

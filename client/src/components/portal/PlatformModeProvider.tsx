@@ -1,14 +1,10 @@
 'use client';
 
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { io } from 'socket.io-client';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { Socket } from 'socket.io-client';
 import { clearClientDataCache } from './ClientDataProvider';
-
-type PlatformModeSnapshot = {
-  bSideEnabled: boolean;
-  maintenanceEnabled?: boolean;
-  version: string;
-};
+import type { PlatformModeSnapshot } from '@/lib/contracts/portal-bootstrap';
+import { fetchWithTimeout } from '@/lib/client/request';
 
 type PlatformModeContextValue = PlatformModeSnapshot & {
   refresh: () => Promise<PlatformModeSnapshot | undefined>;
@@ -17,6 +13,7 @@ type PlatformModeContextValue = PlatformModeSnapshot & {
 const PlatformModeContext = createContext<PlatformModeContextValue | null>(null);
 const MODE_STORAGE_KEY = 'intact:platform-mode:v1';
 const DEMO_MODE = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === 'true';
+const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 const DEMO_PLATFORM_MODE: PlatformModeSnapshot = {
   bSideEnabled: false,
   maintenanceEnabled: false,
@@ -29,7 +26,7 @@ function applyDocumentMode(enabled: boolean) {
 }
 
 async function requestPlatformMode() {
-  const response = await fetch('/api/platform', { cache: 'no-store' });
+  const response = await fetchWithTimeout('/api/platform', { cache: 'no-store' });
   const body = await response.json().catch(() => null);
   if (
     !response.ok
@@ -60,11 +57,27 @@ function storeModeVersion(version: string) {
   }
 }
 
-export default function PlatformModeProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<PlatformModeSnapshot | null>(DEMO_MODE ? DEMO_PLATFORM_MODE : null);
+export default function PlatformModeProvider({ children, initialMode = null }: { children: ReactNode; initialMode?: PlatformModeSnapshot | null }) {
+  const [mode, setMode] = useState<PlatformModeSnapshot | null>(DEMO_MODE ? DEMO_PLATFORM_MODE : initialMode);
   const [unavailable, setUnavailable] = useState(false);
   const [retrying, setRetrying] = useState(false);
-  const currentRef = useRef<PlatformModeSnapshot | null>(DEMO_MODE ? DEMO_PLATFORM_MODE : null);
+  const currentRef = useRef<PlatformModeSnapshot | null>(DEMO_MODE ? DEMO_PLATFORM_MODE : initialMode);
+  const hadInitialMode = useRef(initialMode !== null);
+  const latestRefresh = useRef(0);
+
+  // 하위 화면의 캐시 복원 effect보다 먼저 이전 익명 모드의 데이터를 비웁니다.
+  useClientLayoutEffect(() => {
+    const initial = currentRef.current;
+    if (!initial) return;
+    applyDocumentMode(initial.bSideEnabled);
+    const storedVersion = storedModeVersion();
+    const versionChanged = Boolean((storedVersion && storedVersion !== initial.version) || (initial.bSideEnabled && storedVersion !== initial.version));
+    if (hadInitialMode.current || versionChanged) {
+      // 새 문서는 HTML 전송 중의 모드 변경에 대비해 현재 API 응답으로 내용을 채웁니다.
+      clearClientDataCache(versionChanged);
+    }
+    storeModeVersion(initial.version);
+  }, []);
 
   const refresh = useCallback(async () => {
     if (DEMO_MODE) {
@@ -75,9 +88,11 @@ export default function PlatformModeProvider({ children }: { children: ReactNode
       setMode(DEMO_PLATFORM_MODE);
       return DEMO_PLATFORM_MODE;
     }
+    const requestVersion = ++latestRefresh.current;
     setRetrying(true);
     try {
       const next = await requestPlatformMode();
+      if (requestVersion !== latestRefresh.current) return currentRef.current ?? undefined;
       // Push already-connected SPA users out as soon as maintenance turns on.
       // Admin pages stay reachable so the operator can turn it back off.
       if (next.maintenanceEnabled) {
@@ -102,13 +117,14 @@ export default function PlatformModeProvider({ children }: { children: ReactNode
       }
       return next;
     } catch {
+      if (requestVersion !== latestRefresh.current) return currentRef.current ?? undefined;
       // Fail closed: cached real-name data must not appear when mode state is unknown.
       applyDocumentMode(true);
       clearClientDataCache(false);
       setUnavailable(true);
       return undefined;
     } finally {
-      setRetrying(false);
+      if (requestVersion === latestRefresh.current) setRetrying(false);
     }
   }, []);
 
@@ -119,7 +135,7 @@ export default function PlatformModeProvider({ children }: { children: ReactNode
       return undefined;
     }
 
-    void refresh();
+    if (!hadInitialMode.current) void refresh();
     const onFocus = () => void refresh();
     const onVisibility = () => {
       if (document.visibilityState === 'visible') void refresh();
@@ -129,18 +145,33 @@ export default function PlatformModeProvider({ children }: { children: ReactNode
     document.addEventListener('visibilitychange', onVisibility);
 
     const realtimeBase = (process.env.NEXT_PUBLIC_REALTIME_URL || window.location.origin).replace(/\/$/, '');
-    const socket = io(`${realtimeBase}/platform`, {
-      withCredentials: true,
-      transports: ['websocket', 'polling'],
-    });
-    socket.on('platform:invalidate', (message: { version?: unknown }) => {
-      if (typeof message?.version === 'string' && message.version !== currentRef.current?.version) {
-        void refresh();
-      }
-    });
+    let disposed = false;
+    let socket: Socket | undefined;
+    const fallbackTimer = window.setInterval(() => {
+      // 소켓 연결 중에도 Redis·outbox 알림이 누락될 수 있어 정기 확인을 유지합니다.
+      if (document.visibilityState === 'visible') void refresh();
+    }, 5_000);
+    void import('socket.io-client').then(({ io }) => {
+      if (disposed) return;
+      socket = io(`${realtimeBase}/platform`, {
+        withCredentials: true,
+        transports: ['websocket', 'polling'],
+      });
+      // HTML 생성과 소켓 연결 사이에 바뀐 설정도 확인합니다.
+      socket.on('connect', () => { void refresh(); });
+      socket.on('connect_error', () => { void refresh(); });
+      socket.on('platform:invalidate', (message: { version?: unknown }) => {
+        if (typeof message?.version === 'string' && message.version !== currentRef.current?.version) {
+          void refresh();
+        }
+      });
+    }).catch(() => { if (!disposed) void refresh(); });
 
     return () => {
-      socket.disconnect();
+      disposed = true;
+      latestRefresh.current += 1;
+      window.clearInterval(fallbackTimer);
+      socket?.disconnect();
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);

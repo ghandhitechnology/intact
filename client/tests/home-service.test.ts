@@ -50,3 +50,18 @@ test('falls back to session balance independently from notification failures', a
   assert.ok(data.sectionErrors.balance);
   assert.equal(data.boards.length, 1);
 });
+
+test('느린 홈 영역만 시간 초과로 표시하고 나머지 결과를 유지한다', async () => {
+  const data = await loadHomeData({
+    request: new Request('http://internal/api/home'),
+    currentIgk: 120,
+    timeoutMs: 10,
+    loaders: loaders({ notices: () => new Promise(() => {}) }),
+  });
+
+  assert.equal(data.sectionErrors.notices?.code, 'SECTION_TIMEOUT');
+  assert.equal(data.sectionErrors.notices?.retryable, true);
+  assert.deepEqual(data.notices, []);
+  assert.equal(data.boards.length, 1);
+  assert.equal(data.account.unreadCount, 3);
+});

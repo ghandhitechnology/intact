@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/portal/IntentLink";
 import {
   ArrowLeft,
   Bold,
