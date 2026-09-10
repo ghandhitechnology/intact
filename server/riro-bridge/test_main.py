@@ -162,7 +162,7 @@ class BridgeTests(unittest.TestCase):
 
     def test_rejects_missing_or_non_student_roles(self):
         self.assertIsNone(_parse_profile(profile_html(None), "26-10218", school_year=2026))
-        for role in ("교사", "학부모", "학생회"):
+        for role in ("교사", "학부모", "졸업생", "학생회", "재학생 학부모", "비재학생"):
             with self.subTest(role=role):
                 self.assertIsNone(
                     _parse_profile(profile_html(role), "26-10218", school_year=2026)
@@ -176,6 +176,40 @@ class BridgeTests(unittest.TestCase):
         )
         self.assertIsNotNone(parsed)
         self.assertEqual(parsed["role"], "학생")
+
+    def test_normalizes_enrolled_student_role_without_changing_identity(self):
+        diagnostics: dict = {}
+        parsed = _parse_profile(
+            profile_html("  재학생  ", "2학년 3반 7번"),
+            "25-10218",
+            school_year=2026,
+            diagnostics=diagnostics,
+        )
+        self.assertEqual(
+            parsed,
+            {
+                "name": "홍길동",
+                "entryStudentNumber": "1218",
+                "currentStudentNumber": "2307",
+                "generation": 32,
+                "role": "학생",
+            },
+        )
+        self.assertEqual(diagnostics["reason"], "ok")
+        self.assertEqual(diagnostics["checks"]["roleText"], "재학생")
+        self.assertTrue(diagnostics["checks"]["roleMatchesStudent"])
+
+    def test_enrolled_student_role_still_requires_a_current_cohort(self):
+        diagnostics: dict = {}
+        self.assertIsNone(
+            _parse_profile(
+                profile_html("재학생", "3학년 2반 18번"),
+                "23-10218",
+                school_year=2026,
+                diagnostics=diagnostics,
+            )
+        )
+        self.assertEqual(diagnostics["reason"], "implausible_cohort")
 
     def test_current_cohort_plausibility_boundaries(self):
         self.assertTrue(_cohort_is_plausible(33, 1, 2026))
@@ -667,6 +701,57 @@ class AsyncBridgeTests(unittest.IsolatedAsyncioTestCase):
             {"state": "half_open", "retryAfterSeconds": 0},
         )
 
+
+    async def test_signed_verify_accepts_enrolled_student_and_recovers_health(self):
+        paths: list[str] = []
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            paths.append(request.url.path)
+            if request.url.path == "/ajax.php":
+                return httpx.Response(200, json={"code": "000", "token": "safe-token"})
+            self.assertEqual(request.headers.get("cookie"), "cookie_token=safe-token")
+            return httpx.Response(200, text=profile_html("재학생", "2학년 3반 7번"))
+
+        body = b'{"id":"25-10218","password":"secret"}'
+        upstream = upstream_client(handler)
+        semaphore, circuit = fresh_resources()
+        app.state.riro_client = upstream
+        app.state.riro_semaphore = semaphore
+        app.state.riro_circuit = circuit
+        app.state.bridge_secret = os.environ["RIRO_BRIDGE_SECRET"].encode()
+        app.state.verification_status = VerificationStatus()
+        app.state.verification_status.record_failure("profile_malformed", "role_not_student")
+        transport = httpx.ASGITransport(app=app)
+        with patch("main._current_korean_school_year", return_value=2026):
+            async with upstream, httpx.AsyncClient(
+                transport=transport, base_url="http://bridge"
+            ) as client:
+                response = await client.post(
+                    "/v1/verify",
+                    content=body,
+                    headers=self.signed_headers(body, "enrolled_nonce_1234567890"),
+                )
+                health = await client.get("/health")
+
+        self.assertEqual(paths, ["/ajax.php", "/user.php"])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("cache-control"), "no-store")
+        self.assertEqual(
+            response.json(),
+            {
+                "ok": True,
+                "profile": {
+                    "name": "홍길동",
+                    "entryStudentNumber": "1218",
+                    "currentStudentNumber": "2307",
+                    "generation": 32,
+                    "role": "학생",
+                },
+            },
+        )
+        self.assertEqual(health.json()["status"], "ok")
+        self.assertEqual(health.json()["verification"]["failureStreak"], 0)
+        self.assertIsNotNone(health.json()["verification"]["lastSuccessAt"])
 
     async def test_verify_records_failure_reason_and_degrades_health(self):
         async def handler(request: httpx.Request) -> httpx.Response:
