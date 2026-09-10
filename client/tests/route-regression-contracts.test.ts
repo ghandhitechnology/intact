@@ -34,9 +34,9 @@ test('message read acknowledgements update sequence monotonically', () => {
 });
 
 test('chat unread aggregation casts request identifiers to PostgreSQL uuid', () => {
-  const route = compact(source('src/app/api/chat/rooms/route.ts'));
-  assert.match(route, /membership\."userId"\s*=\s*\$\{session\.user\.id\}::uuid/);
-  assert.match(route, /message\."senderId"\s*<>\s*\$\{session\.user\.id\}::uuid/);
+  const loader = compact(source('src/lib/server/chat-room-list.ts'));
+  assert.match(loader, /membership\."userId"\s*=\s*\$\{userId\}::uuid/);
+  assert.match(loader, /message\."senderId"\s*<>\s*\$\{userId\}::uuid/);
 });
 
 test('chat room membership writes stay owner-gated and capacity-bound', () => {
@@ -63,7 +63,7 @@ test('student verification UI keeps Riro as the direct path and administrator co
   const register = compact(source('src/app/register/page.tsx'));
   const reverify = compact(source('src/app/reverify/page.tsx'));
   const reset = compact(source('src/app/reset-password/page.tsx'));
-  const sessionProvider = compact(source('src/components/portal/SessionProvider.tsx'));
+  const sessionContract = compact(source('src/lib/contracts/portal-bootstrap.ts'));
   const shell = compact(source('src/components/portal/PortalShell.tsx'));
 
   assert.match(register, /value=\{verification\.profile\.studentCode\} readOnly/);
@@ -83,9 +83,9 @@ test('student verification UI keeps Riro as the direct path and administrator co
   assert.match(reset, /'\/api\/auth\/reset-password'[\s\S]*12_000/);
   assert.match(reset, /긴급 관리자 코드/);
 
-  assert.match(sessionProvider, /kind: 'warning'; dueAt: string; requiredAt: string/);
-  assert.match(sessionProvider, /kind: 'grace'; dueAt: string; requiredAt: string/);
-  assert.match(sessionProvider, /reverification\?: ReverificationStatus/);
+  assert.match(sessionContract, /kind: 'warning'; dueAt: string; requiredAt: string/);
+  assert.match(sessionContract, /kind: 'grace'; dueAt: string; requiredAt: string/);
+  assert.match(sessionContract, /reverification\?: ReverificationStatus/);
   assert.doesNotMatch(shell, /PortalSessionSnapshot|ReverificationStatus/);
   assert.match(shell, /requiredAt[\s\S]*접근이 제한됩니다/);
   assert.match(shell, /href="\/reverify"[\s\S]*지금 재인증/);

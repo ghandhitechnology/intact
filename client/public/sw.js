@@ -1,5 +1,5 @@
-const CACHE_NAME = 'intact-static-v2';
-const STATIC_ROUTES = ['/offline'];
+const CACHE_NAME = 'intact-static-v3';
+const STATIC_ROUTES = [new Request('/offline', { credentials: 'omit' })];
 
 function safeNotificationPath(value) {
   try {

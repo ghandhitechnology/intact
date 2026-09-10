@@ -1,9 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { Download, ExternalLink, Image as ImageIcon, X } from "lucide-react";
+import { useState, type ComponentType } from "react";
+import { Image as ImageIcon } from "lucide-react";
 import { cx } from "./CommunityUI";
 
 export type GalleryAttachment = {
@@ -15,6 +14,23 @@ export type GalleryAttachment = {
   height?: number | null;
   blurDataUrl?: string | null;
 };
+
+type LightboxProps = {
+  images: GalleryAttachment[];
+  onClose: () => void;
+};
+
+let lightboxImport: Promise<{ default: ComponentType<LightboxProps> }> | null = null;
+
+function loadLightbox() {
+  if (!lightboxImport) {
+    lightboxImport = import("./AttachmentLightbox").catch((cause) => {
+      lightboxImport = null;
+      throw cause;
+    });
+  }
+  return lightboxImport;
+}
 
 function previewUrl(id: string) {
   return `/api/uploads/${encodeURIComponent(id)}`;
@@ -32,10 +48,6 @@ function previewPageUrl(attachment: GalleryAttachment) {
   return `/preview/${encodeURIComponent(attachment.id)}?${query.toString()}`;
 }
 
-function downloadUrl(id: string) {
-  return `${previewUrl(id)}?download=1`;
-}
-
 export default function AttachmentGallery({
   attachments,
   compact = false,
@@ -49,136 +61,33 @@ export default function AttachmentGallery({
     ),
   );
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState(0);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-      if (event.key === "ArrowRight")
-        setSelected((value) => Math.min(images.length - 1, value + 1));
-      if (event.key === "ArrowLeft")
-        setSelected((value) => Math.max(0, value - 1));
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [images.length, open]);
+  const [Lightbox, setLightbox] = useState<ComponentType<LightboxProps> | null>(null);
+  const [lightboxFailed, setLightboxFailed] = useState(false);
 
   if (!images.length) return null;
   const visible = images.slice(0, compact ? 4 : 6);
-  const current = images[Math.min(selected, images.length - 1)] ?? images[0];
 
-  // Portal out of animated/overflow ancestors (anim-rise + overflow-hidden Cards)
-  // so position:fixed covers the viewport instead of being clipped.
-  const lightbox =
-    open && current && mounted
-      ? createPortal(
-          <div
-            className="anim-fade fixed inset-0 z-[120] flex bg-black"
-            role="dialog"
-            aria-modal="true"
-            aria-label="사진 미리보기"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) setOpen(false);
-            }}
-          >
-            <div className="flex min-h-0 w-full flex-col">
-              <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 bg-black px-4 text-white sm:px-6">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold">{current.originalName}</p>
-                  <p className="mt-0.5 text-xs tabular-nums text-white/55">
-                    {selected + 1} / {images.length} · {(current.sizeBytes / 1_048_576).toFixed(1)}MB
-                  </p>
-                </div>
-                <a
-                  href={previewPageUrl(current)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 px-3 text-xs font-bold transition-colors duration-200 hover:bg-white/10"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  <span className="hidden sm:inline">새 탭</span>
-                </a>
-                <a
-                  href={downloadUrl(current.id)}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 px-3 text-xs font-bold transition-colors duration-200 hover:bg-white/10"
-                >
-                  <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">원본 받기</span>
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="grid h-10 w-10 place-items-center rounded-xl border border-white/15 transition-colors duration-150 hover:bg-white/10"
-                  aria-label="미리보기 닫기"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </header>
+  function warmLightbox() {
+    void loadLightbox().catch(() => undefined);
+  }
 
-              <div className="flex min-h-0 flex-1 flex-col bg-black md:flex-row">
-                <div className="flex min-h-0 flex-1 items-center justify-center bg-black p-3 sm:p-6">
-                  <img
-                    key={current.id}
-                    src={previewUrl(current.id)}
-                    alt={current.originalName}
-                    decoding="async"
-                    width={current.width || undefined}
-                    height={current.height || undefined}
-                    className="anim-fade max-h-full max-w-full rounded-lg object-contain"
-                  />
-                </div>
-                <aside className="max-h-32 shrink-0 overflow-auto border-t border-white/10 bg-black p-3 md:max-h-none md:w-64 md:border-l md:border-t-0">
-                  <div className="flex gap-2 md:grid md:grid-cols-2">
-                    {images.map((attachment, index) => (
-                      <button
-                        key={attachment.id}
-                        type="button"
-                        onClick={() => setSelected(index)}
-                        className={cx(
-                          "h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 bg-slate-900 transition-colors duration-150 md:w-full",
-                          index === selected ? "border-emerald-400" : "border-transparent opacity-60 hover:opacity-100",
-                        )}
-                        aria-label={`${index + 1}번째 사진 보기`}
-                      >
-                        <img
-                          src={thumbnailUrl(attachment.id, 320)}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          width={attachment.width || undefined}
-                          height={attachment.height || undefined}
-                          className="h-full w-full object-cover"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </aside>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )
-      : null;
+  function openLightbox() {
+    setOpen(true);
+    setLightboxFailed(false);
+    if (Lightbox) return;
+    void loadLightbox()
+      .then((module) => setLightbox(() => module.default))
+      .catch(() => setLightboxFailed(true));
+  }
 
   return (
     <>
       <button
         type="button"
-        onClick={() => {
-          setSelected(0);
-          setOpen(true);
-        }}
+        onClick={openLightbox}
+        onPointerEnter={warmLightbox}
+        onFocus={warmLightbox}
+        onTouchStart={warmLightbox}
         className={cx(
           "group relative grid w-full overflow-hidden rounded-2xl bg-slate-100 text-left shadow-[var(--shadow-xs)] transition-shadow duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
           compact ? "h-52 grid-cols-2" : "min-h-72 grid-cols-2 sm:h-[460px]",
@@ -201,7 +110,8 @@ export default function AttachmentGallery({
               srcSet={`${thumbnailUrl(attachment.id, 320)} 320w, ${thumbnailUrl(attachment.id, 640)} 640w, ${thumbnailUrl(attachment.id, 1280)} 1280w`}
               sizes={compact ? "50vw" : "(max-width: 640px) 50vw, 640px"}
               alt={attachment.originalName}
-              loading="lazy"
+              loading={!compact && index === 0 ? "eager" : "lazy"}
+              fetchPriority={!compact && index === 0 ? "high" : "auto"}
               decoding="async"
               width={attachment.width || undefined}
               height={attachment.height || undefined}
@@ -221,7 +131,39 @@ export default function AttachmentGallery({
         </span>
       </button>
 
-      {lightbox}
+      {open && Lightbox ? (
+        <Lightbox images={images} onClose={() => setOpen(false)} />
+      ) : null}
+      {open && lightboxFailed ? (
+        <div
+          className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+          role="alert"
+        >
+          <span className="font-semibold">사진 뷰어를 열지 못했습니다.</span>
+          <button
+            type="button"
+            onClick={openLightbox}
+            className="font-bold text-amber-900 underline underline-offset-2"
+          >
+            다시 시도
+          </button>
+          <a
+            href={previewPageUrl(images[0])}
+            target="_blank"
+            rel="noreferrer"
+            className="font-bold text-blue-700 underline underline-offset-2"
+          >
+            새 탭으로 열기
+          </a>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="ml-auto font-semibold text-slate-500"
+          >
+            닫기
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }

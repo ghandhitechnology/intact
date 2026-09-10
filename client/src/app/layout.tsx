@@ -8,6 +8,10 @@ import ClientDataProvider from '@/components/portal/ClientDataProvider';
 import SessionProvider from '@/components/portal/SessionProvider';
 import WebVitals from '@/components/portal/WebVitals';
 import PlatformModeProvider from '@/components/portal/PlatformModeProvider';
+import { headers } from 'next/headers';
+import { loadPortalBootstrap } from '@/lib/server/portal-bootstrap';
+
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
@@ -45,21 +49,32 @@ export const viewport: Viewport = {
   themeColor: '#f5f4ef',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const requestHeaders = await headers();
+  if (requestHeaders.get('x-intact-pathname') === '/offline') {
+    return (
+      <html lang="ko">
+        <body><main id="main-content">{children}</main></body>
+      </html>
+    );
+  }
+  const bootstrap = process.env.PORTAL_DEMO_MODE === 'true'
+    ? { session: null, platformMode: null }
+    : await loadPortalBootstrap(new Request('http://intact.internal', { headers: requestHeaders }));
   return (
-    <html lang="ko" data-scroll-behavior="smooth">
+    <html lang="ko" data-scroll-behavior="smooth" className={bootstrap.platformMode?.bSideEnabled ? 'b-side' : undefined} data-platform-side={bootstrap.platformMode ? (bootstrap.platformMode.bSideEnabled ? 'b' : 'a') : undefined}>
       <body>
         <a className="skip-link" href="#main-content">
           본문으로 바로가기
         </a>
         <Wrapper>
           <ClientDataProvider>
-            <SessionProvider>
-              <PlatformModeProvider>
+            <SessionProvider initialSession={bootstrap.session}>
+              <PlatformModeProvider initialMode={bootstrap.platformMode}>
                 <PortalShell>{children}</PortalShell>
                 <PwaRegistration />
                 <NetworkStatus />

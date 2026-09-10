@@ -18,10 +18,10 @@ import {
   queueRealtimeEvent,
 } from '@/lib/server/realtime';
 import {
-  chatMemberSelect,
   collectMemberIdentifiers,
   resolveChatMemberIds,
 } from '@/lib/server/chat-members';
+import { loadChatRoomList } from '@/lib/server/chat-room-list';
 import { maskPublicIdentities } from '@/lib/server/platform-mode';
 
 export const runtime = 'nodejs';
@@ -30,54 +30,8 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const session = await requireUser(request);
-    const rooms = await prisma.chatRoom.findMany({
-      where: { members: { some: { userId: session.user.id, leftAt: null } } },
-      orderBy: [{ lastMessageAt: 'desc' }, { createdAt: 'desc' }],
-      take: 100,
-      include: {
-        members: {
-          where: { leftAt: null },
-          select: {
-            ...chatMemberSelect,
-          },
-        },
-        messages: {
-          where: { deletedAt: null },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          select: {
-            id: true,
-            sequence: true,
-            content: true,
-            createdAt: true,
-            sender: { select: { id: true, nickname: true, realName: true } },
-          },
-        },
-      },
-    });
-    const unreadRows = rooms.length
-      ? await prisma.$queryRaw<Array<{ roomId: string; unreadCount: bigint }>>(Prisma.sql`
-          SELECT message."roomId", COUNT(*)::bigint AS "unreadCount"
-          FROM "Message" AS message
-          INNER JOIN "ChatMember" AS membership
-            ON membership."roomId" = message."roomId"
-          WHERE membership."userId" = ${session.user.id}::uuid
-            AND membership."leftAt" IS NULL
-            AND message."deletedAt" IS NULL
-            AND message."senderId" <> ${session.user.id}::uuid
-            AND message."createdAt" >= membership."joinedAt"
-            AND message."sequence" > membership."lastReadSequence"
-          GROUP BY message."roomId"
-        `)
-      : [];
-    const unreadByRoom = new Map(
-      unreadRows.map((row) => [row.roomId, Number(row.unreadCount)]),
-    );
-    const roomsWithUnread = rooms.map((room) => ({
-      ...room,
-      unreadCount: unreadByRoom.get(room.id) ?? 0,
-    }));
-    return json({ rooms: await maskPublicIdentities(roomsWithUnread, session.user.id) }, 200, {
+    const rooms = await loadChatRoomList(session.user.id);
+    return json({ rooms: await maskPublicIdentities(rooms, session.user.id) }, 200, {
       'Cache-Control': 'private, no-cache',
       Vary: 'Cookie',
     });

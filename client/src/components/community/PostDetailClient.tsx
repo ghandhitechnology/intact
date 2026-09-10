@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/portal/IntentLink";
 import { useRouter } from "next/navigation";
 import { usePlatformMode } from "@/components/portal/PlatformModeProvider";
 import {
