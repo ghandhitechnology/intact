@@ -1,10 +1,8 @@
 import prisma from '@/lib/prisma';
-import { decryptText } from '@/lib/server/crypto';
 import { json, jsonError } from '@/lib/server/http';
 import { requireReadyAdmin } from '@/lib/server/session';
 import { getPlatformMode } from '@/lib/server/platform-mode';
 import { getRiroBridgeStatus } from '@/lib/server/riro-status';
-import { enrichPublicUserTree } from '@/lib/server/igk-standing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,8 +10,6 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const admin = await requireReadyAdmin(request);
-    const url = new URL(request.url);
-    const query = url.searchParams.get('q')?.trim().slice(0, 80);
     const now = new Date();
     const seoulOffsetMs = 9 * 60 * 60 * 1_000;
     const seoulNow = new Date(now.getTime() + seoulOffsetMs);
@@ -21,17 +17,7 @@ export async function GET(request: Request) {
       Date.UTC(seoulNow.getUTCFullYear(), seoulNow.getUTCMonth(), seoulNow.getUTCDate()) -
         seoulOffsetMs,
     );
-    const userWhere = query
-      ? {
-          OR: [
-            { nickname: { contains: query, mode: 'insensitive' as const } },
-            { loginId: { contains: query, mode: 'insensitive' as const } },
-            { studentIdentity: { studentCode: { contains: query } } },
-          ],
-        }
-      : {};
     const [
-      users,
       posts,
       comments,
       notices,
@@ -45,33 +31,6 @@ export async function GET(request: Request) {
       todayComments,
     ] =
       await prisma.$transaction([
-        prisma.user.findMany({
-          where: userWhere,
-          orderBy: { createdAt: 'desc' },
-          take: 200,
-          select: {
-            id: true,
-            createdAt: true,
-            loginId: true,
-            nickname: true, realName: true,
-            profileImage: true,
-            role: true,
-            status: true,
-            currentIgk: true,
-            lifetimeIgk: true,
-            igkDebt: true,
-            level: true,
-            lastLoginAt: true,
-            studentIdentity: true,
-            _count: {
-              select: {
-                posts: true,
-                comments: true,
-                reportsAgainst: { where: { status: { in: ['OPEN', 'REVIEWING'] } } },
-              },
-            },
-          },
-        }),
         prisma.post.findMany({
           orderBy: { createdAt: 'desc' },
           take: 200,
@@ -187,30 +146,6 @@ export async function GET(request: Request) {
       orderBy: { userId: 'asc' },
       _count: { id: true },
     });
-    const activeSessionCountByUser = new Map(
-      activeSessions.map((entry) => [entry.userId, entry._count.id]),
-    );
-    const safeUsers = await enrichPublicUserTree(users.map((user) => ({
-      ...user,
-      realName: user.studentIdentity
-        ? (() => {
-            try {
-              return decryptText(user.studentIdentity.encryptedName);
-            } catch {
-              return '(복호화 실패)';
-            }
-          })()
-        : null,
-      studentIdentity: user.studentIdentity
-        ? {
-            ...user.studentIdentity,
-            encryptedName: undefined,
-            nameFingerprint: undefined,
-            riroAccountFingerprint: undefined,
-          }
-        : null,
-      activeSessionCount: activeSessionCountByUser.get(user.id) ?? 0,
-    })));
     const platform = await getPlatformMode();
     const riro = await getRiroBridgeStatus();
     return json({
@@ -233,7 +168,6 @@ export async function GET(request: Request) {
         updatedAt: platform.updatedAt,
       },
       riro,
-      users: safeUsers,
       posts,
       comments,
       notices,
