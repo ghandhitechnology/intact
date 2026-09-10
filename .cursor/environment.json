@@ -1,0 +1,15 @@
+{
+  "name": "인텍트 (Intact) 개발 환경",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "web",
+      "command": "cd client && set -a && . ./.env && set +a && PORT=3000 HOSTNAME=127.0.0.1 NODE_ENV=production node .next/standalone/server.js"
+    },
+    {
+      "name": "realtime",
+      "command": "cd server/chat && set -a && . ../../client/.env && set +a && PORT=3001 WEB_ORIGIN=http://localhost:3000 INTERNAL_API_URL=http://127.0.0.1:3000 REDIS_REQUIRED=true node dist/index.js"
+    }
+  ]
+}
