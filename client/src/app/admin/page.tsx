@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   Ban,
   Bell,
+  ChevronLeft,
   ChevronRight,
   Clipboard,
   Clock,
@@ -92,6 +93,17 @@ type PortalUser = {
   activeSessions: number;
   lastActive: string;
   joinedAt: string;
+};
+
+type PortalUserSanction = {
+  id: string;
+  type: string;
+  reason: string;
+  startsAt: string;
+  endsAt: string | null;
+  revokedAt: string | null;
+  issuedBy?: { nickname: string } | null;
+  revokedBy?: { nickname: string } | null;
 };
 
 type ContentItem = {
@@ -191,10 +203,12 @@ type Summary = {
 };
 
 type PendingActionKind =
+  | "warn-user"
   | "suspend-user"
   | "restore-user"
   | "delete-user"
   | "revoke-sessions"
+  | "revoke-sanction"
   | "adjust-igk"
   | "hide-content"
   | "delete-content"
@@ -210,6 +224,7 @@ type PendingAction = {
   kind: PendingActionKind;
   id: string;
   label: string;
+  sanctionId?: string;
 };
 
 type DashboardUser = {
@@ -332,7 +347,6 @@ type DashboardPayload = {
     updatedAt: string;
   };
   riro: RiroBridgeSummary;
-  users: DashboardUser[];
   posts: DashboardPost[];
   comments: DashboardComment[];
   notices: DashboardNotice[];
@@ -496,6 +510,46 @@ function riroStatusLabel(state: RiroBridgeSummary["state"]) {
   if (state === "unreachable") return "연결 안 됨";
   if (state === "disabled") return "사용 안 함";
   return "설정 오류";
+}
+
+function toPortalUser(user: DashboardUser): PortalUser {
+  return {
+    id: user.id,
+    nickname: user.nickname,
+    realName: user.realName || "(관리자 계정)",
+    studentId: user.studentIdentity?.studentCode || user.loginId,
+    grade: user.studentIdentity
+      ? String(user.studentIdentity.generation) +
+        "기 · " +
+        String(user.studentIdentity.grade) +
+        "학년 " +
+        String(user.studentIdentity.classNumber) +
+        "반"
+      : "관리자 계정",
+    status: normalizeUserStatus(user.status),
+    level: user.level,
+    igk: user.currentIgk,
+    lifetimeIgk: user.lifetimeIgk,
+    igkDebt: user.igkDebt,
+    standing: user.standing,
+    posts: user._count.posts,
+    comments: user._count.comments,
+    reports: user._count.reportsAgainst,
+    activeSessions: user.activeSessionCount,
+    lastActive: user.lastLoginAt ? formatDateTime(user.lastLoginAt) : "접속 기록 없음",
+    joinedAt: new Intl.DateTimeFormat("ko-KR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(user.createdAt)),
+  };
+}
+
+function sanctionTypeLabel(type: string) {
+  if (type === "WARNING") return "경고";
+  if (type === "TEMPORARY_SUSPENSION") return "기간 정지";
+  if (type === "PERMANENT_BAN") return "영구 정지";
+  return type;
 }
 
 function normalizeContentStatus(status: string): ContentStatus {
@@ -723,7 +777,19 @@ export default function AdminPage() {
   );
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [userQuery, setUserQuery] = useState("");
+  const [userQueryDebounced, setUserQueryDebounced] = useState("");
   const [userStatus, setUserStatus] = useState("all");
+  const [userPage, setUserPage] = useState(1);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersPagination, setUsersPagination] = useState<{
+    page: number;
+    pageSize: number;
+    total: number;
+    pageCount: number;
+  } | null>(null);
+  const [userDetail, setUserDetail] = useState<{
+    sanctions: PortalUserSanction[];
+  } | null>(null);
   const [contentQuery, setContentQuery] = useState("");
   const [contentStatus, setContentStatus] = useState("all");
   const [auditQuery, setAuditQuery] = useState("");
@@ -858,39 +924,6 @@ export default function AdminPage() {
           href,
         };
       });
-      const loadedUsers: PortalUser[] = payload.data.users.map((user) => ({
-        id: user.id,
-        nickname: user.nickname,
-        realName: user.realName || "(관리자 계정)",
-        studentId: user.studentIdentity?.studentCode || user.loginId,
-        grade: user.studentIdentity
-          ? String(user.studentIdentity.generation) +
-            "기 · " +
-            String(user.studentIdentity.grade) +
-            "학년 " +
-            String(user.studentIdentity.classNumber) +
-            "반"
-          : "관리자 계정",
-        status: normalizeUserStatus(user.status),
-        level: user.level,
-        igk: user.currentIgk,
-        lifetimeIgk: user.lifetimeIgk,
-        igkDebt: user.igkDebt,
-        standing: user.standing,
-        posts: user._count.posts,
-        comments: user._count.comments,
-        reports: user._count.reportsAgainst,
-        activeSessions: user.activeSessionCount,
-        lastActive: user.lastLoginAt
-          ? formatDateTime(user.lastLoginAt)
-          : "접속 기록 없음",
-        joinedAt: new Intl.DateTimeFormat("ko-KR", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).format(new Date(user.createdAt)),
-      }));
-
       const loadedPosts: ContentItem[] = payload.data.posts.map((post) => ({
         id: post.id,
         type: "post",
@@ -932,7 +965,6 @@ export default function AdminPage() {
         }),
       );
 
-      setUsers(loadedUsers);
       setContents(
         [...loadedPosts, ...loadedComments].sort(
           (left, right) =>
@@ -1005,6 +1037,122 @@ export default function AdminPage() {
       setDashboardLoading(false);
     }
   }, [demoMode, router, showToast]);
+
+  const loadUsers = useCallback(async () => {
+    if (demoMode) return;
+    setUsersLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: String(userPage),
+        pageSize: "20",
+      });
+      if (userQueryDebounced.trim()) params.set("q", userQueryDebounced.trim());
+      if (userStatus !== "all") params.set("status", userStatus);
+      const response = await fetch("/api/admin/users?" + params.toString(), {
+        cache: "no-store",
+      });
+      const payload = await readApiEnvelope<{
+        items: DashboardUser[];
+        pagination: {
+          page: number;
+          pageSize: number;
+          total: number;
+          pageCount: number;
+        };
+      }>(response);
+      if (!response.ok || !payload?.ok) {
+        if (response.status === 401 || response.status === 403) {
+          setAccessState("denied");
+          router.replace("/admin/login?returnTo=/admin");
+          return;
+        }
+        throw new Error(
+          apiErrorMessage(payload, "사용자 목록을 불러오지 못했습니다."),
+        );
+      }
+      setUsers(payload.data.items.map(toPortalUser));
+      setUsersPagination(payload.data.pagination);
+      setUserPage(payload.data.pagination.page);
+    } catch (cause) {
+      showToast(
+        cause instanceof Error
+          ? cause.message
+          : "사용자 목록을 불러오지 못했습니다.",
+        "error",
+      );
+    } finally {
+      setUsersLoading(false);
+    }
+  }, [demoMode, router, showToast, userPage, userQueryDebounced, userStatus]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setUserQueryDebounced(userQuery);
+      setUserPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [userQuery]);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
+
+  const loadUserDetail = useCallback(
+    async (id: string) => {
+      if (demoMode) return null;
+      try {
+        const response = await fetch(
+          "/api/admin/users/" + encodeURIComponent(id),
+          { cache: "no-store" },
+        );
+        const payload = await readApiEnvelope<{
+          user: DashboardUser;
+          sanctions: PortalUserSanction[];
+        }>(response);
+        if (!response.ok || !payload?.ok) return null;
+        setUserDetail({
+          sanctions: payload.data.sanctions,
+        });
+        return toPortalUser(payload.data.user);
+      } catch {
+        return null;
+      }
+    },
+    [demoMode],
+  );
+
+  const openUserDetail = useCallback(
+    (user: PortalUser) => {
+      setSelectedUser(user);
+      setUserDetail(null);
+      window.history.replaceState(
+        null,
+        "",
+        "/admin?user=" + encodeURIComponent(user.id),
+      );
+      void loadUserDetail(user.id);
+    },
+    [loadUserDetail],
+  );
+
+  const closeUserDetail = useCallback(() => {
+    setSelectedUser(null);
+    setUserDetail(null);
+    window.history.replaceState(null, "", "/admin");
+  }, []);
+
+  const openUserById = useCallback(
+    async (id: string) => {
+      const mapped = await loadUserDetail(id);
+      if (mapped) setSelectedUser(mapped);
+    },
+    [loadUserDetail],
+  );
+
+  useEffect(() => {
+    const id = new URL(window.location.href).searchParams.get("user");
+    if (id) void openUserById(id);
+  }, [openUserById]);
 
   useEffect(() => {
     void loadDashboard();
@@ -1239,25 +1387,6 @@ export default function AdminPage() {
     }
   }
 
-  const filteredUsers = useMemo(
-    () =>
-      users.filter((user) => {
-        const matchesQuery = (
-          user.nickname +
-          " " +
-          user.realName +
-          " " +
-          user.studentId
-        )
-          .toLowerCase()
-          .includes(userQuery.toLowerCase());
-        return (
-          matchesQuery && (userStatus === "all" || user.status === userStatus)
-        );
-      }),
-    [users, userQuery, userStatus],
-  );
-
   const filteredInvites = useMemo(
     () =>
       invites.filter((invite) =>
@@ -1339,25 +1468,31 @@ export default function AdminPage() {
       let response: Response;
       if (
         [
+          "warn-user",
           "suspend-user",
           "restore-user",
           "delete-user",
           "revoke-sessions",
+          "revoke-sanction",
           "adjust-igk",
         ].includes(pendingAction.kind)
       ) {
         const action =
-          pendingAction.kind === "suspend-user"
-            ? duration === "0"
-              ? "BAN"
-              : "SUSPEND"
-            : pendingAction.kind === "restore-user"
-              ? "RESTORE"
-              : pendingAction.kind === "delete-user"
-                ? "WITHDRAW"
-                : pendingAction.kind === "adjust-igk"
-                  ? "ADJUST_IGK"
-                  : "REVOKE_SESSIONS";
+          pendingAction.kind === "warn-user"
+            ? "WARN"
+            : pendingAction.kind === "revoke-sanction"
+              ? "REVOKE_SANCTION"
+              : pendingAction.kind === "suspend-user"
+                ? duration === "0"
+                  ? "BAN"
+                  : "SUSPEND"
+                : pendingAction.kind === "restore-user"
+                  ? "RESTORE"
+                  : pendingAction.kind === "delete-user"
+                    ? "WITHDRAW"
+                    : pendingAction.kind === "adjust-igk"
+                      ? "ADJUST_IGK"
+                      : "REVOKE_SESSIONS";
         response = await fetch(
           "/api/admin/users/" + encodeURIComponent(pendingAction.id),
           {
@@ -1369,6 +1504,10 @@ export default function AdminPage() {
               durationDays: action === "SUSPEND" ? Number(duration) : undefined,
               amount: action === "ADJUST_IGK" ? Number(igkAmount) : undefined,
               direction: action === "ADJUST_IGK" ? igkDirection : undefined,
+              sanctionId:
+                action === "REVOKE_SANCTION"
+                  ? pendingAction.sanctionId
+                  : undefined,
             }),
           },
         );
@@ -1443,7 +1582,7 @@ export default function AdminPage() {
       closePendingAction();
       setSelectedUser(null);
       setSelectedContent(null);
-      await loadDashboard();
+      await Promise.all([loadUsers(), loadDashboard()]);
       showToast(label + " 처리를 완료하고 감사 로그에 기록했습니다.");
     } catch (cause) {
       showToast(
@@ -2012,24 +2151,23 @@ export default function AdminPage() {
                 </span>
               }
               description={
-                users.length.toLocaleString() +
-                "명 · 정지 " +
-                users
-                  .filter((user) => user.status === "suspended")
-                  .length.toLocaleString() +
-                "명"
+                usersPagination
+                  ? usersPagination.total.toLocaleString() +
+                    "명 · " +
+                    usersPagination.page +
+                    "/" +
+                    usersPagination.pageCount +
+                    " 페이지"
+                  : users.length.toLocaleString() + "명"
               }
               action={
                 <IconButton
                   label="사용자 목록 새로고침"
-                  onClick={() => void loadDashboard()}
-                  disabled={dashboardLoading}
+                  onClick={() => void loadUsers()}
+                  disabled={usersLoading}
                 >
                   <RefreshCw
-                    className={cn(
-                      "h-4 w-4",
-                      dashboardLoading && "animate-spin",
-                    )}
+                    className={cn("h-4 w-4", usersLoading && "animate-spin")}
                   />
                 </IconButton>
               }
@@ -2046,7 +2184,10 @@ export default function AdminPage() {
               </div>
               <Select
                 value={userStatus}
-                onChange={(event) => setUserStatus(event.target.value)}
+                onChange={(event) => {
+                  setUserStatus(event.target.value);
+                  setUserPage(1);
+                }}
                 className="h-10 bg-white"
               >
                 <option value="all">전체 계정 상태</option>
@@ -2058,11 +2199,16 @@ export default function AdminPage() {
               </Select>
             </div>
             <div className="max-h-[610px] overflow-y-auto">
-              {filteredUsers.map((user) => (
+              {usersLoading && users.length === 0 ? (
+                <div className="py-16 text-center text-sm text-slate-500">
+                  사용자를 불러오는 중…
+                </div>
+              ) : null}
+              {users.map((user) => (
                 <button
                   key={user.id}
                   type="button"
-                  onClick={() => setSelectedUser(user)}
+                  onClick={() => openUserDetail(user)}
                   className="flex w-full gap-3 border-b border-slate-100 px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-slate-50/80"
                 >
                   <Avatar
@@ -2090,11 +2236,46 @@ export default function AdminPage() {
                   <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-slate-300" />
                 </button>
               ))}
-              {filteredUsers.length === 0 ? (
+              {!usersLoading && users.length === 0 ? (
                 <div className="py-16 text-center text-sm text-slate-500">
                   검색 결과가 없습니다.
                 </div>
               ) : null}
+            </div>
+            <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2 text-xs text-slate-500">
+              <span>
+                {(usersPagination?.total ?? users.length).toLocaleString()}명
+              </span>
+              <div className="flex items-center gap-1">
+                <IconButton
+                  label="이전 페이지"
+                  onClick={() => setUserPage((page) => Math.max(1, page - 1))}
+                  disabled={
+                    !usersPagination || usersPagination.page <= 1 || usersLoading
+                  }
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </IconButton>
+                <span className="px-1 font-semibold text-slate-600">
+                  {usersPagination?.page ?? 1} /{" "}
+                  {usersPagination?.pageCount ?? 1}
+                </span>
+                <IconButton
+                  label="다음 페이지"
+                  onClick={() =>
+                    setUserPage((page) =>
+                      Math.min(usersPagination?.pageCount ?? 1, page + 1),
+                    )
+                  }
+                  disabled={
+                    !usersPagination ||
+                    usersPagination.page >= usersPagination.pageCount ||
+                    usersLoading
+                  }
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </IconButton>
+              </div>
             </div>
           </Card>
 
@@ -2590,7 +2771,7 @@ export default function AdminPage() {
 
       <Modal
         open={Boolean(selectedUser)}
-        onClose={() => setSelectedUser(null)}
+        onClose={closeUserDetail}
         title="사용자 상세"
         wide
       >
@@ -2670,6 +2851,20 @@ export default function AdminPage() {
                 계정 조치
               </div>
               <div className="flex flex-wrap gap-2 p-4">
+                <Button
+                  variant="secondary"
+                  className="h-9 text-xs"
+                  onClick={() =>
+                    openPendingAction({
+                      kind: "warn-user",
+                      id: selectedUser.id,
+                      label: "경고 등록",
+                    })
+                  }
+                >
+                  <ShieldAlert className="h-4 w-4" />
+                  경고
+                </Button>
                 {selectedUser.status === "suspended" ||
                 selectedUser.status === "withdrawn" ? (
                   <Button
@@ -2737,6 +2932,77 @@ export default function AdminPage() {
                   탈퇴 처리
                 </Button>
               </div>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-3 text-xs font-semibold">
+                제재 기록
+              </div>
+              {userDetail ? (
+                userDetail.sanctions.length > 0 ? (
+                  <ul className="divide-y divide-slate-100">
+                    {userDetail.sanctions.map((sanction) => (
+                      <li
+                        key={sanction.id}
+                        className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-800">
+                            <span>{sanctionTypeLabel(sanction.type)}</span>
+                            {sanction.revokedAt ? (
+                              <Badge tone="slate">해제됨</Badge>
+                            ) : sanction.endsAt ? (
+                              <Badge tone="blue">
+                                {formatDateTime(sanction.endsAt)}까지
+                              </Badge>
+                            ) : sanction.type === "WARNING" ? null : (
+                              <Badge tone="red">영구</Badge>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs leading-5 text-slate-600">
+                            {sanction.reason}
+                          </p>
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            {formatDateTime(sanction.startsAt)} ·{" "}
+                            {sanction.issuedBy?.nickname ?? "시스템"}
+                            {sanction.revokedAt
+                              ? " · 해제 " +
+                                formatDateTime(sanction.revokedAt) +
+                                " (" +
+                                (sanction.revokedBy?.nickname ?? "시스템") +
+                                ")"
+                              : ""}
+                          </p>
+                        </div>
+                        {!sanction.revokedAt ? (
+                          <Button
+                            variant="secondary"
+                            className="h-8 shrink-0 text-xs"
+                            onClick={() =>
+                              openPendingAction({
+                                kind: "revoke-sanction",
+                                id: selectedUser.id,
+                                sanctionId: sanction.id,
+                                label: "제재 해제",
+                              })
+                            }
+                          >
+                            <Undo2 className="h-3.5 w-3.5" />
+                            해제
+                          </Button>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="px-4 py-6 text-center text-xs text-slate-500">
+                    제재 기록이 없습니다.
+                  </p>
+                )
+              ) : (
+                <p className="px-4 py-6 text-center text-xs text-slate-500">
+                  제재 기록을 불러오는 중…
+                </p>
+              )}
             </div>
           </div>
         ) : null}
@@ -3134,6 +3400,7 @@ export default function AdminPage() {
               variant={
                 pendingAction?.kind.includes("restore") ||
                 pendingAction?.kind === "resolve-report" ||
+                pendingAction?.kind === "revoke-sanction" ||
                 pendingAction?.kind === "adjust-igk"
                   ? "green"
                   : "danger"
