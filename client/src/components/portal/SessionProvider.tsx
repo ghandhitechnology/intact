@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { clearClientDataCache } from './ClientDataProvider';
 import { onSessionExpired } from '@/lib/client/session-events';
 
@@ -36,45 +36,48 @@ type SessionContextValue = {
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
-let pendingSessionRequest: Promise<PortalSessionSnapshot> | null = null;
 
 async function requestSession() {
-  if (pendingSessionRequest) return pendingSessionRequest;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12_000);
-  pendingSessionRequest = fetch('/api/auth/session', { cache: 'no-store', signal: controller.signal })
-    .then(async (response) => {
-      const body = await response.json().catch(() => null);
-      const data = body?.data ?? body;
-      if (!response.ok || typeof data?.authenticated !== 'boolean') throw new Error('SESSION_CHECK_FAILED');
-      return data as PortalSessionSnapshot;
-    })
-    .finally(() => {
-      clearTimeout(timer);
-      pendingSessionRequest = null;
-    });
-  return pendingSessionRequest;
+  try {
+    const response = await fetch('/api/auth/session', { cache: 'no-store', signal: controller.signal });
+    const body = await response.json().catch(() => null);
+    const data = body?.data ?? body;
+    if (!response.ok || typeof data?.authenticated !== 'boolean') throw new Error('SESSION_CHECK_FAILED');
+    return data as PortalSessionSnapshot;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export default function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<PortalSessionSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const latestRefresh = useRef<Promise<PortalSessionSnapshot | undefined> | null>(null);
 
-  const refresh = useCallback(async () => {
-    try {
-      const next = await requestSession();
-      setSession(next);
-      setError(null);
-      if (!next.authenticated) clearClientDataCache();
-      return next;
-    } catch (cause) {
-      const nextError = cause instanceof Error ? cause : new Error('SESSION_CHECK_FAILED');
-      setError(nextError);
-      return undefined;
-    } finally {
-      setLoading(false);
-    }
+  const refresh = useCallback(() => {
+    const pending: Promise<PortalSessionSnapshot | undefined> = requestSession()
+      .then((next) => {
+        // 로그인 이후 이동도 가장 최근 세션 확인이 끝날 때까지 기다립니다.
+        if (latestRefresh.current !== pending) return latestRefresh.current ?? undefined;
+        setSession(next);
+        setError(null);
+        if (!next.authenticated) clearClientDataCache();
+        return next;
+      })
+      .catch((cause) => {
+        if (latestRefresh.current !== pending) return latestRefresh.current ?? undefined;
+        const nextError = cause instanceof Error ? cause : new Error('SESSION_CHECK_FAILED');
+        setError(nextError);
+        return undefined;
+      })
+      .finally(() => {
+        if (latestRefresh.current === pending) setLoading(false);
+      });
+    latestRefresh.current = pending;
+    return pending;
   }, []);
 
   useEffect(() => onSessionExpired(() => { void refresh(); }), [refresh]);
