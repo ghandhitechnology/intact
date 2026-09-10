@@ -11,15 +11,18 @@ import { deliverNotificationPush } from '../src/lib/server/push';
 import { closeRedis } from '../src/lib/server/redis';
 import { deliverRealtimeEvent } from '../src/lib/server/realtime';
 import { checkRiroBridgeAndAlert } from '../src/lib/server/riro-alert';
+import { sweepExpiredSessions } from '../src/lib/server/session';
 
 const prisma = new PrismaClient();
 const workerId = `outbox-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
 const pollMs = Math.max(100, Number(process.env.OUTBOX_POLL_MS || 1_000));
 const noticeIntervalMs = Math.max(5_000, Number(process.env.NOTICE_SCHEDULER_INTERVAL_MS || 15_000));
 const riroHealthIntervalMs = Math.max(60_000, Number(process.env.RIRO_HEALTH_INTERVAL_MS || 300_000));
+const sessionSweepIntervalMs = Math.max(60_000, Number(process.env.SESSION_SWEEP_INTERVAL_MS || 3_600_000));
 let stopping = false;
 let nextNoticeRun = 0;
 let nextRiroHealthRun = 0;
+let nextSessionSweepRun = 0;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -110,11 +113,24 @@ async function runRiroHealthCheck() {
   }
 }
 
+async function runSessionSweep() {
+  if (Date.now() < nextSessionSweepRun) return;
+  nextSessionSweepRun = Date.now() + sessionSweepIntervalMs;
+  try {
+    const swept = await sweepExpiredSessions();
+    if (swept > 0) console.info(`[${workerId}] swept ${swept} expired sessions`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[${workerId}] session sweep: ${message.slice(0, 500)}`);
+  }
+}
+
 async function main() {
   console.info(`[${workerId}] outbox worker started`);
   while (!stopping) {
     await runNoticeScheduler();
     await runRiroHealthCheck();
+    await runSessionSweep();
     const events = await claimOutboxEvents(prisma, { limit: 20, leaseMs: 60_000 });
     if (!events.length) {
       await sleep(pollMs);

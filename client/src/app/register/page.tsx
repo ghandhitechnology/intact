@@ -7,6 +7,7 @@ import { ArrowRight, Check, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 import { usePortalSession } from '@/components/portal/SessionProvider';
+import { rebindPushSubscription } from '@/lib/client/push';
 
 interface RiroVerification {
   verificationTicket: string;
@@ -96,6 +97,7 @@ export default function RegisterPage() {
         // Registration signs the user in via Set-Cookie; refresh the session
         // context so the home link on the done screen lands in the portal.
         await refreshSession();
+        void rebindPushSubscription();
       }
       setPassword('');
       setPasswordConfirm('');

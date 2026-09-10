@@ -69,7 +69,7 @@ Caddy만 인터넷 80/443을 받습니다.
 - 나머지(본문 25MB 상한) → `web:3000` (Next.js)
 - Web·realtime·MinIO 콘솔은 `127.0.0.1`에만 바인딩되며 직접 공개하지 않습니다.
 
-Compose 서비스: `caddy`, `web`, `migrate`(일회성 `prisma migrate deploy`), `realtime`, `postgres`, `redis`, `minio`, `minio-init`(bucket 생성·공개 차단), `attachment-worker`(격리 object ClamAV 스트리밍 검사·승격·미완료 multipart 회수), `outbox-worker`(실시간 이벤트·Web Push 전달·리로 브리지 상태 점검), `moderation-worker`(게시물 검사), `codex-moderation`, `clamav`, `platform-alias-backfill`·`codex-auth`(`tools` profile 일회성).
+Compose 서비스: `caddy`, `web`, `migrate`(일회성 `prisma migrate deploy`), `realtime`, `postgres`, `redis`, `minio`, `minio-init`(bucket 생성·공개 차단), `attachment-worker`(격리 object ClamAV 스트리밍 검사·승격·미완료 multipart 회수), `outbox-worker`(실시간 이벤트·Web Push 전달·리로 브리지 상태 점검·만료 세션 정리), `moderation-worker`(게시물 검사), `codex-moderation`, `clamav`, `platform-alias-backfill`·`codex-auth`(`tools` profile 일회성).
 
 데이터 기준:
 

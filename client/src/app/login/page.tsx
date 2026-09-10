@@ -11,6 +11,7 @@ import {
   STUDENT_CODE_REQUIREMENTS,
 } from '@/lib/student-code';
 import { fetchWithTimeout, requestErrorMessage } from '@/lib/client/request';
+import { rebindPushSubscription } from '@/lib/client/push';
 import { loginPasswordError } from '@/lib/login-credentials';
 import { usePortalSession } from '@/components/portal/SessionProvider';
 
@@ -71,6 +72,7 @@ export default function LoginPage() {
       // The session context was mounted while signed out; refresh it before
       // navigating or the home page keeps rendering the signed-out hero.
       await refreshSession();
+      void rebindPushSubscription();
       if (payload.data.requiresReverification) {
         router.push('/reverify');
       } else {

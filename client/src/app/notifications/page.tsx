@@ -681,7 +681,7 @@ export default function NotificationsPage() {
     const response = await fetchWithTimeout("/api/notifications/push-subscriptions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(subscription.toJSON()),
+      body: JSON.stringify({ ...subscription.toJSON(), reassign: true }),
     });
     const payload = await readApiEnvelope<{ subscription: { id: string } }>(response);
     if (!response.ok || !payload?.ok) {

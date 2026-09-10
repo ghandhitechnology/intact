@@ -2,6 +2,7 @@
 
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { clearClientDataCache } from './ClientDataProvider';
+import { onSessionExpired } from '@/lib/client/session-events';
 
 export type PortalSessionUser = {
   id: string;
@@ -39,14 +40,19 @@ let pendingSessionRequest: Promise<PortalSessionSnapshot> | null = null;
 
 async function requestSession() {
   if (pendingSessionRequest) return pendingSessionRequest;
-  pendingSessionRequest = fetch('/api/auth/session', { cache: 'no-store' })
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12_000);
+  pendingSessionRequest = fetch('/api/auth/session', { cache: 'no-store', signal: controller.signal })
     .then(async (response) => {
       const body = await response.json().catch(() => null);
       const data = body?.data ?? body;
       if (!response.ok || typeof data?.authenticated !== 'boolean') throw new Error('SESSION_CHECK_FAILED');
       return data as PortalSessionSnapshot;
     })
-    .finally(() => { pendingSessionRequest = null; });
+    .finally(() => {
+      clearTimeout(timer);
+      pendingSessionRequest = null;
+    });
   return pendingSessionRequest;
 }
 
@@ -70,6 +76,8 @@ export default function SessionProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => onSessionExpired(() => { void refresh(); }), [refresh]);
 
   useEffect(() => {
     void refresh();

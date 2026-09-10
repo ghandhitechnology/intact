@@ -1,3 +1,5 @@
+import { notifySessionExpired } from './session-events';
+
 export class RequestTimeoutError extends Error {
   constructor() {
     super('응답이 늦어지고 있습니다. 잠시 후 다시 시도해 주세요.');
@@ -17,6 +19,16 @@ export function requestErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
+async function notifyIfSessionLost(response: Response) {
+  if (response.status !== 401) return;
+  try {
+    const body = await response.clone().json();
+    if (body?.error?.code === 'AUTH_REQUIRED') notifySessionExpired();
+  } catch {
+    // A non-JSON 401 cannot be classified; leave it to the calling page.
+  }
+}
+
 export async function fetchWithTimeout(
   input: RequestInfo | URL,
   init: RequestInit = {},
@@ -33,7 +45,9 @@ export async function fetchWithTimeout(
   }, timeoutMs);
 
   try {
-    return await fetch(input, { ...init, signal: controller.signal });
+    const response = await fetch(input, { ...init, signal: controller.signal });
+    void notifyIfSessionLost(response);
+    return response;
   } catch (error) {
     if (timedOut) throw new RequestTimeoutError();
     throw error;
