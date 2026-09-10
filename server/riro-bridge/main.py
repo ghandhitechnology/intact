@@ -454,7 +454,7 @@ def _name_from_values(values: list[str]) -> Optional[str]:
 def _normalize_student_role(raw: str) -> Optional[str]:
     normalized = unicodedata.normalize("NFKC", raw).strip()
     normalized = re.sub(r"\s+", " ", normalized)
-    return "학생" if normalized == "학생" else None
+    return "학생" if normalized in {"학생", "재학생"} else None
 
 
 def _entry_student_number_from_id(riro_id: str) -> Optional[str]:
