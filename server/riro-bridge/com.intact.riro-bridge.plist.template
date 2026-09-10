@@ -10,6 +10,7 @@
   <key>EnvironmentVariables</key>
   <dict>
     <key>RIRO_BRIDGE_SECRET</key><string>__BRIDGE_SECRET__</string>
+    <key>RIRO_DIAGNOSTIC_CAPTURE</key><string>__DIAGNOSTIC_CAPTURE__</string>
     <key>RIRO_TAILSCALE_BIN</key><string>__TAILSCALE_BIN__</string>
     <key>RIRO_PYTHON_BIN</key><string>__PYTHON_BIN__</string>
   </dict>

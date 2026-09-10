@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import hmac
+import json
 import logging
 import math
 import os
@@ -11,8 +12,9 @@ import threading
 import time
 import unicodedata
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 from typing import Any, AsyncIterator, Optional
 from zoneinfo import ZoneInfo
 
@@ -40,6 +42,18 @@ MAX_RETRY_AFTER_SECONDS = 5.0
 CIRCUIT_FAILURE_THRESHOLD = 3
 CIRCUIT_RECOVERY_SECONDS = 15.0
 RETRYABLE_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
+DEGRADED_FAILURE_THRESHOLD = 2
+MAX_DIAGNOSTIC_CAPTURES = 5
+DETERMINISTIC_FAILURE_CATEGORIES = frozenset(
+    {
+        "login_invalid_shape",
+        "login_invalid_token",
+        "login_malformed_json",
+        "login_unexpected_code",
+        "profile_malformed",
+        "profile_parse_error",
+    }
+)
 HTTP_TIMEOUT = httpx.Timeout(connect=3.0, read=7.0, write=3.0, pool=2.0)
 HTTP_LIMITS = httpx.Limits(max_connections=16, max_keepalive_connections=8)
 logger = logging.getLogger("riro_bridge")
@@ -69,12 +83,14 @@ class UpstreamUnavailable(Exception):
         retryable: bool = True,
         status: Optional[int] = None,
         retry_after: Optional[float] = None,
+        reason: Optional[str] = None,
     ) -> None:
         super().__init__(category)
         self.category = category
         self.retryable = retryable
         self.status = status
         self.retry_after = retry_after
+        self.reason = reason
 
 
 class CircuitOpen(UpstreamUnavailable):
@@ -144,6 +160,50 @@ class CircuitBreaker:
             return {"state": state, "retryAfterSeconds": retry_after}
 
 
+class VerificationStatus:
+    """Recent real verification outcomes for /health. Counts and timestamps only."""
+
+    def __init__(self) -> None:
+        self.last_success_at: Optional[str] = None
+        self.last_failure_at: Optional[str] = None
+        self.last_failure_category: Optional[str] = None
+        self.last_failure_reason: Optional[str] = None
+        self.last_invalid_credentials_at: Optional[str] = None
+        self.failure_streak = 0
+
+    @staticmethod
+    def _now() -> str:
+        return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+    def record_success(self) -> None:
+        self.last_success_at = self._now()
+        self.failure_streak = 0
+
+    def record_invalid_credentials(self) -> None:
+        self.last_invalid_credentials_at = self._now()
+
+    def record_failure(self, category: str, reason: Optional[str] = None) -> None:
+        self.last_failure_at = self._now()
+        self.last_failure_category = category
+        self.last_failure_reason = reason
+        self.failure_streak += 1
+
+    def snapshot(self) -> dict[str, Any]:
+        degraded = self.failure_streak >= DEGRADED_FAILURE_THRESHOLD or (
+            self.failure_streak >= 1
+            and self.last_failure_category in DETERMINISTIC_FAILURE_CATEGORIES
+        )
+        return {
+            "lastSuccessAt": self.last_success_at,
+            "lastFailureAt": self.last_failure_at,
+            "lastFailureCategory": self.last_failure_category,
+            "lastFailureReason": self.last_failure_reason,
+            "lastInvalidCredentialsAt": self.last_invalid_credentials_at,
+            "failureStreak": self.failure_streak,
+            "degraded": degraded,
+        }
+
+
 class StatelessCookies(httpx.Cookies):
     """Prevent a shared client from retaining one student's upstream session."""
 
@@ -171,6 +231,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             CIRCUIT_FAILURE_THRESHOLD,
             CIRCUIT_RECOVERY_SECONDS,
         )
+        application.state.verification_status = VerificationStatus()
         yield
 
 
@@ -196,6 +257,79 @@ def _bridge_secret() -> bytes:
 def _validate_runtime() -> None:
     if sys.version_info < MINIMUM_PYTHON_VERSION:
         raise RuntimeError("Python 3.11 or newer is required")
+
+
+def _diagnostic_capture_enabled() -> bool:
+    return os.environ.get("RIRO_DIAGNOSTIC_CAPTURE", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _diagnostic_capture_dir() -> Path:
+    override = os.environ.get("RIRO_DIAGNOSTIC_CAPTURE_DIR", "").strip()
+    return (
+        Path(override).expanduser()
+        if override
+        else Path(__file__).resolve().parent / "captures"
+    )
+
+
+def _write_private_file(path: Path, content: str) -> None:
+    temp_path = path.with_name(f".{path.name}.tmp")
+    temp_path.write_text(content, encoding="utf-8")
+    os.chmod(temp_path, 0o600)
+    os.replace(temp_path, path)
+
+
+def _prune_diagnostic_captures(directory: Path) -> None:
+    captures = sorted(directory.glob("profile-*.html"), key=lambda path: path.name)
+    for stale in captures[:-MAX_DIAGNOSTIC_CAPTURES]:
+        stale.unlink(missing_ok=True)
+        stale.with_suffix(".json").unlink(missing_ok=True)
+
+
+def _write_diagnostic_capture(html: str, diagnostics: dict[str, Any]) -> Optional[str]:
+    """Keep one failing profile page locally for parser repair. Never uploaded.
+
+    Records only structural facts (booleans and counts) alongside the page so the
+    sidecar can be triaged without opening the page itself.
+    """
+    if not _diagnostic_capture_enabled():
+        return None
+    try:
+        directory = _diagnostic_capture_dir()
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(directory, 0o700)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        html_path = directory / f"profile-{stamp}.html"
+        suffix = 1
+        while html_path.exists():
+            html_path = directory / f"profile-{stamp}-{suffix}.html"
+            suffix += 1
+        _write_private_file(html_path, html)
+        _write_private_file(
+            html_path.with_suffix(".json"),
+            json.dumps(
+                {
+                    "capturedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    "contractVersion": BRIDGE_CONTRACT_VERSION,
+                    "reason": diagnostics.get("reason"),
+                    "checks": diagnostics.get("checks"),
+                },
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+        )
+        _prune_diagnostic_captures(directory)
+        return str(html_path)
+    except OSError:
+        logger.warning("diagnostic capture failed")
+        return None
 
 
 def _json_error(
@@ -340,9 +474,15 @@ def _parse_profile(
     submitted_id: str,
     *,
     school_year: Optional[int] = None,
+    diagnostics: Optional[dict[str, Any]] = None,
 ) -> Optional[dict[str, Any]]:
-    if len(html) > 2_000_000:
+    def failure(reason: str) -> None:
+        if diagnostics is not None:
+            diagnostics["reason"] = reason
         return None
+
+    if len(html) > 2_000_000:
+        return failure("payload_too_large")
     soup = BeautifulSoup(html, "html.parser")
     profile_elements = soup.select(
         ".input_disabled, input[name='my_num'], .my_page_name, .user_stu"
@@ -372,12 +512,31 @@ def _parse_profile(
     ) or entry_student_number
     generation = _generation_from_id(effective_id)
     role_element = soup.select_one("span.m_level3") or soup.select_one("span.m_level1")
-    role = _normalize_student_role(role_element.get_text(" ", strip=True)) if role_element else None
+    role_text = role_element.get_text(" ", strip=True) if role_element else ""
+    role = _normalize_student_role(role_text) if role_element else None
+
+    if diagnostics is not None:
+        diagnostics["checks"] = {
+            "htmlBytes": len(html),
+            "profileElementCount": len(profile_elements),
+            "nameFound": bool(name),
+            "entryStudentNumberFound": bool(entry_student_number),
+            "currentStudentNumberFound": bool(current_student_number),
+            "generationFound": bool(generation),
+            "roleText": role_text[:20] if re.fullmatch(r"[가-힣A-Za-z ]{1,20}", role_text) else None,
+            "roleMatchesStudent": role == "학생",
+        }
 
     if not name or not re.fullmatch(r"[가-힣A-Za-z .'-]{2,40}", name):
-        return None
-    if not entry_student_number or not current_student_number or not generation or not role:
-        return None
+        return failure("missing_name")
+    if not entry_student_number:
+        return failure("missing_entry_student_number")
+    if not current_student_number:
+        return failure("missing_current_student_number")
+    if not generation:
+        return failure("missing_generation")
+    if role is None:
+        return failure("role_not_student" if role_text else "missing_role")
     effective_school_year = (
         school_year if school_year is not None else _current_korean_school_year()
     )
@@ -386,7 +545,13 @@ def _parse_profile(
         int(current_student_number[0]),
         effective_school_year,
     ):
-        return None
+        if diagnostics is not None:
+            diagnostics["checks"]["cohortOk"] = False
+            diagnostics["checks"]["schoolYear"] = effective_school_year
+        return failure("implausible_cohort")
+    if diagnostics is not None:
+        diagnostics["checks"]["cohortOk"] = True
+        diagnostics["reason"] = "ok"
     return {
         "name": name,
         "entryStudentNumber": entry_student_number,
@@ -533,12 +698,15 @@ async def _authenticate_attempt(
         max_response_bytes=MAX_PROFILE_RESPONSE_BYTES,
         too_large_category="profile_too_large",
     )
+    diagnostics: dict[str, Any] = {}
     try:
-        profile = _parse_profile(profile_response.text, user_id)
+        profile = _parse_profile(profile_response.text, user_id, diagnostics=diagnostics)
     except Exception as error:
         raise UpstreamUnavailable("profile_parse_error") from error
     if not profile:
-        raise UpstreamUnavailable("profile_malformed")
+        reason = str(diagnostics.get("reason") or "unknown")
+        _write_diagnostic_capture(profile_response.text, diagnostics)
+        raise UpstreamUnavailable("profile_malformed", reason=reason)
     return profile
 
 
@@ -628,10 +796,13 @@ async def health(request: Request) -> JSONResponse:
     else:
         circuit_status = {"state": "unavailable", "retryAfterSeconds": 0}
     ready = runtime_ready and secret_ready and circuit_status["state"] != "unavailable"
+    status = getattr(request.app.state, "verification_status", None)
+    verification = status.snapshot() if isinstance(status, VerificationStatus) else None
+    degraded = bool(verification and verification["degraded"])
     return JSONResponse(
         status_code=200 if ready else 503,
         content={
-            "status": "ok" if ready else "unhealthy",
+            "status": "unhealthy" if not ready else ("degraded" if degraded else "ok"),
             "contractVersion": BRIDGE_CONTRACT_VERSION,
             "runtime": {
                 "pythonVersion": platform.python_version(),
@@ -639,6 +810,8 @@ async def health(request: Request) -> JSONResponse:
                 "ready": runtime_ready,
             },
             "circuit": circuit_status,
+            "verification": verification,
+            "diagnostics": {"captureEnabled": _diagnostic_capture_enabled()},
         },
         headers={"Cache-Control": "no-store"},
     )
@@ -663,6 +836,9 @@ async def verify(request: Request) -> JSONResponse:
         login = LoginRequest.model_validate_json(body)
     except ValidationError:
         return _json_error(400, "INVALID_REQUEST", "Invalid authentication request.")
+    status = getattr(request.app.state, "verification_status", None)
+    if not isinstance(status, VerificationStatus):
+        status = None
     try:
         profile = await _authenticate_riro(
             request.app.state.riro_client,
@@ -671,18 +847,26 @@ async def verify(request: Request) -> JSONResponse:
             login.id,
             login.password,
         )
+        if status is not None:
+            status.record_success()
         return JSONResponse(
             content={"ok": True, "profile": profile},
             headers={"Cache-Control": "no-store"},
         )
     except InvalidCredentials:
+        if status is not None:
+            status.record_invalid_credentials()
         return _json_error(401, "RIRO_INVALID_CREDENTIALS", "Invalid Riroschool credentials.")
     except UpstreamUnavailable as error:
-        # Only allowlisted transport classifications are logged. Never log exception text,
-        # credentials, tokens, response bodies, profile fields, or request identifiers.
+        if status is not None:
+            status.record_failure(error.category, error.reason)
+        # Only allowlisted classifications and failure reasons are logged. Never log
+        # exception text, credentials, tokens, response bodies, profile fields, or
+        # request identifiers.
         logger.warning(
-            "upstream unavailable category=%s status=%s",
+            "upstream unavailable category=%s reason=%s status=%s",
             error.category,
+            error.reason if error.reason is not None else "none",
             error.status if error.status is not None else "none",
         )
         headers = None
