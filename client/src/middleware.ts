@@ -16,6 +16,7 @@ const PUBLIC_ROUTES = new Set([
 function continueRequest(request: NextRequest, id: string) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-request-id', id);
+  requestHeaders.set('x-intact-pathname', request.nextUrl.pathname);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('X-Request-ID', id);
   return response;
@@ -155,6 +156,7 @@ async function verifiedAdmin(request: NextRequest) {
 
 function maintenanceExempt(pathname: string) {
   return (
+    pathname === '/offline' ||
     pathname === '/maintenance' ||
     pathname.startsWith('/admin') ||
     pathname.startsWith('/api/admin/') ||

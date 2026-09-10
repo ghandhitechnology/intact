@@ -1,0 +1,225 @@
+{
+  "baselineCommit": "6d0a257",
+  "environment": {
+    "node": "22.23.2",
+    "next": "15.5.25",
+    "postgres": "17",
+    "syntheticPosts": 5000,
+    "syntheticRooms": 20,
+    "syntheticMessages": 10000,
+    "samplesPerVariantPerRoute": 7,
+    "responseDelayMs": 150,
+    "transport": "HTTP/1.1, gzip",
+    "httpCache": "no-store",
+    "sessionResourceCache": "cleared before each document",
+    "order": "alternating paired runs",
+    "metric": "target DOM is present, then two requestAnimationFrame callbacks",
+    "observationWindowAfterReadyMs": 750
+  },
+  "routes": [
+    {
+      "path": "/login",
+      "baseline": {
+        "contentReadyMs": [
+          771.2,
+          742.9,
+          736.5,
+          744.6,
+          738.2,
+          721.1,
+          745
+        ],
+        "medianContentReadyMs": 742.9,
+        "medianResourceRequests": 27,
+        "medianEncodedResourceBytes": 237156,
+        "timeouts": 0
+      },
+      "optimized": {
+        "contentReadyMs": [
+          372.6,
+          391.6,
+          383.4,
+          384.9,
+          388.4,
+          372.6,
+          382.5
+        ],
+        "medianContentReadyMs": 383.4,
+        "medianResourceRequests": 19,
+        "medianEncodedResourceBytes": 191689,
+        "timeouts": 0
+      },
+      "medianImprovementPercent": 48.4
+    },
+    {
+      "path": "/",
+      "baseline": {
+        "contentReadyMs": [
+          1079.5,
+          1012.2,
+          990.5,
+          1000.4,
+          1152.3,
+          1001.5,
+          1207.7
+        ],
+        "medianContentReadyMs": 1012.2,
+        "medianResourceRequests": 43,
+        "medianEncodedResourceBytes": 267465,
+        "timeouts": 0
+      },
+      "optimized": {
+        "contentReadyMs": [
+          1087.2,
+          970.6,
+          1069.1,
+          966.9,
+          981.1,
+          965.5,
+          998.9
+        ],
+        "medianContentReadyMs": 981.1,
+        "medianResourceRequests": 20,
+        "medianEncodedResourceBytes": 211298,
+        "timeouts": 0
+      },
+      "medianImprovementPercent": 3.1
+    },
+    {
+      "path": "/messages",
+      "baseline": {
+        "contentReadyMs": [
+          1361.9,
+          1357.6,
+          1346.7,
+          1356,
+          1351.6,
+          1363.7,
+          1325.1
+        ],
+        "medianContentReadyMs": 1356,
+        "medianResourceRequests": 46,
+        "medianEncodedResourceBytes": 289520,
+        "timeouts": 0
+      },
+      "optimized": {
+        "contentReadyMs": [
+          1273.6,
+          1264.3,
+          1271.9,
+          1279.2,
+          1309,
+          1294,
+          1224.1
+        ],
+        "medianContentReadyMs": 1273.6,
+        "medianResourceRequests": 22,
+        "medianEncodedResourceBytes": 210030,
+        "timeouts": 0
+      },
+      "medianImprovementPercent": 6.1
+    },
+    {
+      "path": "/boards/question",
+      "baseline": {
+        "contentReadyMs": [
+          1280.6,
+          1194.2,
+          1205.8,
+          1197.2,
+          1185.3,
+          1185.3,
+          1167.6
+        ],
+        "medianContentReadyMs": 1194.2,
+        "medianResourceRequests": 37,
+        "medianEncodedResourceBytes": 261076,
+        "timeouts": 0
+      },
+      "optimized": {
+        "contentReadyMs": [
+          1025.9,
+          1108.3,
+          982.5,
+          959.4,
+          1158,
+          967.6,
+          986.8
+        ],
+        "medianContentReadyMs": 986.8,
+        "medianResourceRequests": 19,
+        "medianEncodedResourceBytes": 204432,
+        "timeouts": 0
+      },
+      "medianImprovementPercent": 17.4
+    },
+    {
+      "path": "/notifications",
+      "baseline": {
+        "contentReadyMs": [
+          1018.4,
+          974.8,
+          965.1,
+          966,
+          952.2,
+          957,
+          964.3
+        ],
+        "medianContentReadyMs": 965.1,
+        "medianResourceRequests": 41,
+        "medianEncodedResourceBytes": 261804,
+        "timeouts": 0
+      },
+      "optimized": {
+        "contentReadyMs": [
+          960.6,
+          942.4,
+          945,
+          919.1,
+          925.8,
+          921.6,
+          938.5
+        ],
+        "medianContentReadyMs": 938.5,
+        "medianResourceRequests": 19,
+        "medianEncodedResourceBytes": 197049,
+        "timeouts": 0
+      },
+      "medianImprovementPercent": 2.8
+    },
+    {
+      "path": "/profile",
+      "baseline": {
+        "contentReadyMs": [
+          1129.6,
+          1113,
+          1108.5,
+          1122.5,
+          1102.2,
+          1067.3,
+          1106.2
+        ],
+        "medianContentReadyMs": 1108.5,
+        "medianResourceRequests": 43,
+        "medianEncodedResourceBytes": 274213,
+        "timeouts": 0
+      },
+      "optimized": {
+        "contentReadyMs": [
+          965.1,
+          926.5,
+          900.1,
+          907.6,
+          955.6,
+          933.5,
+          918.3
+        ],
+        "medianContentReadyMs": 926.5,
+        "medianResourceRequests": 25,
+        "medianEncodedResourceBytes": 208032,
+        "timeouts": 0
+      },
+      "medianImprovementPercent": 16.4
+    }
+  ]
+}

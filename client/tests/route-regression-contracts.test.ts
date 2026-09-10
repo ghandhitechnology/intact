@@ -34,9 +34,9 @@ test('message read acknowledgements update sequence monotonically', () => {
 });
 
 test('chat unread aggregation casts request identifiers to PostgreSQL uuid', () => {
-  const route = compact(source('src/app/api/chat/rooms/route.ts'));
-  assert.match(route, /membership\."userId"\s*=\s*\$\{session\.user\.id\}::uuid/);
-  assert.match(route, /message\."senderId"\s*<>\s*\$\{session\.user\.id\}::uuid/);
+  const loader = compact(source('src/lib/server/chat-room-list.ts'));
+  assert.match(loader, /membership\."userId"\s*=\s*\$\{userId\}::uuid/);
+  assert.match(loader, /message\."senderId"\s*<>\s*\$\{userId\}::uuid/);
 });
 
 test('signed-out home never loads or retains authenticated home data', () => {

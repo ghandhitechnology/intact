@@ -38,13 +38,13 @@ import {
   Users,
   X,
 } from "lucide-react";
-import Link from "next/link";
+import Link from "@/components/portal/IntentLink";
 import { isValidStudentCode, STUDENT_CODE_REQUIREMENTS } from "@/lib/student-code";
 import { fetchWithTimeout, isAbortError, requestErrorMessage } from "@/lib/client/request";
 import { usePortalSession } from "@/components/portal/SessionProvider";
 import { usePlatformMode } from "@/components/portal/PlatformModeProvider";
 import type { IgkStanding } from "@/lib/igk-levels";
-import { io, type Socket } from "socket.io-client";
+import type { Socket } from "socket.io-client";
 import {
   FormEvent,
   KeyboardEvent,
@@ -840,119 +840,131 @@ export default function MessagesPage() {
       return undefined;
     }
     setConnectionState("connecting");
-    const socket = io(REALTIME_URL, {
-      withCredentials: true,
-      transports: ["websocket", "polling"],
-    });
-    socketRef.current = socket;
-    socket.on("connect", () => {
-      socketHealthyRef.current = true;
-      setConnectionState("live");
-      roomsRef.current.forEach((room) => socket.emit("room:join", room.id));
-      // Catch up once after every (re)connect, then rely on realtime delivery.
-      setReloadKey((value) => value + 1);
-    });
-    socket.on("connect_error", () => {
-      socketHealthyRef.current = false;
-      setConnectionState("polling");
-    });
-    socket.on("disconnect", () => {
-      const wasHealthy = socketHealthyRef.current;
-      socketHealthyRef.current = false;
-      setConnectionState("polling");
-      if (wasHealthy) setReloadKey((value) => value + 1);
-    });
+    let active = true;
+    let socket: Socket | null = null;
+    void import("socket.io-client")
+      .then(({ io }) => {
+        if (!active) return;
+        socket = io(REALTIME_URL, {
+          withCredentials: true,
+          transports: ["websocket", "polling"],
+        });
+        socketRef.current = socket;
+        socket.on("connect", () => {
+          socketHealthyRef.current = true;
+          setConnectionState("live");
+          roomsRef.current.forEach((room) => socket?.emit("room:join", room.id));
+          // Catch up once after every (re)connect, then rely on realtime delivery.
+          setReloadKey((value) => value + 1);
+        });
+        socket.on("connect_error", () => {
+          socketHealthyRef.current = false;
+          setConnectionState("polling");
+        });
+        socket.on("disconnect", () => {
+          const wasHealthy = socketHealthyRef.current;
+          socketHealthyRef.current = false;
+          setConnectionState("polling");
+          if (wasHealthy) setReloadKey((value) => value + 1);
+        });
 
-    socket.on("chat:message", (payload: unknown) => {
-      const message = messageFromContract(payload);
-      if (!message) return;
-      const roomId = message.roomId;
-      if (!roomId || !message.id || !message.sender) return;
-      const mapped = mapServerMessage(message, currentUserId);
-      const isCurrentIncoming =
-        selectedIdRef.current === roomId && message.sender.id !== currentUserId;
-      if (isCurrentIncoming) {
-        if (nearBottomRef.current) pendingScrollReasonRef.current = "incoming";
-        else setNewMessagesBelow(true);
-      }
-      setMessages((current) => {
-        const existing = current[roomId] ?? [];
-        if (existing.some((item) => item.id === mapped.id)) return current;
-        return { ...current, [roomId]: [...existing, mapped] };
-      });
-      setRooms((current) =>
-        current.map((item) =>
-          item.id === roomId
-            ? {
-                ...item,
-                preview: `${mapped.sender}: ${mapped.body}`,
-                time: "방금",
-                unread: selectedIdRef.current === roomId ? 0 : item.unread + 1,
-              }
-            : item,
-        ),
-      );
-      if (isCurrentIncoming) {
-        void markRoomRead(roomId, message.id, message.sequence);
-      }
-    });
-    socket.on("room:created", () => setReloadKey((value) => value + 1));
-    socket.on(
-      "chat:typing",
-      (payload: { roomId?: string; nickname?: string; active?: boolean }) => {
-        if (!payload.roomId || !payload.nickname) return;
-        setTypingByRoom((current) => {
-          const names = current[payload.roomId!] ?? [];
-          const next = payload.active
-            ? Array.from(new Set([...names, payload.nickname!]))
-            : names.filter((name) => name !== payload.nickname);
-          return { ...current, [payload.roomId!]: next };
-        });
-      },
-    );
-    socket.on(
-      "chat:read",
-      (payload: { roomId?: string; messageId?: string; sequence?: string; userId?: string }) => {
-        if (!payload.roomId || payload.userId === currentUserId) return;
-        setMessages((current) => {
-          const list = current[payload.roomId!] ?? [];
-          const targetIndex = payload.messageId
-            ? list.findIndex((message) => message.id === payload.messageId)
-            : -1;
-          const receiptSequence =
-            payload.sequence ||
-            (targetIndex >= 0 ? list[targetIndex]?.sequence : undefined);
-          return {
-            ...current,
-            [payload.roomId!]: list.map((message, index) =>
-              message.mine &&
-              (receiptSequence
-                ? sequenceAtMost(message.sequence, receiptSequence)
-                : targetIndex >= 0 && index <= targetIndex)
-                ? { ...message, read: true }
-                : message,
+        socket.on("chat:message", (payload: unknown) => {
+          const message = messageFromContract(payload);
+          if (!message) return;
+          const roomId = message.roomId;
+          if (!roomId || !message.id || !message.sender) return;
+          const mapped = mapServerMessage(message, currentUserId);
+          const isCurrentIncoming =
+            selectedIdRef.current === roomId && message.sender.id !== currentUserId;
+          if (isCurrentIncoming) {
+            if (nearBottomRef.current) pendingScrollReasonRef.current = "incoming";
+            else setNewMessagesBelow(true);
+          }
+          setMessages((current) => {
+            const existing = current[roomId] ?? [];
+            if (existing.some((item) => item.id === mapped.id)) return current;
+            return { ...current, [roomId]: [...existing, mapped] };
+          });
+          setRooms((current) =>
+            current.map((item) =>
+              item.id === roomId
+                ? {
+                    ...item,
+                    preview: `${mapped.sender}: ${mapped.body}`,
+                    time: "방금",
+                    unread: selectedIdRef.current === roomId ? 0 : item.unread + 1,
+                  }
+                : item,
             ),
-          };
+          );
+          if (isCurrentIncoming) {
+            void markRoomRead(roomId, message.id, message.sequence);
+          }
         });
-      },
-    );
-    socket.on(
-      "presence:update",
-      (payload: { userId?: string; status?: "online" | "offline" }) => {
-        if (!payload.userId) return;
-        setRooms((current) =>
-          current.map((room) =>
-            room.type === "direct" && room.memberIds.includes(payload.userId!)
-              ? { ...room, online: payload.status === "online" }
-              : room,
-          ),
+        socket.on("room:created", () => setReloadKey((value) => value + 1));
+        socket.on(
+          "chat:typing",
+          (payload: { roomId?: string; nickname?: string; active?: boolean }) => {
+            if (!payload.roomId || !payload.nickname) return;
+            setTypingByRoom((current) => {
+              const names = current[payload.roomId!] ?? [];
+              const next = payload.active
+                ? Array.from(new Set([...names, payload.nickname!]))
+                : names.filter((name) => name !== payload.nickname);
+              return { ...current, [payload.roomId!]: next };
+            });
+          },
         );
-      },
-    );
+        socket.on(
+          "chat:read",
+          (payload: { roomId?: string; messageId?: string; sequence?: string; userId?: string }) => {
+            if (!payload.roomId || payload.userId === currentUserId) return;
+            setMessages((current) => {
+              const list = current[payload.roomId!] ?? [];
+              const targetIndex = payload.messageId
+                ? list.findIndex((message) => message.id === payload.messageId)
+                : -1;
+              const receiptSequence =
+                payload.sequence ||
+                (targetIndex >= 0 ? list[targetIndex]?.sequence : undefined);
+              return {
+                ...current,
+                [payload.roomId!]: list.map((message, index) =>
+                  message.mine &&
+                  (receiptSequence
+                    ? sequenceAtMost(message.sequence, receiptSequence)
+                    : targetIndex >= 0 && index <= targetIndex)
+                    ? { ...message, read: true }
+                    : message,
+                ),
+              };
+            });
+          },
+        );
+        socket.on(
+          "presence:update",
+          (payload: { userId?: string; status?: "online" | "offline" }) => {
+            if (!payload.userId) return;
+            setRooms((current) =>
+              current.map((room) =>
+                room.type === "direct" && room.memberIds.includes(payload.userId!)
+                  ? { ...room, online: payload.status === "online" }
+                  : room,
+              ),
+            );
+          },
+        );
+      })
+      .catch(() => {
+        if (!active) return;
+        socketHealthyRef.current = false;
+        setConnectionState("polling");
+      });
     return () => {
+      active = false;
       socketRef.current = null;
       socketHealthyRef.current = false;
-      socket.disconnect();
+      socket?.disconnect();
     };
   }, [currentUserId, loadState]);
 

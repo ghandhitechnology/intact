@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/portal/IntentLink";
 import {
   BookOpen,
   CalendarDays,

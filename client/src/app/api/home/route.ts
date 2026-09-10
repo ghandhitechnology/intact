@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
-import { jsonError } from '@/lib/server/http';
+import { json, jsonError } from '@/lib/server/http';
 import { loadHomeData } from '@/lib/server/home-service';
+import { createHomeLoaders } from '@/lib/server/home-reads';
 import { requireUser } from '@/lib/server/session';
 
 export const runtime = 'nodejs';
@@ -12,20 +12,9 @@ export async function GET(request: Request) {
     const payload = await loadHomeData({
       request,
       currentIgk: session.user.currentIgk,
+      loaders: createHomeLoaders(session),
     });
-    const { generatedAt: _generatedAt, ...stablePayload } = payload;
-    const body = JSON.stringify({ ok: true, data: payload });
-    const etag = `"${createHash('sha256').update(JSON.stringify(stablePayload)).digest('base64url').slice(0, 24)}"`;
-    if (request.headers.get('if-none-match') === etag) {
-      return new Response(null, { status: 304, headers: { ETag: etag, 'Cache-Control': 'private, no-cache' } });
-    }
-    return new Response(body, {
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'private, no-cache',
-        ETag: etag,
-      },
-    });
+    return json(payload);
   } catch (error) {
     return jsonError(error);
   }

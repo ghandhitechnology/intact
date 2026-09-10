@@ -436,6 +436,7 @@ export default function NotificationsPage() {
     () => new Set(),
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(DEMO_MODE);
   const [settings, setSettings] = useState({
     comments: true,
     mentions: true,
@@ -445,7 +446,7 @@ export default function NotificationsPage() {
     system: true,
     push: false,
   });
-  const [settingsLoading, setSettingsLoading] = useState(!DEMO_MODE);
+  const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [quietHours, setQuietHours] = useState<QuietHours>({
     enabled: false,
@@ -502,8 +503,9 @@ export default function NotificationsPage() {
   }, [reloadKey]);
 
   useEffect(() => {
-    if (DEMO_MODE) return undefined;
+    if (DEMO_MODE || !settingsOpen || settingsLoaded) return undefined;
     const controller = new AbortController();
+    let active = true;
     async function loadSettings() {
       setSettingsLoading(true);
       try {
@@ -522,6 +524,7 @@ export default function NotificationsPage() {
           quietHours: QuietHours;
         }>(preferenceResponse);
         const pushPayload = await readApiEnvelope<PushConfig>(pushResponse);
+        if (!active) return;
         if (!preferenceResponse.ok || !preferencePayload?.ok) {
           throw new Error(apiErrorMessage(preferencePayload, "알림 설정을 불러오지 못했습니다."));
         }
@@ -540,18 +543,23 @@ export default function NotificationsPage() {
         });
         setQuietHours(preferencePayload.data.quietHours);
         setPushConfig(pushPayload.data);
+        setSettingsLoaded(true);
       } catch (cause) {
-        if (!isAbortError(cause)) {
+        if (active && !isAbortError(cause)) {
+          setSettingsOpen(false);
           setToastTone("error");
           setToast(requestErrorMessage(cause, "알림 설정을 불러오지 못했습니다."));
         }
       } finally {
-        setSettingsLoading(false);
+        if (active) setSettingsLoading(false);
       }
     }
     void loadSettings();
-    return () => controller.abort();
-  }, []);
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [settingsLoaded, settingsOpen]);
 
   const unreadCount = notifications.filter((item) => item.unread).length;
   const visible = useMemo(
@@ -746,6 +754,11 @@ export default function NotificationsPage() {
     setToast("데모 알림을 정리했습니다.");
   }
 
+  function openSettings() {
+    if (!DEMO_MODE && !settingsLoaded) setSettingsLoading(true);
+    setSettingsOpen(true);
+  }
+
   const categoryCount = (value: string) =>
     notifications.filter((item) => {
       if (value === "all") return true;
@@ -767,10 +780,9 @@ export default function NotificationsPage() {
         actions={
           <Button
             variant="secondary"
-            onClick={() => setSettingsOpen(true)}
-            disabled={settingsLoading}
+            onClick={openSettings}
           >
-            {settingsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings2 className="h-4 w-4" />}
+            <Settings2 className="h-4 w-4" />
             알림 설정
           </Button>
         }
@@ -1100,14 +1112,24 @@ export default function NotificationsPage() {
             <Button variant="secondary" onClick={() => setSettingsOpen(false)} disabled={settingsSaving}>
               취소
             </Button>
-            <Button onClick={() => void saveSettings()} disabled={settingsSaving || settingsLoading}>
+            <Button
+              onClick={() => void saveSettings()}
+              disabled={settingsSaving || settingsLoading || !settingsLoaded}
+            >
               {settingsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               설정 저장
             </Button>
           </>
         }
       >
-        <div className="space-y-6">
+        {settingsLoading ? (
+          <div className="space-y-3 py-1" aria-label="알림 설정을 불러오는 중">
+            <div className="skeleton h-4 w-24" />
+            <div className="skeleton h-48 w-full rounded-xl" />
+            <div className="skeleton h-16 w-full rounded-xl" />
+          </div>
+        ) : (
+          <div className="space-y-6">
           <div>
             <h3 className="mb-2 text-xs font-semibold text-slate-500">
               알림 유형
@@ -1258,7 +1280,8 @@ export default function NotificationsPage() {
           <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
             보안 및 제재 알림은 계정 보호와 운영 정책 안내를 위해 유형 설정과 관계없이 인앱으로 전달됩니다. 웹 푸시는 이 기기에서 동의한 경우에만 전달됩니다.
           </p>
-        </div>
+          </div>
+        )}
       </Modal>
       <Toast message={toast} tone={toastTone} onClose={() => setToast(null)} />
     </div>

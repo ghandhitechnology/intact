@@ -14,7 +14,7 @@ export interface HomeLoaders {
 export interface HomeServiceOptions {
   request: Request;
   currentIgk: number;
-  loaders?: HomeLoaders;
+  loaders: HomeLoaders;
   timeoutMs?: number;
   now?: () => Date;
 }
@@ -29,42 +29,6 @@ class HomeSourceError extends Error {
     this.name = 'HomeSourceError';
   }
 }
-
-type RouteModule = { GET(request: Request): Promise<Response> };
-
-async function invokeRoute(
-  request: Request,
-  path: string,
-  loadModule: () => Promise<RouteModule>,
-) {
-  const sourceRequest = new Request(new URL(path, request.url), {
-    method: 'GET',
-    headers: request.headers,
-    signal: request.signal,
-  });
-  const response = await (await loadModule()).GET(sourceRequest);
-  const body: unknown = await response.json().catch(() => null);
-  const envelope = expectRecord(body, 'source response');
-  if (!response.ok || envelope.ok === false) {
-    const error = typeof envelope.error === 'object' && envelope.error !== null
-      ? envelope.error as Record<string, unknown>
-      : {};
-    const code = typeof error.code === 'string' ? error.code : `HTTP_${response.status}`;
-    const message = typeof error.message === 'string'
-      ? error.message
-      : '홈 화면의 일부 정보를 불러오지 못했습니다.';
-    throw new HomeSourceError(code, message, response.status >= 500 || response.status === 429);
-  }
-  return envelope.ok === true ? envelope.data : body;
-}
-
-export const defaultHomeLoaders: HomeLoaders = {
-  boards: (request) => invokeRoute(request, '/api/boards', () => import('@/app/api/boards/route')),
-  notices: (request) => invokeRoute(request, '/api/notices?limit=10', () => import('@/app/api/notices/route')),
-  leaders: (request) => invokeRoute(request, '/api/igk/ranking', () => import('@/app/api/igk/ranking/route')),
-  notifications: (request) => invokeRoute(request, '/api/notifications?pageSize=1', () => import('@/app/api/notifications/route')),
-  balance: (request) => invokeRoute(request, '/api/igk/balance', () => import('@/app/api/igk/balance/route')),
-};
 
 function withTimeout<T>(task: Promise<T>, timeoutMs: number, signal: AbortSignal) {
   return new Promise<T>((resolve, reject) => {
@@ -157,7 +121,7 @@ function parseBalance(value: unknown) {
 export async function loadHomeData({
   request,
   currentIgk,
-  loaders = defaultHomeLoaders,
+  loaders,
   timeoutMs = 10_000,
   now = () => new Date(),
 }: HomeServiceOptions): Promise<HomeData> {

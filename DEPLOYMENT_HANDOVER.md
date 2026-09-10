@@ -600,3 +600,11 @@ docker system df
 - [ ] 롤백 이미지/tag와 DB 복구 지점 기록
 
 운영 구성이 바뀌면 배포 작업과 같은 변경 세트에서 이 문서와 `FAST_DEPLOY.md`도 함께 갱신합니다.
+
+## 2026-09-11 성능 업데이트 배포
+
+PR #81은 main의 `a20b0cb`에 병합했습니다. 운영은 인증 수정 릴리스 `799518f`와 migration 17개를 사용하고 있어 `hotfix/production-loading-performance`에 성능 변경을 적용했습니다. 초기 세션 응답과 대화방 참여자 선택 필드는 운영 계약을 유지하고, 기존 로그인·리로 인증·스키마·migration·의존성은 변경하지 않습니다.
+
+운영 전환은 Web만 재생성하는 A 경로입니다. 노트북의 배포 키로 기존 서버에 연결하며 키를 옮기지 않습니다. 백업 서비스 성공 후 Web·realtime의 rollback tag와 소스 백업을 보관합니다. 커밋에 포함된 `client/`만 별도 디렉터리로 내보내 노트북에서 checksum dry-run으로 확인한 뒤 동기화합니다. 운영에서 수정된 Compose·Caddy·환경변수는 동기화하지 않고 배포 전후 hash를 비교합니다.
+
+배포 성공 시 `.deployed-commit`에는 실제 운영 호환 릴리스 커밋을 기록합니다. 병합된 main 커밋, 기반 운영 커밋, 백업 경로와 검증 결과는 `/var/backups/ishsoutside/deployment-<commit>.json`에 별도로 기록합니다. 미적용된 재인증 전환 migration은 이 배포에 포함하지 않습니다.
