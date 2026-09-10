@@ -10,6 +10,14 @@ Required environment:
 - `RIRO_BRIDGE_SECRET`: independent random 64-character hexadecimal value
 - Portal: `RIRO_AUTH_MODE=BRIDGE`, `RIRO_BRIDGE_URL=http://<tailscale-ip>:8765`, and the same secret
 
+Optional environment:
+
+- `RIRO_DIAGNOSTIC_CAPTURE=1`: when a profile page fails to parse, keep one copy of that page
+  and a structural sidecar under `captures/` (mode 600, last 5 kept) so the parser can be
+  repaired. Keep it off unless a parse regression is being investigated, and delete the
+  captures when done. The page contains student information and must never leave the host.
+- `RIRO_DIAGNOSTIC_CAPTURE_DIR`: override the capture directory.
+
 The service must not be exposed as an unauthenticated public proxy. Disable HTTP access logs and
 restrict port 8765 to the production portal's Tailscale identity.
 
@@ -36,8 +44,12 @@ dependencies pass preflight.
 A LaunchAgent starts after that user's GUI login. Recovery after a reboot therefore requires a
 login or configured automatic login. Keep system sleep disabled on AC power and enable automatic
 restart after power loss on a dedicated Mac mini. Use the same generated secret in the portal VPS
-`.env`.
+`.env`. Set `RIRO_DIAGNOSTIC_CAPTURE=1` in the installer environment to enable diagnostic capture
+for the installed agent.
 
-`GET /health` reports bridge contract version `2`, Python readiness, and circuit state. The v2
-profile keeps the immutable first-year student number separate from the current grade/class. It does not
-probe Riroschool or expose school, account, or profile data.
+`GET /health` reports bridge contract version `2`, Python readiness, circuit state, and the latest
+verification outcome (`verification.lastSuccessAt`, `failureStreak`, `degraded`) plus whether
+diagnostic capture is enabled. `degraded` turns true after two consecutive failures, or after a
+single structural failure such as `profile_malformed`. The v2 profile keeps the immutable
+first-year student number separate from the current grade/class. It does not probe Riroschool or
+expose school, account, or profile data.

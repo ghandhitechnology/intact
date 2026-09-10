@@ -89,6 +89,7 @@ sed \
   -e "s|__TAILSCALE_BIN__|${TAILSCALE_BIN}|g" \
   -e "s|__PYTHON_BIN__|${PYTHON_RELEASE}/bin/python|g" \
   -e "s|__BRIDGE_SECRET__|${RIRO_BRIDGE_SECRET}|g" \
+  -e "s|__DIAGNOSTIC_CAPTURE__|${RIRO_DIAGNOSTIC_CAPTURE:-0}|g" \
   "${SCRIPT_DIR}/com.intact.riro-bridge.plist.template" > "${PLIST_TEMP}"
 plutil -lint "${PLIST_TEMP}" >/dev/null
 chmod 600 "${PLIST_TEMP}"

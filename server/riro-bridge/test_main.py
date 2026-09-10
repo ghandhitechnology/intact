@@ -1,24 +1,30 @@
 import asyncio
 import hashlib
 import hmac
+import json
 import os
+import tempfile
 import time
 import unittest
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import patch
 
 import httpx
 
 os.environ.setdefault("RIRO_BRIDGE_SECRET", "a" * 64)
+os.environ["RIRO_DIAGNOSTIC_CAPTURE"] = ""
 
 from main import (
     CircuitBreaker,
     CircuitOpen,
     InvalidCredentials,
     MAX_BODY_BYTES,
+    MAX_DIAGNOSTIC_CAPTURES,
     PayloadTooLarge,
     StatelessCookies,
     UpstreamUnavailable,
+    VerificationStatus,
     _authenticate_riro,
     _cohort_is_plausible,
     _current_korean_school_year,
@@ -28,6 +34,7 @@ from main import (
     _entry_student_number_from_id,
     _validate_runtime,
     _verify_request,
+    _write_diagnostic_capture,
     app,
     lifespan,
 )
@@ -210,6 +217,111 @@ class BridgeTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "Python 3.11"):
                 _validate_runtime()
 
+    def test_parse_profile_reports_structural_reasons_only(self):
+        diagnostics: dict = {}
+        self.assertIsNone(
+            _parse_profile(
+                profile_html(None),
+                "26-10218",
+                school_year=2026,
+                diagnostics=diagnostics,
+            )
+        )
+        self.assertEqual(diagnostics["reason"], "missing_role")
+        self.assertTrue(diagnostics["checks"]["nameFound"])
+        serialized = json.dumps(diagnostics, ensure_ascii=False)
+        self.assertNotIn("홍길동", serialized)
+        self.assertNotIn("1218", serialized)
+
+    def test_parse_profile_reports_non_student_role_text(self):
+        diagnostics: dict = {}
+        self.assertIsNone(
+            _parse_profile(
+                profile_html("교사"),
+                "26-10218",
+                school_year=2026,
+                diagnostics=diagnostics,
+            )
+        )
+        self.assertEqual(diagnostics["reason"], "role_not_student")
+        self.assertEqual(diagnostics["checks"]["roleText"], "교사")
+
+    def test_parse_profile_success_reports_ok(self):
+        diagnostics: dict = {}
+        profile = _parse_profile(
+            PROFILE_HTML,
+            "26-10218",
+            school_year=2026,
+            diagnostics=diagnostics,
+        )
+        self.assertIsNotNone(profile)
+        self.assertEqual(diagnostics["reason"], "ok")
+
+    def test_diagnostic_capture_is_off_by_default(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(
+                os.environ,
+                {
+                    "RIRO_DIAGNOSTIC_CAPTURE": "",
+                    "RIRO_DIAGNOSTIC_CAPTURE_DIR": directory,
+                },
+            ):
+                self.assertIsNone(
+                    _write_diagnostic_capture(
+                        "<html></html>",
+                        {"reason": "missing_role"},
+                    )
+                )
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
+    def test_diagnostic_capture_writes_private_files_and_prunes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(
+                os.environ,
+                {
+                    "RIRO_DIAGNOSTIC_CAPTURE": "1",
+                    "RIRO_DIAGNOSTIC_CAPTURE_DIR": directory,
+                },
+            ):
+                for index in range(MAX_DIAGNOSTIC_CAPTURES + 2):
+                    written = _write_diagnostic_capture(
+                        f"<html>page-{index}</html>",
+                        {
+                            "reason": "missing_role",
+                            "checks": {"nameFound": False},
+                        },
+                    )
+                    self.assertIsNotNone(written)
+            html_files = sorted(Path(directory).glob("profile-*.html"))
+            json_files = sorted(Path(directory).glob("profile-*.json"))
+            self.assertEqual(len(html_files), MAX_DIAGNOSTIC_CAPTURES)
+            self.assertEqual(len(json_files), MAX_DIAGNOSTIC_CAPTURES)
+            for path in [*html_files, *json_files]:
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(Path(directory).stat().st_mode & 0o777, 0o700)
+            sidecar = json.loads(json_files[-1].read_text(encoding="utf-8"))
+            self.assertEqual(sidecar["reason"], "missing_role")
+            self.assertEqual(sidecar["contractVersion"], "2")
+
+    def test_verification_status_degrades_and_recovers(self):
+        tracker = VerificationStatus()
+        self.assertFalse(tracker.snapshot()["degraded"])
+        tracker.record_failure("timeout")
+        self.assertFalse(tracker.snapshot()["degraded"])
+        tracker.record_failure("timeout")
+        self.assertTrue(tracker.snapshot()["degraded"])
+        tracker.record_invalid_credentials()
+        self.assertIsNotNone(tracker.snapshot()["lastInvalidCredentialsAt"])
+        tracker.record_success()
+        recovered = tracker.snapshot()
+        self.assertFalse(recovered["degraded"])
+        self.assertIsNotNone(recovered["lastSuccessAt"])
+        self.assertEqual(recovered["failureStreak"], 0)
+        tracker.record_failure("profile_malformed", "missing_role")
+        single_parse_failure = tracker.snapshot()
+        self.assertTrue(single_parse_failure["degraded"])
+        self.assertEqual(single_parse_failure["lastFailureReason"], "missing_role")
+
 
 class AsyncBridgeTests(unittest.IsolatedAsyncioTestCase):
     def signed_headers(self, body: bytes, nonce: str) -> dict[str, str]:
@@ -235,8 +347,11 @@ class AsyncBridgeTests(unittest.IsolatedAsyncioTestCase):
                         async with lifespan(app):
                             self.fail("invalid configuration started the application")
 
-    async def test_lifespan_and_health_report_runtime_and_circuit_only(self):
-        with patch.dict(os.environ, {"RIRO_BRIDGE_SECRET": "b" * 64}):
+    async def test_lifespan_and_health_report_runtime_circuit_and_verification(self):
+        with patch.dict(
+            os.environ,
+            {"RIRO_BRIDGE_SECRET": "b" * 64, "RIRO_DIAGNOSTIC_CAPTURE": ""},
+        ):
             async with lifespan(app):
                 transport = httpx.ASGITransport(app=app)
                 async with httpx.AsyncClient(
@@ -255,6 +370,11 @@ class AsyncBridgeTests(unittest.IsolatedAsyncioTestCase):
             payload["circuit"],
             {"state": "closed", "retryAfterSeconds": 0},
         )
+        verification = payload["verification"]
+        self.assertEqual(verification["failureStreak"], 0)
+        self.assertFalse(verification["degraded"])
+        self.assertIsNone(verification["lastSuccessAt"])
+        self.assertEqual(payload["diagnostics"], {"captureEnabled": False})
         self.assertNotIn("school", payload)
         self.assertNotIn("tenant", payload)
 
@@ -546,6 +666,42 @@ class AsyncBridgeTests(unittest.IsolatedAsyncioTestCase):
             await circuit.snapshot(loop.time()),
             {"state": "half_open", "retryAfterSeconds": 0},
         )
+
+
+    async def test_verify_records_failure_reason_and_degrades_health(self):
+        async def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/ajax.php":
+                return httpx.Response(200, json={"code": "000", "token": "safe-token"})
+            return httpx.Response(200, text=profile_html("교사"))
+
+        body = b'{"id":"26-10218","password":"secret"}'
+        upstream = upstream_client(handler)
+        semaphore, circuit = fresh_resources()
+        app.state.riro_client = upstream
+        app.state.riro_semaphore = semaphore
+        app.state.riro_circuit = circuit
+        app.state.bridge_secret = os.environ["RIRO_BRIDGE_SECRET"].encode()
+        app.state.verification_status = VerificationStatus()
+        transport = httpx.ASGITransport(app=app)
+        with self.assertLogs("riro_bridge", level="WARNING") as captured:
+            async with upstream, httpx.AsyncClient(
+                transport=transport, base_url="http://bridge"
+            ) as client:
+                response = await client.post(
+                    "/v1/verify",
+                    content=body,
+                    headers=self.signed_headers(body, "status_nonce_1234567890"),
+                )
+                health = await client.get("/health")
+        self.assertEqual(response.status_code, 503)
+        snapshot = app.state.verification_status.snapshot()
+        self.assertEqual(snapshot["lastFailureCategory"], "profile_malformed")
+        self.assertEqual(snapshot["lastFailureReason"], "role_not_student")
+        self.assertTrue(snapshot["degraded"])
+        self.assertEqual(health.json()["status"], "degraded")
+        combined = " ".join(captured.output)
+        self.assertIn("reason=role_not_student", combined)
+        self.assertNotIn("교사", combined)
 
 
 if __name__ == "__main__":
