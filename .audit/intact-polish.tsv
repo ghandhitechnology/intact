@@ -1,0 +1,16 @@
+ts	phase	decision	why	evidence	result
+2026-09-10T10:37:55Z	frame	Locked scope: riro recovery, all five session items, admin user ops	Grilling settled these; user said implement everything	session transcript	in progress
+2026-09-10T10:37:55Z	prod	Production verification pending read-only checks from user's laptop	VPS deploy key is not on the Mac mini	command list in session transcript	open
+2026-09-10T10:37:55Z	riro	Chose instrument-and-wait capture after test-account pushback	Students cannot self-register in Riroschool; no account was offered	DEPLOYMENT_HANDOVER.md:386	open
+2026-09-10T10:41:44Z	riro	Implemented failing-page capture, failure reason codes, and /health verification	parse breakage stayed silent for two weeks; the parser fix needs the real page	commit 685acf2	36 tests green
+2026-09-10T10:41:44Z	riro	Enabled capture on the installed Mac mini bridge and restarted it	next real attempt must leave evidence; plist reload needed bootout/load fallback	health: captureEnabled true, status ok	running, pid restarted
+2026-09-10T10:42:35Z	session	Adopted the unmerged simpler-login refresh commit as the session branch base	it fixes the post-login stale session state and adds dev seeding needed for browser checks	01ba4d0 cherry-picked onto feat/session-stability	cherry-pick clean
+2026-09-10T10:46:24Z	session	Implemented global 401 handling, push rebind, session sweep, and session-check timeout	chosen scope; stale chrome and shared-device push were the visible gaps	worktree intact-session, 01ba4d0 + new commit	lint/typecheck/tests green
+2026-09-10T10:54:28Z	session	Shipped session stability PR with browser and API verification	five chosen items plus the dev CSP blocker	20e1bb2, 397c5bf	lint/typecheck/tests/build green; browser e2e checks passed
+2026-09-10T11:01:48Z	admin	Shipped admin user ops: paginated API, detail, sanctions, notifications	list cap hid users; search never reached the server	b54b6e9, 66a63dc	browser and API verified; PR opened
+2026-09-10T11:05:51Z	riro	Surfaced bridge health in the admin dashboard and added worker alerts	silent verification failures need a human-visible signal	f3511f8	degraded and healthy paths browser-verified
+2026-09-10T11:06:05Z	session	Found dev CSP eval block as the root cause of stalled local hydration	no local page could hydrate in webpack dev mode	next.config.js, commit 20e1bb2	dev-only unsafe-eval added; production CSP unchanged
+2026-09-10T11:06:05Z	chat	Deferred socket recovery to avoid clashing with open PR #65	PR #65 rewrites the messages page; stacking would conflict	PR #65 state	queued after #65 merges
+2026-09-10T11:06:05Z	riro	Parser fix still blocked on a real capture	no verification attempt reached the instrumented bridge yet	captures/ empty, /health counters null	open - awaiting a real attempt or prod check output
+2026-09-10T11:06:05Z	wrap	Opened PRs 75, 76, 77, 78 for observability, sessions, admin ops, detection	each unit independently reviewed and green where run	gh pr list	75/76/77 checks green; 78 pending
+2026-09-10T11:32:07Z	merge	Merged PRs 65 and 75-78 plus 10 dependency bumps; held Prisma majors	user asked to merge all; Prisma 5->7 PRs fail CI and are one-way risk	main f6c55e3..dependabot merges	main verify run checking; open: 62 draft, 68/69 red
